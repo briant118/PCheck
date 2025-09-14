@@ -1,0 +1,20 @@
+.pc-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0px;
+    margin: 1em;
+}
+
+.pc-icon {
+    font-size: 1.7em;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0px;
+}
+
+.pc-name {
+    font-size: 0.8em;
+    padding: 0px;
+}

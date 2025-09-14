@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load template_filters %}
+
+{% block title %}PC List{% endblock %}
+
+{% block links %}
+<link rel="stylesheet" href="{% static 'css/booking_style.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container mt-5 pt-5">
+  <div class="card col-md-6 offset-md-3 shadow-lg mb-5 bg-body rounded-bottom rounded-5">
+    <div class="text-center card-title">
+      <div class="p-4 bg-warning rounded-bottom rounded-5">
+      </div>
+    </div>
+    <div class="card p-5">
+      <div class="text-center h6">Available PCs</div>
+      <div class="row">
+        {% for pc in available_pcs %}
+          {% if forloop.counter0|divisibleby:3 %}
+            <div class="col-md-2"> <!-- one column for 3 PCs -->
+          {% endif %}
+
+            <div class="text-center mb-2">
+              <button class="pc-button" data-pc-id="{{ pc.id }}" data-pc-name="{{ pc.name }}">
+                <i class="fa-solid fa-desktop pc-icon"></i><br>
+                <span class="pc-name">{{ pc.name|get_int }}</span>
+              </button>
+            </div>
+
+          {% if forloop.counter|divisibleby:3 or forloop.last %}
+            </div> <!-- close col after 3 PCs -->
+          {% endif %}
+        {% endfor %}
+      </div>
+      {% if is_paginated %}
+      <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+          {% if page_obj.has_previous %}
+            <li class="page-item">
+              <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                <i class="fa-solid fa-arrow-left-long"></i>
+              </a>
+            </li>
+          {% endif %}
+  
+          {% if page_obj.has_next %}
+            <li class="page-item">
+              <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                <i class="fa-solid fa-arrow-right-long"></i>
+              </a>
+            </li>
+          {% endif %}
+        </ul>
+      </nav>
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/jquery-3.7.1.min.js' %}"></script>
+<script src="{% static 'js/myscript.js' %}"></script>
+{% endblock %}

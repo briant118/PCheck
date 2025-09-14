@@ -58,6 +58,7 @@ Thumbs.db
 *_project/asgi.py
 *_project/wsgi.py
 venv/
+pcheck_env/
 manage.py
 static/fontawesome/
 static/js/bootstrap.*
