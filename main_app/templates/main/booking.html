@@ -134,27 +134,47 @@
       </div>
 
       <!-- Duration Modal -->
-        <div class="modal fade" id="durationModal" tabindex="-1" aria-labelledby="durationModalLabel" aria-hidden="true">
-          <div class="modal-dialog">
-            <div class="modal-content rounded-3 shadow">
-              <div class="modal-header">
-                <h5 class="modal-title" id="durationModalLabel">Enter Duration</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      <div class="modal fade" id="durationModal" tabindex="-1" aria-labelledby="durationModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+          <div class="modal-content rounded-3 shadow">
+            <div class="modal-header">
+              <h5 class="modal-title" id="durationModalLabel">Enter Duration</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+              <div class="input-group justify-content-center" style="max-width:200px; margin:auto;">
+                <button class="btn btn-outline-secondary" type="button" id="minusBtn">−</button>
+                <input type="number" id="durationInput" class="form-control text-center" value="30" min="1">
+                <button class="btn btn-outline-secondary" type="button" id="plusBtn">+</button>
               </div>
-              <div class="modal-body text-center">
-                <div class="input-group justify-content-center" style="max-width:200px; margin:auto;">
-                  <button class="btn btn-outline-secondary" type="button" id="minusBtn">−</button>
-                  <input type="number" id="durationInput" class="form-control text-center" value="30" min="1">
-                  <button class="btn btn-outline-secondary" type="button" id="plusBtn">+</button>
-                </div>
-                <small class="text-muted">Duration in minutes</small>
-              </div>
-              <div class="modal-footer">
-                <button type="button" id="confirmReserve" class="btn btn-success">Confirm Reservation</button>
+              <small class="text-muted">Duration in minutes</small>
+            </div>
+            <div class="modal-footer">
+              <input type="number" name="" id="pc_id" hidden>
+              <button type="button" id="reserve-button" class="btn btn-success" data-reserve-url="{% url 'main_app:reserve-pc' %}">reserve</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- QR Code Modal -->
+      <div class="modal fade" id="qrModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-sm modal-dialog-centered">
+          <div class="modal-content rounded-3 shadow text-center">
+            <div class="modal-header">
+              <h5 class="modal-title">Your Reservation QR</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              <img id="qrImage" src="" alt="QR Code" class="img-fluid mb-3">
+              <div>
+                <small class="text-muted">Expires in <span id="qrCountdown">10:00</span></small>
               </div>
             </div>
           </div>
         </div>
+      </div>
+
         
     </div>
 
@@ -172,6 +192,8 @@
     
     $pcButton.click(function () {
       $(this).toggleClass("text-success");
+      $("#pc_id").val($(this).data("pc-id"));
+      console.log("PC ID:", $("#pc_id").val());
       $pcButton.not(this).prop("disabled", true); // Disable other buttons
       $nextButton.prop("hidden", !$pcButton.filter(".text-success").length); // Enable next button if any selected
       if (!$(this).hasClass("text-success")) {
@@ -180,13 +202,12 @@
       }
     });
 
+    
+    const reserveUrl = $("#reserve-button").data("reserve-url");
 
     // Show duration form on "Next"
     $nextButton.click(function () {
-      const selectedPcId = $pcButton.filter(".text-success").data("pc-id");
-      if (selectedPcId) {
-          $("#durationModal").modal("show");
-      }
+      $("#durationModal").modal("show");
     });
 
     // Plus and minus buttons
@@ -201,6 +222,64 @@
             $("#durationInput").val(current - 5); // decrement by 5 mins
         }
     });
+
+    let countdownInterval;
+
+    $("#reserve-button").click(function () {
+        let duration = $("#durationInput").val();
+        let selected_pc = $("#pc_id").val();
+        if (!duration || duration <= 0) {
+            alert("Please enter a valid duration.");
+            return;
+        }
+
+        $.ajax({
+            url: reserveUrl,
+            type: "POST",
+            data: {
+                pc_id: selected_pc,
+                duration: duration
+            },
+            success: function (response) {
+                $("#durationModal").modal("hide");
+
+                // Show QR code in modal
+                $("#qrImage").attr("src", "data:image/png;base64," + response.qr_code);
+                $("#qrModal").modal("show");
+
+                // Countdown target = now + 10 minutes
+                let endTime = new Date().getTime() + 10 * 60 * 1000;
+
+                // Clear any old timer
+                clearInterval(countdownInterval);
+
+                // Start real-time countdown
+                countdownInterval = setInterval(function () {
+                    let now = new Date().getTime();
+                    let diff = endTime - now;
+
+                    if (diff <= 0) {
+                        clearInterval(countdownInterval);
+                        $("#qrCountdown").text("00:00");
+                        $("#qrModal").modal("hide"); // auto-close
+                        return;
+                    }
+
+                    let minutes = Math.floor(diff / 60000);
+                    let seconds = Math.floor((diff % 60000) / 1000);
+
+                    $("#qrCountdown").text(
+                        minutes.toString().padStart(2, "0") + ":" +
+                        seconds.toString().padStart(2, "0")
+                    );
+                }, 1000);
+            },
+            error: function (xhr) {
+                alert("Error: " + xhr.responseText);
+            }
+        });
+    });
+
     
     // $nextButton.click(function (e) {
     //   e.preventDefault();

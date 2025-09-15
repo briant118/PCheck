@@ -20,4 +20,5 @@ urlpatterns = [
     path('ajax/verify-pc-name/', views.verify_pc_name, name='verify-pc-name'),
     path('ajax/verify-pc-ip-address/', views.verify_pc_ip_address, name='verify-pc-ip-address'),
     path('ajax/get-pc-details/<int:pk>/', views.get_pc_details, name='get-pc-details'),
+    path('ajax/reserve-pc/', views.reserve_pc, name='reserve-pc'),
 ]

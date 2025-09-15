@@ -1,4 +1,7 @@
 import re
+import qrcode
+import base64
+from io import BytesIO
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy, reverse
 from django.views.decorators.csrf import csrf_exempt
@@ -138,18 +141,23 @@ def delete_pc(request, pk):
 @csrf_exempt
 def reserve_pc(request):
     if request.method == "POST":
-        pc_id = request.POST.get("pc-id")
+        pc_id = request.POST.get("pc_id")
         duration = request.POST.get("duration")
-
-        if not (pc_id and duration):
-            return HttpResponseBadRequest("Missing data")
 
         pc = get_object_or_404(models.PC, id=pc_id)
         pc.reserve()
 
+        # Generate QR code (data = reservation details or URL)
+        qr_data = f"PC {pc.name} reserved."
+        qr = qrcode.make(qr_data)
+        buffer = BytesIO()
+        qr.save(buffer, format="PNG")
+        qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
         return JsonResponse({
             "success": True,
-            "message": f"{pc.name} reserved for {duration} minutes"
+            "message": f"{pc.name} reserved for {duration} minutes",
+            "qr_code": qr_base64
         })
 
 
