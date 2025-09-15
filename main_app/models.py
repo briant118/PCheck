@@ -1,5 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
+from datetime import timedelta
+from django.utils import timezone
 
 
 class College(models.Model):
@@ -20,6 +22,21 @@ class PC(models.Model):
         max_length=20, choices=[('active', 'Active'), ('repair', 'Repair')]
     )
     sort_number = models.CharField(max_length=3, default=0)
+    booking_status = models.CharField(
+        max_length=20, null=True, choices=[('available', 'Available'), ('in_queue', 'In Queue'), ('in_use', 'In Use')], default='available'
+    )
+    
+    def reserve(self):
+        self.booking_status = 'in_queue'
+        self.save()
+    
+    def approve(self):
+        self.booking_status = 'in_use'
+        self.save()
+    
+    def decline(self):
+        self.booking_status = 'available'
+        self.save()
 
     def __str__(self):
         return self.name

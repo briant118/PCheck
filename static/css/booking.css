@@ -1,0 +1,40 @@
+.pc-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0px;
+    margin: 1em;
+}
+.pc-button:hover {
+    background: none;
+}
+
+.pc-icon {
+    font-size: 1.7em;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0px;
+}
+
+.pc-name {
+    font-size: 0.8em;
+    padding: 0px;
+}
+
+.reserve-next-button {
+    width: 80%;
+    font-size: medium;
+    border: 1px solid #ccc;   /* light colored border */
+    border-radius: 12px;      /* rounded edges */
+    background-color: transparent;
+    color: inherit;           /* keeps text color consistent */
+    padding: 10px 15px;
+    transition: all 0.3s ease;
+}
+
+.reserve-next-button:hover {
+    background-color:	#FFC107; /* hover color */
+    border-color: #FFC107;     /* optional: border changes with hover */
+    color: #000;              /* make text readable on yellow */
+}

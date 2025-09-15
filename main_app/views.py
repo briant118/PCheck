@@ -1,7 +1,9 @@
 import re
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy, reverse
-from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.shortcuts import get_object_or_404
+from django.http import HttpResponse, HttpResponseRedirect, JsonResponse, HttpResponseBadRequest
 from django.contrib.messages.views import SuccessMessageMixin
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
@@ -133,6 +135,24 @@ def delete_pc(request, pk):
     return HttpResponseRedirect(reverse_lazy('main_app:pc-list'))
 
 
+@csrf_exempt
+def reserve_pc(request):
+    if request.method == "POST":
+        pc_id = request.POST.get("pc-id")
+        duration = request.POST.get("duration")
+
+        if not (pc_id and duration):
+            return HttpResponseBadRequest("Missing data")
+
+        pc = get_object_or_404(models.PC, id=pc_id)
+        pc.reserve()
+
+        return JsonResponse({
+            "success": True,
+            "message": f"{pc.name} reserved for {duration} minutes"
+        })
+
+
 class PCListView(LoginRequiredMixin, FormMixin, ListView):
     model = models.PC
     template_name = "main/pc_list.html"
@@ -212,7 +232,7 @@ class BookingListView(LoginRequiredMixin, ListView):
     template_name = "main/booking.html"
     context_object_name = "available_pcs"
     success_url = reverse_lazy("main_app:booking")
-    paginate_by = 15
+    paginate_by = 12
     
     def get_queryset(self):
         qs = super().get_queryset()
