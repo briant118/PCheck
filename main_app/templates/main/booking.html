@@ -128,7 +128,7 @@
 
         <!-- Right column: Next button -->
         <div class="col-6 col-md-4 text-center">
-          <button class="reserve-next-button" disabled>next</button>
+          <button class="reserve-next-button" hidden>next</button>
         </div>
 
       </div>
@@ -173,10 +173,10 @@
     $pcButton.click(function () {
       $(this).toggleClass("text-success");
       $pcButton.not(this).prop("disabled", true); // Disable other buttons
-      $nextButton.prop("disabled", !$pcButton.filter(".text-success").length); // Enable next button if any selected
+      $nextButton.prop("hidden", !$pcButton.filter(".text-success").length); // Enable next button if any selected
       if (!$(this).hasClass("text-success")) {
         $pcButton.prop("disabled", false); // Re-enable all buttons if none selected
-        $nextButton.prop("disabled", true); // Disable next button
+        $nextButton.prop("hidden", true); // Disable next button
       }
     });
 
