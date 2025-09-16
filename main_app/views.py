@@ -13,6 +13,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.views.generic import TemplateView, CreateView, ListView, UpdateView, DetailView
 from django.views.generic.edit import FormMixin
+from datetime import datetime, timedelta
 from django.contrib.auth.models import User
 from . import forms, models, ping_address
 
@@ -146,9 +147,20 @@ def reserve_pc(request):
 
         pc = get_object_or_404(models.PC, id=pc_id)
         pc.reserve()
+        
+        booking = models.Booking.objects.create(
+            user=request.user,
+            pc=pc,
+            start_time=datetime.now(),
+            duration=duration,
+            num_of_devices=1,
+        )
+        
+        host = request.get_host()
+        print("host:", host)
 
         # Generate QR code (data = reservation details or URL)
-        qr_data = f"PC {pc.name} reserved."
+        qr_data = f"http://{host}/reservation-approval/{booking.pk}"
         qr = qrcode.make(qr_data)
         buffer = BytesIO()
         qr.save(buffer, format="PNG")
@@ -159,6 +171,19 @@ def reserve_pc(request):
             "message": f"{pc.name} reserved for {duration} minutes",
             "qr_code": qr_base64
         })
+
+
+@login_required
+def reservation_approved(request, pk):
+    pc = models.PC.objects.get(pk=pk)
+    pc.approve()
+    booking = models.Booking.objects.get(pc=pc)
+    print("duration seconds", booking.duration.seconds)
+    booking.start_time = datetime.now()
+    booking.end_time = booking.start_time + timedelta(minutes=booking.duration.seconds)
+    booking.save()
+    messages.success(request, "Reservation has been approved.")
+    return HttpResponseRedirect(reverse_lazy('main_app:dashboard'))
 
 
 class PCListView(LoginRequiredMixin, FormMixin, ListView):
@@ -219,6 +244,18 @@ class PCDetailView(LoginRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         context.update({
             'pc': pc,
+        })
+        return context
+
+
+class ReservationApprovalDetailView(LoginRequiredMixin, TemplateView):
+    template_name = 'main/reservation_approval.html'
+    
+    def get_context_data(self, **kwargs):
+        reservation = models.Booking.objects.get(id=self.kwargs['pk'])
+        context = super().get_context_data(**kwargs)
+        context.update({
+            'reservation': reservation,
         })
         return context
     
