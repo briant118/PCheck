@@ -175,14 +175,26 @@ def reserve_pc(request):
 
 @login_required
 def reservation_approved(request, pk):
-    pc = models.PC.objects.get(pk=pk)
+    booking = models.Booking.objects.get(pk=pk)
+    pc = models.PC.objects.get(pk=booking.pc.pk)
     pc.approve()
-    booking = models.Booking.objects.get(pc=pc)
-    print("duration seconds", booking.duration.seconds)
     booking.start_time = datetime.now()
     booking.end_time = booking.start_time + timedelta(minutes=booking.duration.seconds)
+    booking.status = 'confirmed'
     booking.save()
     messages.success(request, "Reservation has been approved.")
+    return HttpResponseRedirect(reverse_lazy('main_app:dashboard'))
+
+
+@login_required
+def reservation_declined(request, pk):
+    booking = models.Booking.objects.get(pk=pk)
+    pc = models.PC.objects.get(pk=booking.pc.pk)
+    pc.decline()
+    booking.status = 'cancelled'
+    booking.start_time = datetime.now()
+    booking.save()
+    messages.success(request, "Reservation has been declined.")
     return HttpResponseRedirect(reverse_lazy('main_app:dashboard'))
 
 
