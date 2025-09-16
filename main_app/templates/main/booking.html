@@ -85,7 +85,7 @@
       </div>
 
       {% if is_paginated %}
-      <nav class="mt-4">
+      <nav class="mt-4" id="page-nav">
         <ul class="pagination justify-content-center">
           {% if page_obj.has_previous %}
             <li class="page-item">
@@ -189,16 +189,19 @@
   $(document).ready(function () {
     const $pcButton = $(".pc-button");
     const $nextButton = $(".reserve-next-button");
+    const $pageNav = $("#page-nav");
     
     $pcButton.click(function () {
       $(this).toggleClass("text-success");
       $("#pc_id").val($(this).data("pc-id"));
       console.log("PC ID:", $("#pc_id").val());
       $pcButton.not(this).prop("disabled", true); // Disable other buttons
+      $pageNav.prop("hidden", true); // Hide pag navigation
       $nextButton.prop("hidden", !$pcButton.filter(".text-success").length); // Enable next button if any selected
       if (!$(this).hasClass("text-success")) {
         $pcButton.prop("disabled", false); // Re-enable all buttons if none selected
         $nextButton.prop("hidden", true); // Disable next button
+        $pageNav.prop("hidden", false);
       }
     });
 
@@ -279,15 +282,6 @@
             }
         });
     });
-
-    
-    // $nextButton.click(function (e) {
-    //   e.preventDefault();
-      
-    //   // // Redirect to the booking URL with the selected PC ID
-    //   // window.location.href = `/book_pc/${selectedPcId}/`;
-    // });
-
     
   });
 </script>
