@@ -138,20 +138,21 @@
         <div class="modal-dialog">
           <div class="modal-content rounded-3 shadow">
             <div class="modal-header">
-              <h5 class="modal-title" id="durationModalLabel">Enter Duration</h5>
+              <h5 class="modal-title" id="durationModalLabel">SET TIME</h5>
               <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body text-center">
               <div class="input-group justify-content-center" style="max-width:200px; margin:auto;">
                 <button class="btn btn-outline-secondary" type="button" id="minusBtn">−</button>
-                <input type="number" id="durationInput" class="form-control text-center" value="30" min="1">
+                <input type="number" id="durationInput" class="form-control text-center" value="30" min="1" max="180">
                 <button class="btn btn-outline-secondary" type="button" id="plusBtn">+</button>
               </div>
               <small class="text-muted">Duration in minutes</small>
+              <P class="mark" style="font-size: xx-small;">Note: You can only use a PC for a maximum of 3 hours</P>
             </div>
             <div class="modal-footer">
               <input type="number" name="" id="pc_id" hidden>
-              <button type="button" id="reserve-button" class="btn btn-success" data-reserve-url="{% url 'main_app:reserve-pc' %}">reserve</button>
+              <button type="button" id="generate-qr-button" class="btn btn-success" data-reserve-url="{% url 'main_app:reserve-pc' %}">Generate QR Code</button>
             </div>
           </div>
         </div>
@@ -170,6 +171,10 @@
               <div>
                 <small class="text-muted">Expires in <span id="qrCountdown">10:00</span></small>
               </div>
+              <p style="font-size: x-small;">Note: <br>
+                Use this QR code before it expires to confirm your booking.
+                Confirming site is at the Ict desk info.
+              </p>
             </div>
           </div>
         </div>
@@ -206,7 +211,7 @@
     });
 
     
-    const reserveUrl = $("#reserve-button").data("reserve-url");
+    const reserveUrl = $("#generate-qr-button").data("reserve-url");
 
     // Show duration form on "Next"
     $nextButton.click(function () {
@@ -217,18 +222,23 @@
     $("#plusBtn").click(function () {
         let current = parseInt($("#durationInput").val()) || 0;
         $("#durationInput").val(current + 5); // increment by 5 mins
+        if (current > 170) {
+          $(this).prop("disabled", true);
+        }
     });
 
     $("#minusBtn").click(function () {
         let current = parseInt($("#durationInput").val()) || 0;
         if (current > 1) {
             $("#durationInput").val(current - 5); // decrement by 5 mins
+        } if (current < 185) {
+          $("#plusBtn").prop("disabled", false);
         }
     });
 
     let countdownInterval;
 
-    $("#reserve-button").click(function () {
+    $("#generate-qr-button").click(function () {
         let duration = $("#durationInput").val();
         let selected_pc = $("#pc_id").val();
         if (!duration || duration <= 0) {

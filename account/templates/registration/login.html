@@ -11,8 +11,8 @@
     <div class="form-section p-4">
       {% if form.errors %}
       <p class="text-danger">
-      Your username and password didn't match.
-      Please try again.
+        Your username and password didn't match.
+        Please try again.
       </p>
       {% endif %}
       <form action="{% url 'account:login' %}" method="post">

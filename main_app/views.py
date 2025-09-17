@@ -285,10 +285,34 @@ class PCUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
 
 
 class BookingListView(LoginRequiredMixin, ListView):
+    model = models.Booking
+    template_name = "main/bookings.html"
+    success_url = reverse_lazy("main_app:bookings")
+    
+    def get_queryset(self):
+        qs = super().get_queryset()
+        return qs.order_by('created_at')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        bookings = self.get_queryset
+        pending_approvals = models.Booking.objects.filter(
+            status__isnull=True).order_by('created_at')
+        approved_bookings = models.Booking.objects.filter(
+            pc__booking_status="in_use").order_by('created_at')
+        context = {
+            "bookings": bookings,
+            "pending_approvals": pending_approvals,
+            "approved_bookings": approved_bookings,
+        }
+        return context
+
+
+class ReservePCListView(LoginRequiredMixin, ListView):
     model = models.PC
-    template_name = "main/booking.html"
+    template_name = "main/reserve_pc.html"
     context_object_name = "available_pcs"
-    success_url = reverse_lazy("main_app:booking")
+    success_url = reverse_lazy("main_app:dashboard")
     paginate_by = 12
     
     def get_queryset(self):
