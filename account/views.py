@@ -8,13 +8,9 @@ from django.contrib.auth.hashers import make_password
 from django.core.mail import send_mail
 from django.contrib.auth.models import User
 from django.contrib.auth.backends import ModelBackend
-from django.contrib.auth import get_user_model
 from . import forms
 from . import models
 
-
-
-User = get_user_model() 
 
 
 class EmailPrefixBackend(ModelBackend):
@@ -38,6 +34,16 @@ class EmailPrefixBackend(ModelBackend):
 class PrefixLoginView(LoginView):
     authentication_form = forms.PrefixLoginForm
     template_name = "account/login.html"
+    
+
+class CustomLoginView(LoginView):
+    def get_success_url(self):
+        user = self.request.user
+        if user.profile.role == 'student' or user.profile.role == 'faculty':
+            return '/reserve-pc/'
+        elif user.profile.role == 'staff':
+            return '/'
+        return '/'
     
 
 @login_required

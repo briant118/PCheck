@@ -6,8 +6,8 @@ from . import views as account_views
 app_name = "account"
 
 urlpatterns = [
-    # path('login/', views.user_login, name='login'),
-    path('login/', auth_views.LoginView.as_view(), name='login'),
+    # path('login/', auth_views.LoginView.as_view(), name='login'),
+    path('login/', account_views.CustomLoginView.as_view(), name='login'),
     path('logout/', account_views.custom_logout_view, name='logout'),
     # path('', account_views.dashboard, name='dashboard'),
     path('password-change/', auth_views.PasswordChangeView.as_view(
