@@ -15,6 +15,7 @@ urlpatterns = [
     path('add-pc-from-form/', views.add_pc_from_form, name='add-pc-from-form'),
     path('pc-list/', views.PCListView.as_view(), name='pc-list'),
     path('bookings/', views.BookingListView.as_view(), name='bookings'),
+    path('user-activities/', views.UserActivityListView.as_view(), name='user-activities'),
     path('reserve-pc/', views.ReservePCListView.as_view(), name='reserve-pc'),
     path('pc-detail/<int:pk>/', views.PCDetailView.as_view(), name='pc-detail'),
     path('pc-update/<int:pk>/', views.PCUpdateView.as_view(), name='pc-update'),

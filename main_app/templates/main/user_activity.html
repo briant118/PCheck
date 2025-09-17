@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Users{% endblock %}
+
+{% block content %}
+<div class="container mt-5 pt-5">
+
+  <ul class="nav nav-tabs">
+    <li class="nav-item">
+      <a class="nav-link active" id="tab-bookings" aria-current="page" href="#">History</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" id="tab-pending" aria-current="page" href="#">Chat</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" id="tab-approved" href="#">Violation</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" id="tab-approved" href="#">Suspension</a>
+    </li>
+  </ul>
+
+  <div id="history">
+    <table class="table">
+      <head>
+        <tr>
+          <th>Name</th>
+          <th>ID</th>
+          <th>College</th>
+          <th>Date</th>
+          <th>PC</th>
+          <th>Action</th>
+        </tr>
+      </head>
+      <tbody>
+        {% for activity in user_activities %}
+        <tr>
+          <td>{{ activity.user.get_full_name }}</td>
+          <td>{{ activity.user.profile.school_id }}</td>
+          <td>{{ activity.user.profile.college.name }}</td>
+          <td>{{ activity.created_at }}</td>
+          <td>{{ activity.pc.name }}</td>
+          <td>
+            <a href="#" class="btn btn-sm btn-success">View</a>
+            <a href="#" class="btn btn-sm btn-danger">Suspend</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/jquery-3.7.1.min.js' %}"></script>
+<script>
+  $(document).ready(function () {
+    const $history = $("#history");
+    const $tabHistory = $("#tab-history");
+
+    $tabHistory.on("click", function() {
+      $bookings.prop("hidden", false);
+      $(this).addClass("active");
+      $tabPending.removeClass("active");
+      $tabApproved.removeClass("active");
+      $pending.prop("hidden", true);
+      $approved.prop("hidden", true);
+    });
+
+  });
+</script>
+{% endblock %}

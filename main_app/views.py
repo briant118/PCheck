@@ -201,7 +201,6 @@ def reservation_declined(request, pk):
 class PCListView(LoginRequiredMixin, FormMixin, ListView):
     model = models.PC
     template_name = "main/pc_list.html"
-    context_object_name = "pc_list"
     form_class = forms.CreatePCForm
     success_url = reverse_lazy("main_app:pc-list")
     
@@ -215,10 +214,12 @@ class PCListView(LoginRequiredMixin, FormMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        if "form" not in context:
-            context = {
-                "form": self.get_form(),
-            }
+        pc_list = self.get_queryset()
+        context = {
+            "form": self.get_form(),
+            "pc_list": pc_list,
+            "section": "pc_list",
+        }
         return context
 
     def post(self, request, *args, **kwargs):
@@ -302,6 +303,7 @@ class BookingListView(LoginRequiredMixin, ListView):
             pc__booking_status="in_use").order_by('created_at')
         context = {
             "bookings": bookings,
+            "section": 'bookings',
             "pending_approvals": pending_approvals,
             "approved_bookings": approved_bookings,
         }
@@ -318,3 +320,22 @@ class ReservePCListView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         qs = super().get_queryset()
         return qs.filter(status='connected').order_by('sort_number')
+    
+
+class UserActivityListView(LoginRequiredMixin, ListView):
+    model = models.Booking
+    template_name = "main/user_activity.html"
+    paginate_by = 12
+    
+    def get_queryset(self):
+        qs = super().get_queryset()
+        return qs.order_by('created_at')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user_activities = self.get_queryset
+        context = {
+            "user_activities": user_activities,
+            "section": "user",
+        }
+        return context
