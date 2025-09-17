@@ -68,6 +68,7 @@ class Violation(models.Model):
     )
     reason = models.CharField(max_length=255)
     resolved = models.BooleanField(default=False)
+    status = models.CharField(null=True, blank=True, choices=[('suspended','Suspended'), ('active','Active')])
 
 
 class Chat(models.Model):
