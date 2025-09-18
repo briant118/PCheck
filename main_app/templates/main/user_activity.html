@@ -3,21 +3,42 @@
 
 {% block title %}Users{% endblock %}
 
+{% block links %}
+<style>
+.level {
+  background-color: black;
+  border-radius: 8px;
+  background-size: 4px;
+}
+.level.level-minor {
+  color: yellow;
+}
+
+.level-moderate {
+  color: orange;
+}
+
+.level-major {
+  color: red;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container mt-5 pt-5">
 
   <ul class="nav nav-tabs">
     <li class="nav-item">
-      <a class="nav-link active" id="tab-bookings" aria-current="page" href="#">History</a>
+      <a class="nav-link active" id="tab-history" aria-current="page" href="#">History</a>
     </li>
     <li class="nav-item">
-      <a class="nav-link" id="tab-pending" aria-current="page" href="#">Chat</a>
+      <a class="nav-link" id="tab-chat" aria-current="page" href="#">Chat</a>
     </li>
     <li class="nav-item">
-      <a class="nav-link" id="tab-approved" href="#">Violation</a>
+      <a class="nav-link" id="tab-violation" href="#">Violation</a>
     </li>
     <li class="nav-item">
-      <a class="nav-link" id="tab-approved" href="#">Suspension</a>
+      <a class="nav-link" id="tab-suspension" href="#">Suspension</a>
     </li>
   </ul>
 
@@ -43,13 +64,82 @@
           <td>{{ activity.pc.name }}</td>
           <td>
             <a href="#" class="btn btn-sm btn-success">View</a>
-            <a href="#" class="btn btn-sm btn-danger">Suspend</a>
+            <button type="button" class="btn btn-sm btn-danger suspend-button">Suspend</button>
           </td>
         </tr>
+
+        <!-- Violation Modal -->
+        <div class="modal fade" id="violationModal" tabindex="-1" aria-labelledby="violationModalLabel" aria-hidden="true">
+          <div class="modal-dialog">
+            <div class="modal-content rounded-3 shadow">
+              <div class="modal-header">
+                <h5 class="modal-title" id="violationModalLabel">
+                  Add more info
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body">
+                <div class="justify-content-center" style="max-width:200px; margin:auto;">
+                  <div class="form-group mt-3">
+                    <label for="violation-level" class="form-label">Level:</label>
+                    <select id="violation-level" name="violation-level" class="form-control">
+                      <option value="minor">Minor</option>
+                      <option value="moderate">Moderate</option>
+                      <option value="major">Major</option>
+                    </select>
+                  </div>
+                  <div class="form-group mt-3">
+                    <label for="reason-input" class="form-label">Description:</label>
+                    <input type="text" id="reason-input" class="form-control">
+                  </div>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" id="suspend-button-submit" class="btn btn-danger" 
+                  data-suspend-url="{% url 'main_app:violation-suspend' pk=activity.pk %}">
+                  Suspend
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
         {% endfor %}
       </tbody>
     </table>
   </div>
+  
+  <div id="violation" hidden>
+    <table class="table">
+      <head>
+        <tr>
+          <th>Name</th>
+          <th>Level</th>
+          <th>Description</th>
+          <th>Date/Time</th>
+          <th>Status</th>
+        </tr>
+      </head>
+      <tbody>
+        {% for violation in violations %}
+        <tr>
+          <td>{{ violation.user.get_full_name }}</td>
+          <td>
+            <i class="fa-solid fa-circle shadow shadow
+            {% if violation.level == 'minor' %}
+            level level-minor
+            {% elif violation.level == 'moderate' %}
+            level level-moderate
+            {% elif violation.level == 'major' %}
+            level level-major
+            {% endif %}"></i>
+          </td>
+          <td>{{ violation.reason }}</td>
+          <td>{{ violation.timestamp }}</td>
+          <td><span class="badge text-bg-danger shadow">{{ violation.status }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
 
 </div>
@@ -60,15 +150,54 @@
 <script>
   $(document).ready(function () {
     const $history = $("#history");
+    const $violation = $("#violation");
     const $tabHistory = $("#tab-history");
+    const $tabViolation = $("#tab-violation");
+    const $suspendButton = $(".suspend-button");
+    const $suspendButtonSubmit = $("#suspend-button-submit");
+    const suspendUrl = $("#suspend-button-submit").data("suspend-url");
 
     $tabHistory.on("click", function() {
-      $bookings.prop("hidden", false);
+      $history.prop("hidden", false);
       $(this).addClass("active");
-      $tabPending.removeClass("active");
-      $tabApproved.removeClass("active");
-      $pending.prop("hidden", true);
-      $approved.prop("hidden", true);
+      $tabViolation.removeClass("active");
+      $violation.prop("hidden", true);
+    });
+    
+    $tabViolation.on("click", function() {
+      $violation.prop("hidden", false);
+      $(this).addClass("active");
+      $tabHistory.removeClass("active");
+      $history.prop("hidden", true);
+    });
+
+    // Show violation form
+    $suspendButton.click(function () {
+      $("#violationModal").modal("show");
+    });
+
+    $("#suspend-button-submit").click(function () {
+        let level = $("#violation-level").val();
+        let reason = $("#reason-input").val();
+        if (reason == null) {
+            alert("Please enter the reason.");
+            return;
+        }
+
+        $.ajax({
+            url: suspendUrl,
+            type: "POST",
+            data: {
+                level: level,
+                reason: reason
+            },
+            success: function (response) {
+                $("#violationModal").modal("hide");
+            },
+            error: function (xhr) {
+                alert("Error: " + xhr.responseText);
+            }
+        });
     });
 
   });

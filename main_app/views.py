@@ -198,6 +198,24 @@ def reservation_declined(request, pk):
     return HttpResponseRedirect(reverse_lazy('main_app:dashboard'))
 
 
+@login_required
+@csrf_exempt
+def suspend(request, pk):
+    if request.method == "POST":
+        level = request.POST.get("level")
+        reason = request.POST.get("reason")
+    booking = models.Booking.objects.get(pk=pk)
+    models.Violation.objects.create(
+        user = booking.user,
+        pc=booking.pc,
+        level=level,
+        reason=reason,
+        status="suspended"
+    )
+    messages.success(request, "Account suspended!")
+    return HttpResponseRedirect(reverse_lazy('main_app:user-activities'))
+
+
 class PCListView(LoginRequiredMixin, FormMixin, ListView):
     model = models.PC
     template_name = "main/pc_list.html"
@@ -333,9 +351,12 @@ class UserActivityListView(LoginRequiredMixin, ListView):
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        bookings = models.Booking.objects.all()
         user_activities = self.get_queryset
+        violations = models.Violation.objects.all()
         context = {
             "user_activities": user_activities,
+            "violations": violations,
             "section": "user",
         }
         return context

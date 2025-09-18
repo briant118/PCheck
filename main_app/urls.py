@@ -10,6 +10,7 @@ urlpatterns = [
     path('', account_views.dashboard, name='dashboard'),
     path('add-pc/', views.add_pc, name='add-pc'),
     path('delete-pc/<int:pk>/', views.delete_pc, name='delete-pc'),
+    path('violation-suspend/<int:pk>/', views.suspend, name='violation-suspend'),
     path('reservation-approved/<int:pk>/', views.reservation_approved, name='reservation-approved'),
     path('reservation-declined/<int:pk>/', views.reservation_declined, name='reservation-declined'),
     path('add-pc-from-form/', views.add_pc_from_form, name='add-pc-from-form'),
