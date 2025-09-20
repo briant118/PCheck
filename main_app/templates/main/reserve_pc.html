@@ -168,6 +168,7 @@
             </div>
             <div class="modal-body">
               <img id="qrImage" src="" alt="QR Code" class="img-fluid mb-3">
+              <span id="booking_id" hidden></span>
               <div>
                 <small class="text-muted">Expires in <span id="qrCountdown">10:00</span></small>
               </div>
@@ -210,7 +211,6 @@
       }
     });
 
-    
     const reserveUrl = $("#generate-qr-button").data("reserve-url");
 
     // Show duration form on "Next"
@@ -241,6 +241,7 @@
     $("#generate-qr-button").click(function () {
         let duration = $("#durationInput").val();
         let selected_pc = $("#pc_id").val();
+
         if (!duration || duration <= 0) {
             alert("Please enter a valid duration.");
             return;
@@ -258,6 +259,7 @@
 
                 // Show QR code in modal
                 $("#qrImage").attr("src", "data:image/png;base64," + response.qr_code);
+                $("#booking_id").text(response.booking_id);
                 $("#qrModal").modal("show");
 
                 // Countdown target = now + 10 minutes
@@ -291,8 +293,39 @@
                 alert("Error: " + xhr.responseText);
             }
         });
+      
+      // Runs every 5 seconds until a request has been approved or denied
+      function checkApproval(callback) {
+        var bookingId = $("#booking_id").text();
+        $.getJSON(`/ajax/waiting-approval/${bookingId}`)
+          .done(function (data) {
+            if (data.error) {
+              console.log(data.error);
+            } else {
+              callback(data.status); // give status back via callback
+            }
+          })
+          .fail(function (jqXHR, textStatus, errorThrown) {
+            console.error("Error fetching booking data:", errorThrown);
+          });
+      }
+
+      // Run every 5 seconds
+      let approvalChecker = setInterval(function () {
+        checkApproval(function (status) {
+          if (status === "confirmed" || status === "cancelled") {
+            $("#qrModal").fadeOut();
+            clearInterval(approvalChecker);
+            console.log("Approval detected. Script stopped.");
+            alert("Your reservation has been "+status+"!");
+          } else {
+            console.log("Still waiting for approval...");
+          }
+        });
+      }, 5000);
+
     });
-    
+
   });
 </script>
 {% endblock %}

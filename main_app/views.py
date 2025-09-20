@@ -70,6 +70,20 @@ def verify_pc_name(request):
     return JsonResponse(data)
 
 
+def waiting_approval(request,pk):
+    try:
+        booking = models.Booking.objects.get(pk=pk)
+        data = {
+            'status': booking.status,
+            'booking_id': booking.pk
+        }
+    except models.Booking.DoesNotExist:
+        data = {
+            'error': 'Booking not found'
+        }
+    return JsonResponse(data)
+
+
 def verify_pc_ip_address(request):
     ip_address = request.GET.get('ip_address')
     result = models.PC.objects.filter(ip_address=ip_address).exists()
@@ -155,12 +169,13 @@ def reserve_pc(request):
             duration=duration,
             num_of_devices=1,
         )
+        print("booking ID:", booking.pk)
         
+        scheme = 'https' if request.is_secure() else 'http'
         host = request.get_host()
-        print("host:", host)
 
         # Generate QR code (data = reservation details or URL)
-        qr_data = f"http://{host}/reservation-approval/{booking.pk}"
+        qr_data = f"{scheme}://{host}/reservation-approval/{booking.pk}"
         qr = qrcode.make(qr_data)
         buffer = BytesIO()
         qr.save(buffer, format="PNG")
@@ -169,7 +184,8 @@ def reserve_pc(request):
         return JsonResponse({
             "success": True,
             "message": f"{pc.name} reserved for {duration} minutes",
-            "qr_code": qr_base64
+            "qr_code": qr_base64,
+            "booking_id": booking.pk
         })
 
 
