@@ -13,9 +13,26 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.views.generic import TemplateView, CreateView, ListView, UpdateView, DetailView
 from django.views.generic.edit import FormMixin
+from django.db.models import Count
 from datetime import datetime, timedelta
 from django.contrib.auth.models import User
 from . import forms, models, ping_address
+
+
+
+@login_required
+def bookings_by_college(request):
+    data = (
+        models.Booking.objects
+        .values("user__profile__college")  # group by college
+        .annotate(total=Count("id"))  # count bookings
+        .order_by("user__profile__college")
+    )
+
+    labels = [d["user__profile__college"] or "Unknown" for d in data]
+    values = [d["total"] for d in data]
+
+    return JsonResponse({"labels": labels, "values": values})
 
 
 def extract_number(value):

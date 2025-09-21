@@ -23,10 +23,15 @@ urlpatterns = [
     path('ping-ip/<int:pk>/', views.ping_ip_address, name='ping-ip'),
     path('reservation-approval/<int:pk>/', views.ReservationApprovalDetailView.as_view(), 
          name='reservation-approval'),
+    
+    # AJAX callback
     path('ajax/get-ping-data/', views.get_ping_data, name='get-ping-data'),
     path('ajax/verify-pc-name/', views.verify_pc_name, name='verify-pc-name'),
     path('ajax/verify-pc-ip-address/', views.verify_pc_ip_address, name='verify-pc-ip-address'),
     path('ajax/get-pc-details/<int:pk>/', views.get_pc_details, name='get-pc-details'),
     path('ajax/reserve-pc/', views.reserve_pc, name='reserve-pc'),
     path('ajax/waiting-approval/<int:pk>/', views.waiting_approval, name='waiting-approval'),
+    
+    # Reporting
+    path('booking-data/', views.bookings_by_college, name='booking-data'),
 ]

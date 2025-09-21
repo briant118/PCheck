@@ -7,6 +7,48 @@
   <div class="text-center">
     <h1>Dashboard</h1>
     <p>Welcome to your dashboard.</p>
+    <canvas id="collegeChart"></canvas>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+fetch("{% url 'main_app:booking-data' %}")
+  .then(res => res.json())
+  .then(data => {
+    new Chart(document.getElementById("collegeChart"), {
+      type: 'pie',
+      data: {
+        labels: data.labels,
+        datasets: [{
+          label: 'Bookings by College',
+          data: data.values,
+          backgroundColor: 'rgba(54, 162, 235, 0.6)',
+          borderColor: 'rgba(54, 162, 235, 1)',
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: true },
+          title: {
+            display: true,
+            text: "Analytics",
+            font: {
+              size: 30
+            },
+            position: "top",
+            align: 'start'
+          }
+        },
+        scales: {
+          y: { beginAtZero: true }
+        }
+      }
+    });
+  });
+</script>
 {% endblock %}
