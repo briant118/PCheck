@@ -46,4 +46,9 @@ class UserEditForm(forms.ModelForm):
 class ProfileEditForm(forms.ModelForm):
     class Meta:
         model = models.Profile
-        fields = ['college','school_id',]
+        fields = '__all__'
+
+
+class UpdatePCForm(forms.ModelForm):
+    class Meta(ProfileEditForm.Meta):
+        fields = '__all__'

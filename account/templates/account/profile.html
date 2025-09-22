@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Profile{% endblock %}
+
+{% block content %}
+<div class="container mt-5 pt-5">
+  <div class="card col-md-6 offset-md-3 border rounded shadow-lg mb-5 bg-body">
+    <div class="card-header text-center">
+      <h2>Profile</h2>
+    </div>
+    <div class="card-body rounded mb-1 bg-body d-flex">
+      <div class="col-md-8">
+        <h5>
+          {{ profile.user.get_full_name }} <br>
+          <small class="text-muted">{{ profile.user.email }}</small>
+        </h5>
+        <p><strong>College: </strong>{{ profile.college }}</p>
+        <p><strong>Course: </strong>{{ profile.course }}</p>
+        <p><strong>Year: </strong>{{ profile.year }}</p>
+        <p><strong>Block: </strong>{{ profile.block }}</p>
+      </div>
+      <div class="col-md-4 text-end">
+        <img src="..." class="card-img-end" alt="profile picture">
+      </div>
+    </div>
+    <div class="card-footer">
+      <a href="#" class="btn btn-sm btn-secondary">update</a>
+      <a href="{% url 'account:password_change' %}" class="btn btn-sm btn-secondary">change password</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
