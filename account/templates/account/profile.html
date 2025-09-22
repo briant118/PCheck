@@ -5,7 +5,7 @@
 {% block content %}
 <div class="container mt-5 pt-5">
   <div class="card col-md-6 offset-md-3 border rounded shadow-lg mb-5 bg-body">
-    <div class="card-header text-center">
+    <div class="card-header text-center bg-warning">
       <h2>Profile</h2>
     </div>
     <div class="card-body rounded mb-1 bg-body d-flex">
@@ -24,7 +24,7 @@
       </div>
     </div>
     <div class="card-footer">
-      <a href="#" class="btn btn-sm btn-secondary">update</a>
+      <a href="{% url 'account:edit-profile' pk=profile.pk %}" class="btn btn-sm btn-secondary">update</a>
       <a href="{% url 'account:password_change' %}" class="btn btn-sm btn-secondary">change password</a>
     </div>
   </div>

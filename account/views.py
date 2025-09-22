@@ -62,16 +62,16 @@ class ProfileDetailView(LoginRequiredMixin, TemplateView):
         return context
         
 
-# class ProfileUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
-#     form_class = forms.UpdateProfileForm
-#     success_message = 'successfully updated!'
-#     template_name = 'account/update_profile.html'
+class ProfileUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
+    form_class = forms.ProfileEditForm
+    success_message = 'successfully updated!'
+    template_name = 'account/edit_profile.html'
 
-#     def get_success_url(self):
-#         return reverse_lazy('account:profile', kwargs={'pk' : self.object.pk})
+    def get_success_url(self):
+        return reverse_lazy('account:profile')
 
-#     def get_queryset(self, **kwargs):
-#         return models.PC.objects.filter(pk=self.kwargs['pk'])
+    def get_queryset(self, **kwargs):
+        return models.Profile.objects.filter(pk=self.kwargs['pk'])
     
     
 @login_required
