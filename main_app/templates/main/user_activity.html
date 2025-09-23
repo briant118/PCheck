@@ -25,7 +25,19 @@
 {% endblock %}
 
 {% block content %}
-<div class="container mt-5 pt-5">
+<div class="container pt-5">
+
+  <div class="row col-12 mb-3">
+    <div class="col-md-6"></div>
+    <div class="text-end col-md-6" id="violation-level-legend">
+      <div class="bg-light p-2 bordered rounded-1 d-inline-block shadow">
+        <h6>violation level</h6>
+        <span>minor <i class="fa-solid fa-circle shadow shadow level level-minor"></i></span>
+        <span>moderate <i class="fa-solid fa-circle shadow shadow level level-moderate"></i></span>
+        <span>major <i class="fa-solid fa-circle shadow shadow level level-major"></i></span>
+      </div>
+    </div>
+  </div>
 
   <ul class="nav nav-tabs">
     <li class="nav-item">
@@ -169,6 +181,7 @@
       $(this).addClass("active");
       $tabHistory.removeClass("active");
       $history.prop("hidden", true);
+      $("#violation-level-legend").prop("hidden",false);
     });
 
     // Show violation form

@@ -44,7 +44,7 @@ class CustomLoginView(LoginView):
     def get_success_url(self):
         user = self.request.user
         if user.profile.role == 'student' or user.profile.role == 'faculty':
-            return '/reserve-pc/'
+            return '/pc-reservation/'
         elif user.profile.role == 'staff':
             return '/'
         return '/'
