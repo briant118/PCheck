@@ -20,7 +20,7 @@
   </head>
   <body>
     <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
       <div class="container-fluid">
         {% if request.user.profile.role == 'staff' %}
         <a class="navbar-brand" href="#">PCheck</a>
@@ -74,7 +74,9 @@
             </li>
             {% else %}
             <li class="nav-item">
+              {% if request.resolver_match.app_name != 'account' and request.resolver_match.url_name != 'login' %}
               <a class="nav-link" href="{% url 'account:login' %}">Login</a>
+              {% endif %}
             </li>
             {% endif %}
           </ul>
