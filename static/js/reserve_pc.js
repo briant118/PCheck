@@ -8,7 +8,7 @@ $(document).ready(function () {
     $("#pc_id").val($(this).data("pc-id"));
     console.log("PC ID:", $("#pc_id").val());
     $pcButton.not(this).prop("disabled", true); // Disable other buttons
-    $pageNav.prop("hidden", true); // Hide pag navigation
+    $pageNav.attr("hidden", true); // Hide pag navigation
     $nextButton.prop("hidden", !$pcButton.filter(".text-success").length); // Enable next button if any selected
     if (!$(this).hasClass("text-success")) {
       $pcButton.prop("disabled", false); // Re-enable all buttons if none selected
@@ -117,38 +117,6 @@ $(document).ready(function () {
           console.error("Error fetching booking data:", errorThrown);
         });
     }
-
-    // let approvalChecker = setInterval(async function () {
-    //   let status = await checkApproval();
-    //   if (status === "confirmed") {
-    //     $("#approvalDiv").fadeOut();
-    //     clearInterval(approvalChecker);
-    //     console.log("Approval detected. Showing modal...");
-
-    //     // Example: booking duration in minutes (you should fetch this from server or DOM)
-    //     let durationMinutes = parseInt($("#durationInput").text()); 
-    //     let endTime = new Date().getTime() + durationMinutes * 60 * 1000;
-
-    //     // Show modal
-    //     $("#timeRemainingModal").modal("show");
-
-    //     // Start countdown timer
-    //     let countdown = setInterval(function () {
-    //       let now = new Date().getTime();
-    //       let diff = endTime - now;
-
-    //       if (diff <= 0) {
-    //         clearInterval(countdown);
-    //         $("#timeRemaining").text("Expired");
-    //         return;
-    //       }
-
-    //       let minutes = Math.floor(diff / (1000 * 60));
-    //       let seconds = Math.floor((diff % (1000 * 60)) / 1000);
-    //       $("#timeRemaining").text(minutes + "m " + seconds + "s");
-    //     }, 1000);
-    //   } 
-    // }, 5000);
 
     // Run every 1 second
     let approvalChecker = setInterval(async function () {
