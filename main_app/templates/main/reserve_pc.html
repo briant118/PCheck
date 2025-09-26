@@ -5,54 +5,7 @@
 {% block title %}PC List{% endblock %}
 
 {% block links %}
-<style>
-.pc-button {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0px;
-    margin: 1em;
-}
-
-.pc-button:hover {
-    background: none;
-}
-
-.next-button.pc-button:hover {
-    background: #FFC107;
-}
-
-.pc-icon {
-    font-size: 1.7em;
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0px;
-}
-
-.pc-name {
-    font-size: 0.8em;
-    padding: 0px;
-}
-
-.reserve-next-button {
-    font-size: large;
-    width: 100%;
-    border: 1px solid #ccc;   /* light colored border */
-    border-radius: 12px;      /* rounded edges */
-    background-color: transparent;
-    color: inherit;           /* keeps text color consistent */
-    padding: 10px 15px;
-    transition: all 0.3s ease;
-}
-
-.reserve-next-button:hover {
-    background-color:	#FFC107; /* hover color */
-    border-color: #FFC107;     /* optional: border changes with hover */
-    color: #000;              /* make text readable on yellow */
-    font-style: normal;
-}
-</style>
+<link rel="stylesheet" href="{% static 'css/booking.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -181,6 +134,24 @@
         </div>
       </div>
 
+      <!-- Remaining Time Modal -->
+      <div class="modal fade" id="timeRemainingModal" tabindex="-1" aria-labelledby="timeRemainingLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content text-center">
+            <div class="modal-header bg-warning">
+              <h5 class="modal-title" id="timeRemainingLabel">Booking Active</h5>
+            </div>
+            <div class="modal-body text-center bg-dark text-white ps-2 pt-10 pe-2 pb-10">
+              <i class="fa-solid fa-desktop mb-2" style="font-size: xx-large;"></i>
+              <p>Your booking is confirmed ✅</p>
+              <p>Time remaining 
+                <br> 
+                <span class="fw-bold" id="timeRemaining"></span>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
         
     </div>
 

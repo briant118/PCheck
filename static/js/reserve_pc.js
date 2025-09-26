@@ -118,19 +118,81 @@ $(document).ready(function () {
         });
     }
 
-    // Run every 5 seconds
-    let approvalChecker = setInterval(function () {
+    // let approvalChecker = setInterval(async function () {
+    //   let status = await checkApproval();
+    //   if (status === "confirmed") {
+    //     $("#approvalDiv").fadeOut();
+    //     clearInterval(approvalChecker);
+    //     console.log("Approval detected. Showing modal...");
+
+    //     // Example: booking duration in minutes (you should fetch this from server or DOM)
+    //     let durationMinutes = parseInt($("#durationInput").text()); 
+    //     let endTime = new Date().getTime() + durationMinutes * 60 * 1000;
+
+    //     // Show modal
+    //     $("#timeRemainingModal").modal("show");
+
+    //     // Start countdown timer
+    //     let countdown = setInterval(function () {
+    //       let now = new Date().getTime();
+    //       let diff = endTime - now;
+
+    //       if (diff <= 0) {
+    //         clearInterval(countdown);
+    //         $("#timeRemaining").text("Expired");
+    //         return;
+    //       }
+
+    //       let minutes = Math.floor(diff / (1000 * 60));
+    //       let seconds = Math.floor((diff % (1000 * 60)) / 1000);
+    //       $("#timeRemaining").text(minutes + "m " + seconds + "s");
+    //     }, 1000);
+    //   } 
+    // }, 5000);
+
+    // Run every 1 second
+    let approvalChecker = setInterval(async function () {
       checkApproval(function (status) {
-        if (status === "confirmed" || status === "cancelled") {
+        if (status === "confirmed") {
+          alert("Your reservation has been confirmed!");
           $("#qrModal").fadeOut();
           clearInterval(approvalChecker);
           console.log("Approval detected. Script stopped.");
-          alert("Your reservation has been " + status + "!");
-          window.location.href = "/reserve-pc/";
-        } else {
+          let durationMinutes = parseInt($("#durationInput").val()); 
+          let endTime = new Date().getTime() + durationMinutes * 60 * 1000;
+
+          $("#timeRemainingModal").modal({
+            backdrop: "static",  // prevent closing by clicking outside
+            keyboard: false      // prevent closing with Esc key
+          }).modal("show");
+
+          // Start countdown timer
+          let countdown = setInterval(function () {
+            let now = new Date().getTime();
+            let diff = endTime - now;
+
+            if (diff <= 0) {
+              clearInterval(countdown);
+              $("#timeRemaining").text("Expired");
+              return;
+            }
+
+            let minutes = Math.floor(diff / (1000 * 60));
+            let seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            $("#timeRemaining").text(minutes + "m " + seconds + "s");
+          }, 1000);
+        } 
+        else if (status === "cancelled"){
+          $("#qrModal").fadeOut();
+          clearInterval(approvalChecker);
+          console.log("Approval detected. Script stopped.");
+          alert("Your reservation has been declined!");
+          window.location.href = "/pc-reservation/";
+        } 
+        else {
           console.log("Still waiting for approval...");
         }
       });
-    }, 5000);
+    }, 1000);
   });
 });

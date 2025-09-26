@@ -216,7 +216,7 @@ def reservation_approved(request, pk):
     booking.status = 'confirmed'
     booking.save()
     messages.success(request, "Reservation has been approved.")
-    return HttpResponseRedirect(reverse_lazy('main_app:dashboard'))
+    return HttpResponseRedirect(reverse_lazy('main_app:bookings'))
 
 
 @login_required
