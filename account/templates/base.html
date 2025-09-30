@@ -43,7 +43,7 @@
             <li class="nav-item">
               <a class="nav-link {% if section == 'user' %}active text-warning{% endif %}" 
                 href="{% url 'main_app:user-activities' %}">
-                User
+                Users
               </a>
             </li>
             <li class="nav-item">
@@ -103,7 +103,7 @@
       </div>
     {% endif %}
 
-    <div id="content">
+    <div id="content" class="mt-5">
       {% block content %}
       {% endblock %}
     </div>

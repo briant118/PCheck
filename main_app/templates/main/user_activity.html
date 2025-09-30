@@ -25,7 +25,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="container pt-5">
+<div class="container pt-5 mt-2">
   <div class="row col-12 mb-3">
     <div class="col-md-6"></div>
     <div class="text-end col-md-6" id="violation-level-legend">
@@ -40,20 +40,21 @@
 
   <ul class="nav nav-tabs" id="myTab">
     <li class="nav-item">
-      <a class="nav-link active" id="tab-history" data-bs-toggle="tab" href="#history">History</a>
+      <a class="nav-link active" id="tabHistory" data-bs-toggle="tab" href="#history">History</a>
     </li>
     <li class="nav-item">
-      <a class="nav-link" id="tab-chat" data-bs-toggle="tab" href="#chat">Chat</a>
+      <a class="nav-link" id="tabChat" data-bs-toggle="tab" href="#chat">Chat</a>
     </li>
     <li class="nav-item">
-      <a class="nav-link" id="tab-violation" data-bs-toggle="tab" href="#violation">Violation</a>
+      <a class="nav-link" id="tabViolation" data-bs-toggle="tab" href="#violation">Violation</a>
     </li>
     <li class="nav-item">
-      <a class="nav-link" id="tab-suspension" data-bs-toggle="tab" href="#suspension">Suspension</a>
+      <a class="nav-link" id="tabSuspension" data-bs-toggle="tab" href="#suspension">Suspension</a>
     </li>
   </ul>
 
   <input type="hidden" name="active_tab" id="active_tab">
+  <input type="hidden" name="active_div" id="active_div">
 
   <div id="history">
     <table class="table">
@@ -122,29 +123,22 @@
   </div>
 
   <div id="chat" hidden>
-    <div class="col-md-2 mt-2 mb-2">
-      <form method="get" class="form d-flex">
-        <input type="text" id="search_user" name="search_user" value="{{search_user}}"
-          placeholder="search user" class="form-control me-1" >
-        <button type="submit" class="btn btn-sm btn-primary" id="search_uset_btn">Search</button>
-      </form>
+    <div class="col-md-2 mt-2 mb-2 d-flex">
+        <input type="text" id="find_user" name="find_user" value="{{find_user}}"
+          placeholder="search user" class="form-control me-1" style="width: auto;">
+        <button type="button" class="btn btn-sm btn-primary" onclick="findUser()">Search</button>
     </div>
-    <table class="table table-stripped table-sm">
+    <table class="table table-stripped table-sm" id="userTable">
       <thead>
         <tr>
           <th>Name</th>
           <th>College</th>
-          <th>Action</th>
+          <th>Course</th>
+          <th>Email</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
-        {% for user in users %}
-        <tr>
-          <td>{{ user.get_full_name }}</td>
-          <td>{{ user.profile.college }}</td>
-          <td><button type="button" id="send-message-btn" class="btn btn-sm btn-secodary">Send a message</button></td>
-        </tr>
-        {% endfor %}
       </tbody>
     </table>
   </div>
@@ -189,85 +183,71 @@
 {% block scripts %}
 <script src="{% static 'js/jquery-3.7.1.min.js' %}"></script>
 <script>
+  function findUser() {
+    const query = $("#find_user").val();
+
+    $.ajax({
+        url: "/ajax/find-user",
+        method: "GET",
+        data: { find_user: query },
+        success: function(data) {
+            const tableBody = $("#userTable tbody");
+            tableBody.empty(); // clear old results
+
+            $.each(data.result, function(index, user) {
+                let row = `<tr>
+                    <td>${user.first_name} ${user.last_name}</td>
+                    <td>${user.profile__college__name}</td>
+                    <td>${user.profile__course}</td>
+                    <td>${user.email}</td>
+                    <td><a href="#" class="btn btn-sm btn-outline-info">Send a message</a></td>
+                </tr>`;
+                tableBody.append(row);
+            });
+        }
+    });
+  }
+
   $(document).ready(function () {
     const $history = $("#history");
     const $chat = $("#chat");
     const $violation = $("#violation");
-    const $tabHistory = $("#tab-history");
-    const $tabChat = $("#tab-chat");
-    const $tabViolation = $("#tab-violation");
+    const $tabHistory = $("#tabHistory");
+    const $tabChat = $("#tabChat");
+    const $tab = $(".nav-link");
+    const $tabViolation = $("#tabViolation");
     const $suspendButton = $(".suspend-button");
-    const $searchUserBtn = $("#search_user_btn");
+    const $findUserInput = $("#find_user");
+    const $findUserBtn = $("#find_user_btn");
     const $suspendButtonSubmit = $("#suspend-button-submit");
     const suspendUrl = $("#suspend-button-submit").data("suspend-url");
 
-    $searchUserBtn.on("click", function() {
-      $(this).data("target").click();
+    $tabHistory.on("click", function() {
+      $history.prop("hidden", false);
+      $(this).addClass("active");
+      $tabChat.removeClass("active");
+      $chat.prop("hidden", true);
+      $tabViolation.removeClass("active");
+      $violation.prop("hidden", true);
     });
-
-    // Handle tab switch
-    document.querySelectorAll('#myTab a').forEach(tab => {
-      tab.addEventListener('shown.bs.tab', function (e) {
-        const activeTabId = e.target.getAttribute('href'); // "#home" or "#profile"
-        localStorage.setItem('activeTab', activeTabId);    // save active tab
-
-        // Update hidden input (so it's passed in form)
-        document.getElementById("active_tab").value = activeTabId;
-
-        // Hide all related divs first
-        // document.querySelectorAll('[id]').forEach(div => div.classList.add("d-none"));
-
-        // Show the one related to the active tab
-        const relatedDiv = document.querySelector(activeTabId);
-        if (relatedDiv) relatedDiv.classList.remove("d-none");
-      });
-    });
-
-    // Restore active tab on page load
-    window.addEventListener('load', function () {
-      let activeTab = new URLSearchParams(window.location.search).get("active_tab") 
-                      || localStorage.getItem('activeTab');
-
-      if (activeTab) {
-        let triggerEl = document.querySelector(`#myTab a[href="${activeTab}"]`);
-        if (triggerEl) new bootstrap.Tab(triggerEl).show();
-
-        // Also show related div
-        document.querySelectorAll('[id]').forEach(div => div.classList.add("d-none"));
-        const relatedDiv = document.querySelector(activeTab);
-        if (relatedDiv) relatedDiv.classList.remove("d-none");
-
-        // Set hidden input for form
-        document.getElementById("active_tab").value = activeTab;
-      }
-    });
-
-    // $tabHistory.on("click", function() {
-    //   $history.prop("hidden", false);
-    //   $(this).addClass("active");
-    //   $tabChat.removeClass("active");
-    //   $chat.prop("hidden", true);
-    //   $tabViolation.removeClass("active");
-    //   $violation.prop("hidden", true);
-    // });
     
-    // $tabChat.on("click", function() {
-    //   $chat.prop("hidden", false);
-    //   $(this).addClass("active");
-    //   $tabHistory.removeClass("active");
-    //   $history.prop("hidden", true);
-    //   $tabViolation.removeClass("active");
-    //   $violation.prop("hidden", true);
-    // });
+    $tabChat.on("click", function() {
+      $chat.prop("hidden", false);
+      $(this).addClass("active");
+      $tabHistory.removeClass("active");
+      $history.prop("hidden", true);
+      $tabViolation.removeClass("active");
+      $violation.prop("hidden", true);
+    });
     
-    // $tabViolation.on("click", function() {
-    //   $violation.prop("hidden", false);
-    //   $(this).addClass("active");
-    //   $tabHistory.removeClass("active");
-    //   $history.prop("hidden", true);
-    //   $tabChat.removeClass("active");
-    //   $chat.prop("hidden", true);
-    // });
+    $tabViolation.on("click", function() {
+      $violation.prop("hidden", false);
+      $(this).addClass("active");
+      $tabHistory.removeClass("active");
+      $history.prop("hidden", true);
+      $tabChat.removeClass("active");
+      $chat.prop("hidden", true);
+    });
 
     // Show violation form
     $suspendButton.click(function () {

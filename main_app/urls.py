@@ -32,6 +32,7 @@ urlpatterns = [
     path('ajax/get-pc-details/<int:pk>/', views.get_pc_details, name='get-pc-details'),
     path('ajax/reserve-pc/', views.reserve_pc, name='reserve-pc'),
     path('ajax/waiting-approval/<int:pk>/', views.waiting_approval, name='waiting-approval'),
+    path('ajax/find-user/', views.find_user, name='find-user'),
     
     # Reporting
     path('booking-data/', views.bookings_by_college, name='booking-data'),

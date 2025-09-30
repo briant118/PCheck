@@ -16,6 +16,7 @@ from django.views.generic.edit import FormMixin
 from django.db.models import Count
 from datetime import datetime, timedelta
 from django.contrib.auth.models import User
+from account.models import Profile
 from . import forms, models, ping_address
 
 
@@ -109,6 +110,19 @@ def verify_pc_ip_address(request):
         'ip_address': ip_address
     }
     return JsonResponse(data)
+
+
+def find_user(request):
+    find_user = request.GET.get('find_user', '')
+    result = User.objects.prefetch_related("profile").filter(
+        first_name__icontains=find_user).values(
+            'id','first_name','last_name','email',
+            'profile__role','profile__college__name','profile__course',
+            'profile__year','profile__block','profile__school_id')
+    data = {
+        'result': list(result),
+    }
+    return JsonResponse(data, safe=False)
 
 
 @login_required
