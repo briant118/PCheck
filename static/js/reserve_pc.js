@@ -6,7 +6,6 @@ $(document).ready(function () {
   $pcButton.click(function () {
     $(this).toggleClass("text-success");
     $("#pc_id").val($(this).data("pc-id"));
-    console.log("PC ID:", $("#pc_id").val());
     $pcButton.not(this).prop("disabled", true); // Disable other buttons
     $pageNav.attr("hidden", true); // Hide pag navigation
     $nextButton.prop("hidden", !$pcButton.filter(".text-success").length); // Enable next button if any selected

@@ -112,6 +112,7 @@ def verify_pc_ip_address(request):
     return JsonResponse(data)
 
 
+@login_required
 def find_user(request):
     find_user = request.GET.get('find_user', '')
     result = User.objects.prefetch_related("profile").filter(
@@ -119,6 +120,30 @@ def find_user(request):
             'id','first_name','last_name','email',
             'profile__role','profile__college__name','profile__course',
             'profile__year','profile__block','profile__school_id')
+    data = {
+        'result': list(result),
+    }
+    return JsonResponse(data, safe=False)
+
+
+@login_required
+def load_sent_items(request):
+    result = models.Chat.objects.filter(
+        sender=request.user).values(
+            'recipient__first_name','recipient__last_name','recipient__email',
+            'recipient__id')
+    data = {
+        'result': list(result),
+    }
+    return JsonResponse(data, safe=False)
+
+
+@login_required
+def load_conversation(request, receiver):
+    receiver = User.objects.get(pk=receiver)
+    result = models.Chat.objects.filter(sender=request.user,recipient=receiver).values(
+            'recipient__first_name','recipient__last_name','recipient__email',
+            'message','status','timestamp')
     data = {
         'result': list(result),
     }
@@ -200,7 +225,6 @@ def reserve_pc(request):
             duration=duration,
             num_of_devices=1,
         )
-        print("booking ID:", booking.pk)
         
         scheme = 'https' if request.is_secure() else 'http'
         host = request.get_host()
@@ -217,6 +241,28 @@ def reserve_pc(request):
             "message": f"{pc.name} reserved for {duration} minutes",
             "qr_code": qr_base64,
             "booking_id": booking.pk
+        })
+
+
+@csrf_exempt
+def send_message(request):
+    if request.method == "POST":
+        message = request.POST.get("message")
+        recipient = request.POST.get("recipient")
+        
+        recipient = User.objects.get(email=recipient)
+
+        chat = models.Chat.objects.create(
+            sender=request.user,
+            recipient=recipient,
+            subject="text subject",
+            message=message,
+            status="sent"
+        )
+
+        return JsonResponse({
+            "success": True,
+            "message": message
         })
 
 
@@ -407,11 +453,13 @@ class UserActivityListView(LoginRequiredMixin, ListView):
             users = User.objects.filter(first_name__icontains=search_user)
         else:
             users = User.objects.all()
+        chat = models.Chat.objects.filter(sender=self.request.user)
         context = {
             "user_activities": user_activities,
             "violations": violations,
             "section": "user",
             "users": users,
+            "chat": chat,
             "search_user": self.request.GET.get('search_user', ''),
         }
         return context

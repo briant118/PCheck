@@ -74,7 +74,7 @@ class Violation(models.Model):
 class Chat(models.Model):
     sender = models.ForeignKey(User, related_name='sent_chats', on_delete=models.CASCADE)
     recipient = models.ForeignKey(User, related_name='received_chats', on_delete=models.CASCADE)
-    subject = models.CharField(max_length=255)
+    subject = models.CharField(max_length=255, null=True, blank=True)
     message = models.TextField()
     status = models.CharField(max_length=20, choices=[('sent', 'Sent'), ('delivered', 'Delivered'), ('read', 'Read')])
     timestamp = models.DateTimeField(auto_now_add=True)
