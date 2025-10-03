@@ -38,13 +38,16 @@
   max-width: 70%;
 }
 
+/* Sender: left side */
 .sender {
   background: #DCF8C6;
-  align-self: flex-end;
+  align-self: flex-start;
 }
 
+/* Receiver: right side */
 .receiver {
   background: #E5E5EA;
+  align-self: flex-end;
 }
 </style>
 {% endblock %}
@@ -168,11 +171,10 @@
       </tbody>
     </table>
     
-    <table class="table table-stripped table-sm" id="sentMessagesTable">
+    <table class="table table-stripped table-sm" id="messagesTable">
       <thead>
         <tr>
-          <th>Recipient</th>
-          <th>Email</th>
+          <th>Name</th>
           <th></th>
         </tr>
       </thead>
@@ -218,21 +220,24 @@
         <div class="modal-content rounded-3 shadow">
           <div class="modal-header">
             <h5 class="modal-title" id="conversationModalLabel">
-              Conversation
+              Conversation with <span id="convoWith"></span>
             </h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <div class="modal-body">
             <div class="justify-content-center">
               <div class="form-group mt-3">
+                <input type="text" id="receiverId" name="receiverId" hidden>
+                <input type="text" id="senderId" name="senderId" hidden>
+                <input type="email" id="receiverEmail" name="receiverEmail" hidden>
                 <div id="chatContainer"></div>
-                <textarea type="text" id="conversation" name="conversation" cols="40" rows="3" class="form-control"></textarea>
+                <textarea type="text" id="new_message" name="new_message" cols="40" rows="3" class="form-control"></textarea>
               </div>
             </div>
           </div>
           <div class="modal-footer">
-            <button type="button" id="send_message" class="btn btn-primary" 
-              data-send-chat-url="#">
+            <button type="button" id="send_new_message_btn" class="btn btn-primary" 
+              data-send-new-message-url="{% url 'main_app:send-new-message' %}">
               Send
             </button>
           </div>
@@ -286,7 +291,7 @@
 
   function findUser() {
     const query = $("#find_user").val();
-    $("#sentMessagesTable").prop("hidden",true);
+    $("#messagesTable").prop("hidden",true);
 
     $.ajax({
         url: "/ajax/find-user",
@@ -303,7 +308,7 @@
                     <td>${user.profile__college__name}</td>
                     <td>${user.profile__course}</td>
                     <td id="email_address">${user.email}</td>
-                    <td><button type="button" id="send_chat" onclick="sendMessage()" class="btn btn-sm btn-outline-info">Send a message</button></td>
+                    <td><button type="button" id="send_chat" onclick="sendInitMessage()" class="btn btn-sm btn-outline-info">Send a message</button></td>
                 </tr>`;
                 tableBody.append(row);
                 email = user.email;
@@ -312,46 +317,68 @@
     });
   }
 
-  function loadSentItems() {
-    const sentMessagesBody = $("#sentMessagesTable tbody");
+  function loadMessages() {
+    const messagesBody = $("#messagesTable tbody");
     $.ajax({
-      url: "/ajax/load-sent-items",
+      url: "/ajax/load-messages",
       method: "GET",
-      success: function(data) {
-        sentMessagesBody.empty();
-        $.each(data.result, function(index, user) {
-            let row = `<tr class="sentItem" id=${user.recipient__id}>
+      success: function (data) {
+        messagesBody.empty();
+
+        // Track unique recipients
+        let seenRecipients = new Set();
+
+        $.each(data.result, function (index, user) {
+          if (!seenRecipients.has(user.recipient__id)) {
+            seenRecipients.add(user.recipient__id);
+
+            let row = `<tr class="sentItem" 
+                        data-receiver-id="${user.recipient__id}" data-sender-id=${user.sender__id} 
+                        data-receiver-email=${user.recipient__email}
+                        data-receiver-fname=${user.recipient__first_name} data-receiver-lname=${user.recipient__last_name}>
                 <td>${user.recipient__first_name} ${user.recipient__last_name}</td>
-                <td>${user.recipient__email}</td>
             </tr>`;
-            sentMessagesBody.append(row);
+
+            messagesBody.append(row);
+          }
         });
-        console.log("data:",data.result);
-      }
+      },
     });
   }
   
-  function loadConversation(pk) {
+  function loadConversation(r, s) { // r=receiverId, s=currentUserId
     const chatContainer = $("#chatContainer");
+    
     $.ajax({
-      url: `/ajax/load-conversation/${pk}`,
+      url: `/ajax/load-conversation/${r}/${s}`,
       method: "GET",
       success: function(data) {
         chatContainer.empty();
-        $.each(data.result, function(index, user) {
-            let div = `<div class="message sender">${user.message}</div>`;
-            chatContainer.append(div);
+        
+        $.each(data.result, function(index, msg) {
+          // Check who sent the message
+          if (msg.sender__id == s) {
+            // Current user sent this
+            chatContainer.append(`<div class="message sender">${msg.message}</div>`);
+          } else {
+            // Other user sent this
+            chatContainer.append(`<div class="message receiver">${msg.message}</div>`);
+          }
         });
+
+        // Scroll to bottom after loading
+        chatContainer.scrollTop(chatContainer.prop("scrollHeight"));
       }
     });
   }
+
 
   function resetTable() {
     $("#find_user").val(""); 
     const tableBody = $("#resultUserTable tbody");
     tableBody.empty();
     $("#resultUserTable").prop("hidden",true); // hide user table
-    $("#sentMessagesTable").prop("hidden",false); // unhide chat table
+    $("#messagesTable").prop("hidden",false); // unhide chat table
   }
   
   function resetInitMessageForm() {
@@ -359,10 +386,9 @@
     $("#initMessage").val(""); 
   }
 
-  function sendMessage() {
+  function sendInitMessage() {
     $("#initMessageModal").modal("show");
-    $("#recipient").val(email);
-    $("#recipient").prop("disabled",true);
+    $("#recipient").val(email).prop("disabled",true);
   }
 
   $(document).ready(function () {
@@ -378,7 +404,7 @@
     const $findUserBtn = $("#find_user_btn");
     const $suspendButtonSubmit = $("#suspend-button-submit");
     const suspendUrl = $("#suspend-button-submit").data("suspend-url");
-    const $sendMessageBtn = $("#send_message");
+    const $sendMessageBtn = $("#send_new_message");
 
     $tabHistory.on("click", function() {
       $history.prop("hidden", false);
@@ -396,7 +422,7 @@
       $history.prop("hidden", true);
       $tabViolation.removeClass("active");
       $violation.prop("hidden", true);
-      loadSentItems();
+      loadMessages();
     });
     
     $tabViolation.on("click", function() {
@@ -468,11 +494,59 @@
 
     });
 
+    const sendNewMessageUrl = $("#send_new_message_btn").data("send-new-message-url");
+    
+    // Send new message or conversation
+    $("#send_new_message_btn").click(function () {
+      let recipient = $("#receiverEmail").val();
+      let newMessage = $("#new_message").val();
+      let senderId = $("#senderId").val();   // current logged in user
+      let receiverId = $("#receiverId").val();
+
+      if (newMessage == "") {
+        alert("Message cannot be empty.");
+        return;
+      }
+
+      $.ajax({
+        url: sendNewMessageUrl,
+        type: "POST",
+        data: {
+          recipient: recipient,
+          message: newMessage
+        },
+        success: function (response) {
+          // ✅ append directly to chatContainer
+          const chatContainer = $("#chatContainer");
+          chatContainer.append(`<div class="message sender">${newMessage}</div>`);
+
+          // ✅ scroll to bottom
+          chatContainer.scrollTop(chatContainer.prop("scrollHeight"));
+
+          // clear input
+          $("#new_message").val("");
+        },
+        error: function (xhr) {
+          alert("Error: " + xhr.responseText);
+        }
+      });
+    });
+
+
+
     // Event delegation (works for dynamically added rows)
     $(document).on("click", ".sentItem", function () {
-        var rowId = $(this).attr('id');
+        var receiverEmail = $(this).data('receiver-email');
+        var receiverId = $(this).data('receiver-id');
+        var receiverFirstname = $(this).data("receiver-fname");
+        var receiverLastname = $(this).data("receiver-lname");
+        var senderId = $(this).data('sender-id');
+        $("#receiverEmail").val(receiverEmail);
+        $("#receiverId").val(receiverId);
+        $("#senderId").val(senderId);
+        $("#convoWith").text(receiverFirstname+' '+receiverLastname);
         $("#conversationModal").modal("show");
-        loadConversation(rowId);
+        loadConversation(receiverId,senderId);
     });
 
   });

@@ -2,6 +2,7 @@ import re
 import qrcode
 import base64
 from io import BytesIO
+from django.db.models import Q
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy, reverse
 from django.views.decorators.csrf import csrf_exempt
@@ -127,11 +128,11 @@ def find_user(request):
 
 
 @login_required
-def load_sent_items(request):
+def load_messages(request):
     result = models.Chat.objects.filter(
-        sender=request.user).values(
-            'recipient__first_name','recipient__last_name','recipient__email',
-            'recipient__id')
+        Q(sender=request.user) | Q(recipient=request.user)).values(
+            'recipient__first_name','recipient__last_name','recipient__email','recipient__id',
+            'sender__first_name','sender__last_name','sender__email','sender__id')
     data = {
         'result': list(result),
     }
@@ -139,10 +140,12 @@ def load_sent_items(request):
 
 
 @login_required
-def load_conversation(request, receiver):
+def load_conversation(request, receiver, sender):
     receiver = User.objects.get(pk=receiver)
-    result = models.Chat.objects.filter(sender=request.user,recipient=receiver).values(
-            'recipient__first_name','recipient__last_name','recipient__email',
+    sender = User.objects.get(pk=sender)
+    result = models.Chat.objects.filter(sender=sender,recipient=receiver).values(
+            'recipient__first_name','recipient__last_name','recipient__email','recipient__id',
+            'sender__id',
             'message','status','timestamp')
     data = {
         'result': list(result),
@@ -245,17 +248,40 @@ def reserve_pc(request):
 
 
 @csrf_exempt
-def send_message(request):
+def send_init_message(request):
     if request.method == "POST":
         message = request.POST.get("message")
         recipient = request.POST.get("recipient")
         
         recipient = User.objects.get(email=recipient)
 
-        chat = models.Chat.objects.create(
+        models.Chat.objects.create(
             sender=request.user,
             recipient=recipient,
-            subject="text subject",
+            subject="initial subject",
+            message=message,
+            status="sent"
+        )
+
+        return JsonResponse({
+            "success": True,
+            "message": message
+        })
+
+
+@csrf_exempt
+def send_new_message(request):
+    if request.method == "POST":
+        message = request.POST.get("message")
+        recipient = request.POST.get("recipient")
+        print("recipient:",recipient)
+        
+        recipient = User.objects.get(email=recipient)
+
+        models.Chat.objects.create(
+            sender=request.user,
+            recipient=recipient,
+            subject="new subject",
             message=message,
             status="sent"
         )
