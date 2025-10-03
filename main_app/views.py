@@ -258,7 +258,6 @@ def send_init_message(request):
         models.Chat.objects.create(
             sender=request.user,
             recipient=recipient,
-            subject="initial subject",
             message=message,
             status="sent"
         )
@@ -281,7 +280,6 @@ def send_new_message(request):
         models.Chat.objects.create(
             sender=request.user,
             recipient=recipient,
-            subject="new subject",
             message=message,
             status="sent"
         )

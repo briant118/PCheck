@@ -71,7 +71,7 @@
       <a class="nav-link active" id="tabHistory" data-bs-toggle="tab" href="#history">History</a>
     </li>
     <li class="nav-item">
-      <a class="nav-link" id="tabChat" data-bs-toggle="tab" href="#chat">Chat</a>
+      <a class="nav-link" id="tabChat" data-bs-toggle="tab" data-current-user="{{ request.user }}" href="#chat">Chat</a>
     </li>
     <li class="nav-item">
       <a class="nav-link" id="tabViolation" data-bs-toggle="tab" href="#violation">Violation</a>
@@ -175,7 +175,6 @@
       <thead>
         <tr>
           <th>Name</th>
-          <th></th>
         </tr>
       </thead>
       <tbody>
@@ -287,6 +286,32 @@
 {% block scripts %}
 <script src="{% static 'js/jquery-3.7.1.min.js' %}"></script>
 <script>
+  const senderId = $("#senderId").val();
+  const receiverId = $("#receiverId").val();
+  console.log("senderID:",senderId);
+  console.log("receiverID:",receiverId);
+
+  // Create a unique room name (sorted so both users get same room)
+  const roomUsers = [senderId, receiverId].sort();
+  const roomName = `room_${roomUsers[0]}_${roomUsers[1]}`;
+
+  const chatSocket = new WebSocket(
+    "ws://" + window.location.host + "/ws/chat/" + roomName + "/"
+  );
+
+  chatSocket.onmessage = function(e) {
+    const data = JSON.parse(e.data);
+    const chatContainer = $("#chatContainer");
+
+    if (data.sender == senderId) {
+      chatContainer.append(`<div class="message sender">${data.message}</div>`);
+    } else {
+      chatContainer.append(`<div class="message receiver">${data.message}</div>`);
+    }
+
+    chatContainer.scrollTop(chatContainer.prop("scrollHeight"));
+  };
+
   let email = null;
 
   function findUser() {
@@ -317,7 +342,7 @@
     });
   }
 
-  function loadMessages() {
+  function loadMessages(currentUser) {
     const messagesBody = $("#messagesTable tbody");
     $.ajax({
       url: "/ajax/load-messages",
@@ -332,14 +357,25 @@
           if (!seenRecipients.has(user.recipient__id)) {
             seenRecipients.add(user.recipient__id);
 
-            let row = `<tr class="sentItem" 
-                        data-receiver-id="${user.recipient__id}" data-sender-id=${user.sender__id} 
-                        data-receiver-email=${user.recipient__email}
-                        data-receiver-fname=${user.recipient__first_name} data-receiver-lname=${user.recipient__last_name}>
-                <td>${user.recipient__first_name} ${user.recipient__last_name}</td>
-            </tr>`;
-
-            messagesBody.append(row);
+            if (currentUser == user.recipient__email) {
+              let row = `<tr class="sentItem" 
+                          data-receiver-id="${user.recipient__id}" data-sender-id=${user.sender__id} 
+                          data-receiver-email=${user.recipient__email}
+                          data-receiver-fname=${user.recipient__first_name} data-receiver-lname=${user.recipient__last_name}>
+                  <td>${user.sender__first_name} ${user.sender__last_name}</td>
+              </tr>`;
+  
+              messagesBody.append(row);
+            } else {
+              let row = `<tr class="sentItem" 
+                          data-receiver-id="${user.recipient__id}" data-sender-id=${user.recipient__id} 
+                          data-receiver-email=${user.recipient__email}
+                          data-receiver-fname=${user.recipient__first_name} data-receiver-lname=${user.recipient__last_name}>
+                  <td>${user.recipient__first_name} ${user.recipient__last_name}</td>
+              </tr>`;
+  
+              messagesBody.append(row);
+            }
           }
         });
       },
@@ -416,13 +452,14 @@
     });
     
     $tabChat.on("click", function() {
+      let currentUser = $(this).data("current-user");
       $chat.prop("hidden", false);
       $(this).addClass("active");
       $tabHistory.removeClass("active");
       $history.prop("hidden", true);
       $tabViolation.removeClass("active");
       $violation.prop("hidden", true);
-      loadMessages();
+      loadMessages(currentUser);
     });
     
     $tabViolation.on("click", function() {
@@ -502,11 +539,18 @@
       let newMessage = $("#new_message").val();
       let senderId = $("#senderId").val();   // current logged in user
       let receiverId = $("#receiverId").val();
+      console.log("new message:",newMessage);
 
       if (newMessage == "") {
         alert("Message cannot be empty.");
         return;
       }
+      if (!newMessage) return;
+
+      chatSocket.send(JSON.stringify({
+        "message": newMessage,
+        "sender": senderId
+      }));
 
       $.ajax({
         url: sendNewMessageUrl,
@@ -530,6 +574,19 @@
           alert("Error: " + xhr.responseText);
         }
       });
+      
+      // $("#send_new_message_btn").click(function() {
+      //   const newMessage = $("#new_message").val();
+      //   if (!newMessage) return;
+
+      //   chatSocket.send(JSON.stringify({
+      //     "message": newMessage,
+      //     "sender": senderId
+      //   }));
+
+      //   $("#new_message").val("");
+      // });
+
     });
 
 
