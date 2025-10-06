@@ -71,7 +71,7 @@
       <a class="nav-link active" id="tabHistory" data-bs-toggle="tab" href="#history">History</a>
     </li>
     <li class="nav-item">
-      <a class="nav-link" id="tabChat" data-bs-toggle="tab" data-current-user="{{ request.user }}" href="#chat">Chat</a>
+      <a class="nav-link" id="tabChat" data-bs-toggle="tab" data-current-user="{{ request.user.email }}" href="#chat">Chat</a>
     </li>
     <li class="nav-item">
       <a class="nav-link" id="tabViolation" data-bs-toggle="tab" href="#violation">Violation</a>
@@ -226,8 +226,7 @@
           <div class="modal-body">
             <div class="justify-content-center">
               <div class="form-group mt-3">
-                <input type="text" id="receiverId" name="receiverId" hidden>
-                <input type="text" id="senderId" name="senderId" hidden>
+                <input type="text" id="roomId" name="roomId" hidden>
                 <input type="email" id="receiverEmail" name="receiverEmail" hidden>
                 <div id="chatContainer"></div>
                 <textarea type="text" id="new_message" name="new_message" cols="40" rows="3" class="form-control"></textarea>
@@ -236,7 +235,7 @@
           </div>
           <div class="modal-footer">
             <button type="button" id="send_new_message_btn" class="btn btn-primary" 
-              data-send-new-message-url="{% url 'main_app:send-new-message' %}">
+              data-send-new-message-url="main_app:send-new-message">
               Send
             </button>
           </div>
@@ -286,17 +285,11 @@
 {% block scripts %}
 <script src="{% static 'js/jquery-3.7.1.min.js' %}"></script>
 <script>
-  const senderId = $("#senderId").val();
-  const receiverId = $("#receiverId").val();
-  console.log("senderID:",senderId);
-  console.log("receiverID:",receiverId);
-
-  // Create a unique room name (sorted so both users get same room)
-  const roomUsers = [senderId, receiverId].sort();
-  const roomName = `room_${roomUsers[0]}_${roomUsers[1]}`;
+  const roomId = $("#roomId").val();
+  const senderId = "{{ request.user.id }}";  // current logged in user
 
   const chatSocket = new WebSocket(
-    "ws://" + window.location.host + "/ws/chat/" + roomName + "/"
+    "ws://" + window.location.host + "/ws/chat/" + roomId + "/"
   );
 
   chatSocket.onmessage = function(e) {
@@ -316,30 +309,32 @@
 
   function findUser() {
     const query = $("#find_user").val();
-    $("#messagesTable").prop("hidden",true);
+    
+    if (query !== "") {
+      $("#messagesTable").prop("hidden",true);
+      $.ajax({
+          url: "/ajax/find-user",
+          method: "GET",
+          data: { find_user: query },
+          success: function(data) {
+              const tableBody = $("#resultUserTable tbody");
+              tableBody.empty(); // clear old results
+              $("#resultUserTable").prop("hidden",false); // unhide user table
 
-    $.ajax({
-        url: "/ajax/find-user",
-        method: "GET",
-        data: { find_user: query },
-        success: function(data) {
-            const tableBody = $("#resultUserTable tbody");
-            tableBody.empty(); // clear old results
-            $("#resultUserTable").prop("hidden",false); // unhide user table
-
-            $.each(data.result, function(index, user) {
-                let row = `<tr>
-                    <td>${user.first_name} ${user.last_name}</td>
-                    <td>${user.profile__college__name}</td>
-                    <td>${user.profile__course}</td>
-                    <td id="email_address">${user.email}</td>
-                    <td><button type="button" id="send_chat" onclick="sendInitMessage()" class="btn btn-sm btn-outline-info">Send a message</button></td>
-                </tr>`;
-                tableBody.append(row);
-                email = user.email;
-            });
-        }
-    });
+              $.each(data.result, function(index, user) {
+                  let row = `<tr>
+                      <td>${user.first_name} ${user.last_name}</td>
+                      <td>${user.profile__college__name}</td>
+                      <td>${user.profile__course}</td>
+                      <td id="email_address">${user.email}</td>
+                      <td><button type="button" id="send_chat" onclick="sendInitMessage()" class="btn btn-sm btn-outline-info">Send a message</button></td>
+                  </tr>`;
+                  tableBody.append(row);
+                  email = user.email;
+              });
+          }
+      });
+    }
   }
 
   function loadMessages(currentUser) {
@@ -353,25 +348,27 @@
         // Track unique recipients
         let seenRecipients = new Set();
 
-        $.each(data.result, function (index, user) {
-          if (!seenRecipients.has(user.recipient__id)) {
-            seenRecipients.add(user.recipient__id);
+        $.each(data.result, function (index, room) {
+          if (!seenRecipients.has(room.receiver__id)) {
+            seenRecipients.add(room.receiver__id);
 
-            if (currentUser == user.recipient__email) {
-              let row = `<tr class="sentItem" 
-                          data-receiver-id="${user.recipient__id}" data-sender-id=${user.sender__id} 
-                          data-receiver-email=${user.recipient__email}
-                          data-receiver-fname=${user.recipient__first_name} data-receiver-lname=${user.recipient__last_name}>
-                  <td>${user.sender__first_name} ${user.sender__last_name}</td>
+            if (currentUser == room.receiver__email) {
+              let row = `<tr class="messagesItem" 
+                          data-receiver-id="${room.receiver__id}" data-sender-id=${room.initiator__id} data-room-id=${room.id}
+                          data-receiver-email=${room.receiver__email}
+                          data-receiver-fname=${room.receiver__first_name} data-receiver-lname=${room.receiver__last_name}
+                          data-initiator-fname=${room.initiator__first_name} data-initiator-lname=${room.initiator__last_name}>
+                  <td>${room.initiator__first_name} ${room.initiator__last_name}</td>
               </tr>`;
   
               messagesBody.append(row);
-            } else {
-              let row = `<tr class="sentItem" 
-                          data-receiver-id="${user.recipient__id}" data-sender-id=${user.recipient__id} 
-                          data-receiver-email=${user.recipient__email}
-                          data-receiver-fname=${user.recipient__first_name} data-receiver-lname=${user.recipient__last_name}>
-                  <td>${user.recipient__first_name} ${user.recipient__last_name}</td>
+            } else if (currentUser == room.initiator__email) {
+              let row = `<tr class="messagesItem" 
+                          data-receiver-id="${room.initiator__id}" data-sender-id=${room.receiver__id} data-room-id=${room.id}
+                          data-receiver-email=${room.receiver__email}
+                          data-receiver-fname=${room.receiver__first_name} data-receiver-lname=${room.receiver__last_name}
+                          data-initiator-fname=${room.initiator__first_name} data-initiator-lname=${room.initiator__last_name}>
+                  <td>${room.receiver__first_name} ${room.receiver__last_name}</td>
               </tr>`;
   
               messagesBody.append(row);
@@ -382,18 +379,18 @@
     });
   }
   
-  function loadConversation(r, s) { // r=receiverId, s=currentUserId
+  function loadConversation(roomId) { // r=receiverId, s=currentUserId
     const chatContainer = $("#chatContainer");
     
     $.ajax({
-      url: `/ajax/load-conversation/${r}/${s}`,
+      url: `/ajax/load-conversation/${roomId}`,
       method: "GET",
       success: function(data) {
         chatContainer.empty();
         
         $.each(data.result, function(index, msg) {
           // Check who sent the message
-          if (msg.sender__id == s) {
+          if (msg.sender__id == msg.chatroom__initiator__id) {
             // Current user sent this
             chatContainer.append(`<div class="message sender">${msg.message}</div>`);
           } else {
@@ -516,13 +513,14 @@
           type: "POST",
           data: {
               recipient: recipient,
-              message: initMessage
+              message: initMessage,
           },
           success: function (response) {
+              // console.log("sender email", response);
               $("#initMessageModal").modal("hide");
-              loadSentItems();
               resetTable();
               resetInitMessageForm();
+              loadMessages();
           },
           error: function (xhr) {
               alert("Error: " + xhr.responseText);
@@ -531,32 +529,31 @@
 
     });
 
-    const sendNewMessageUrl = $("#send_new_message_btn").data("send-new-message-url");
-    
     // Send new message or conversation
     $("#send_new_message_btn").click(function () {
-      let recipient = $("#receiverEmail").val();
       let newMessage = $("#new_message").val();
-      let senderId = $("#senderId").val();   // current logged in user
+      let roomId = $("#roomId").val();
+      let completeUrl = `/ajax/send-new-message/${roomId}/`;
+      let senderId = "{{ request.user.id }}";   // current logged in user
       let receiverId = $("#receiverId").val();
-      console.log("new message:",newMessage);
 
-      if (newMessage == "") {
-        alert("Message cannot be empty.");
-        return;
-      }
       if (!newMessage) return;
 
-      chatSocket.send(JSON.stringify({
-        "message": newMessage,
-        "sender": senderId
-      }));
+      if (chatSocket.readyState === WebSocket.OPEN) {
+        chatSocket.send(JSON.stringify({
+          "message": newMessage,
+          "sender": senderId
+        }));
+        $("#new_message").val("");
+      } else {
+        console.error("WebSocket is not open. ReadyState:", chatSocket.readyState);
+      }
 
       $.ajax({
-        url: sendNewMessageUrl,
+        url: completeUrl,
         type: "POST",
         data: {
-          recipient: recipient,
+          recipient: receiverId,
           message: newMessage
         },
         success: function (response) {
@@ -574,36 +571,28 @@
           alert("Error: " + xhr.responseText);
         }
       });
-      
-      // $("#send_new_message_btn").click(function() {
-      //   const newMessage = $("#new_message").val();
-      //   if (!newMessage) return;
-
-      //   chatSocket.send(JSON.stringify({
-      //     "message": newMessage,
-      //     "sender": senderId
-      //   }));
-
-      //   $("#new_message").val("");
-      // });
 
     });
 
 
 
     // Event delegation (works for dynamically added rows)
-    $(document).on("click", ".sentItem", function () {
+    $(document).on("click", ".messagesItem", function () {
+        var roomId = $(this).data('room-id');
         var receiverEmail = $(this).data('receiver-email');
-        var receiverId = $(this).data('receiver-id');
         var receiverFirstname = $(this).data("receiver-fname");
         var receiverLastname = $(this).data("receiver-lname");
-        var senderId = $(this).data('sender-id');
+        var initiatorFirstname = $(this).data("initiator-fname");
+        var initiatorLastname = $(this).data("initiator-lname");
         $("#receiverEmail").val(receiverEmail);
-        $("#receiverId").val(receiverId);
-        $("#senderId").val(senderId);
-        $("#convoWith").text(receiverFirstname+' '+receiverLastname);
+        $("#roomId").val(roomId);
+        if ("{{ request.user.email }}" === receiverEmail) {
+          $("#convoWith").text(initiatorFirstname+' '+initiatorLastname);
+        } else {
+          $("#convoWith").text(receiverFirstname+' '+receiverLastname);
+        }
         $("#conversationModal").modal("show");
-        loadConversation(receiverId,senderId);
+        loadConversation(roomId);
     });
 
   });

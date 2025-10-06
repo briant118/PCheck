@@ -32,11 +32,11 @@ urlpatterns = [
     path('ajax/get-pc-details/<int:pk>/', views.get_pc_details, name='get-pc-details'),
     path('ajax/reserve-pc/', views.reserve_pc, name='reserve-pc'),
     path('ajax/send-init-message/', views.send_init_message, name='send-init-message'),
-    path('ajax/send-new-message/', views.send_new_message, name='send-new-message'),
+    path('ajax/send-new-message/<int:room_id>/', views.send_new_message, name='send-new-message'),
     path('ajax/waiting-approval/<int:pk>/', views.waiting_approval, name='waiting-approval'),
     path('ajax/find-user/', views.find_user, name='find-user'),
     path('ajax/load-messages/', views.load_messages, name='load-messages'),
-    path('ajax/load-conversation/<int:receiver>/<int:sender>/', views.load_conversation, name='load-conversation'),
+    path('ajax/load-conversation/<int:room_id>/', views.load_conversation, name='load-conversation'),
     
     # Reporting
     path('booking-data/', views.bookings_by_college, name='booking-data'),

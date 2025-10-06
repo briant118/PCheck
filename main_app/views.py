@@ -117,36 +117,10 @@ def verify_pc_ip_address(request):
 def find_user(request):
     find_user = request.GET.get('find_user', '')
     result = User.objects.prefetch_related("profile").filter(
-        first_name__icontains=find_user).values(
+        first_name__icontains=find_user,profile__role='staff').exclude(pk=request.user.pk).values(
             'id','first_name','last_name','email',
             'profile__role','profile__college__name','profile__course',
             'profile__year','profile__block','profile__school_id')
-    data = {
-        'result': list(result),
-    }
-    return JsonResponse(data, safe=False)
-
-
-@login_required
-def load_messages(request):
-    result = models.Chat.objects.filter(
-        Q(sender=request.user) | Q(recipient=request.user)).values(
-            'recipient__first_name','recipient__last_name','recipient__email','recipient__id',
-            'sender__first_name','sender__last_name','sender__email','sender__id')
-    data = {
-        'result': list(result),
-    }
-    return JsonResponse(data, safe=False)
-
-
-@login_required
-def load_conversation(request, receiver, sender):
-    receiver = User.objects.get(pk=receiver)
-    sender = User.objects.get(pk=sender)
-    result = models.Chat.objects.filter(sender=sender,recipient=receiver).values(
-            'recipient__first_name','recipient__last_name','recipient__email','recipient__id',
-            'sender__id',
-            'message','status','timestamp')
     data = {
         'result': list(result),
     }
@@ -247,6 +221,31 @@ def reserve_pc(request):
         })
 
 
+@login_required
+def load_messages(request):
+    result = models.ChatRoom.objects.filter(
+        Q(initiator=request.user) | Q(receiver=request.user)
+        ).values(
+            'initiator__first_name','initiator__last_name','initiator__email','initiator__id',
+            'receiver__first_name','receiver__last_name','receiver__email','receiver__id','id')
+    data = {
+        'result': list(result),
+    }
+    return JsonResponse(data, safe=False)
+
+
+@login_required
+def load_conversation(request, room_id):
+    result = models.Chat.objects.filter(chatroom=room_id).values(
+            'recipient__first_name','recipient__last_name','recipient__email','recipient__id',
+            'sender__first_name','sender__last_name','sender__email','sender__id','message','timestamp',
+            'chatroom__initiator__id','chatroom__receiver__id','chatroom__id')
+    data = {
+        'result': list(result),
+    }
+    return JsonResponse(data, safe=False)
+
+
 @csrf_exempt
 def send_init_message(request):
     if request.method == "POST":
@@ -254,32 +253,36 @@ def send_init_message(request):
         recipient = request.POST.get("recipient")
         
         recipient = User.objects.get(email=recipient)
-
+        room = models.ChatRoom.objects.create(
+            initiator=request.user,
+            receiver=recipient)
+        
         models.Chat.objects.create(
-            sender=request.user,
-            recipient=recipient,
+            chatroom=room,
+            sender=room.initiator,
+            recipient=room.receiver,
             message=message,
             status="sent"
         )
 
         return JsonResponse({
             "success": True,
-            "message": message
+            "message": message,
+            "sender": room.initiator.pk,
         })
 
 
 @csrf_exempt
-def send_new_message(request):
+def send_new_message(request, room_id):
     if request.method == "POST":
+        room = get_object_or_404(models.ChatRoom, id=room_id)
         message = request.POST.get("message")
-        recipient = request.POST.get("recipient")
-        print("recipient:",recipient)
-        
-        recipient = User.objects.get(email=recipient)
+        # recipient = request.POST.get("recipient")
 
         models.Chat.objects.create(
             sender=request.user,
-            recipient=recipient,
+            recipient=room.receiver,
+            chatroom=room,
             message=message,
             status="sent"
         )
@@ -377,7 +380,6 @@ class PCListView(LoginRequiredMixin, FormMixin, ListView):
             else:
                 prefix_zero = ''
             sort_number = f"{prefix_zero}{sort_number}"
-            print("sort number:", sort_number)
             f.sort_number = sort_number
             f.save()
             return redirect(self.get_success_url())
@@ -472,7 +474,6 @@ class UserActivityListView(LoginRequiredMixin, ListView):
         user_activities = self.get_queryset
         violations = models.Violation.objects.all()
         search_user = self.request.GET.get("search_user")
-        print("search user", search_user)
         if search_user != None:
             users = User.objects.filter(first_name__icontains=search_user)
         else:

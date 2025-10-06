@@ -71,9 +71,15 @@ class Violation(models.Model):
     status = models.CharField(null=True, blank=True, choices=[('suspended','Suspended'), ('active','Active')])
 
 
+class ChatRoom(models.Model):
+    initiator = models.ForeignKey(User, null=True, related_name='chat_room_initiator', on_delete=models.CASCADE)
+    receiver = models.ForeignKey(User, null=True, related_name='chat_room_receiver', on_delete=models.CASCADE)
+
+
 class Chat(models.Model):
-    sender = models.ForeignKey(User, related_name='sent_chats', on_delete=models.CASCADE)
-    recipient = models.ForeignKey(User, related_name='received_chats', on_delete=models.CASCADE)
+    chatroom = models.ForeignKey(ChatRoom, null=True, related_name='chats', on_delete=models.CASCADE)
+    sender = models.ForeignKey(User, null=True, related_name='sent_chats', on_delete=models.CASCADE)
+    recipient = models.ForeignKey(User, null=True, related_name='received_chats', on_delete=models.CASCADE)
     message = models.TextField()
     status = models.CharField(max_length=20, choices=[('sent', 'Sent'), ('delivered', 'Delivered'), ('read', 'Read')])
     timestamp = models.DateTimeField(auto_now_add=True)
