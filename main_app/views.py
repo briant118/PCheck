@@ -277,11 +277,11 @@ def send_new_message(request, room_id):
     if request.method == "POST":
         room = get_object_or_404(models.ChatRoom, id=room_id)
         message = request.POST.get("message")
-        # recipient = request.POST.get("recipient")
+        receiver = room.receiver if room.initiator == request.user else room.initiator
 
         models.Chat.objects.create(
             sender=request.user,
-            recipient=room.initiator,
+            recipient=receiver,
             chatroom=room,
             message=message,
             status="sent"

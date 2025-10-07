@@ -387,15 +387,19 @@
       url: `/ajax/load-conversation/${roomId}`,
       method: "GET",
       success: function(data) {
-        console.log("data:", data);
         chatContainer.empty();
         
         $.each(data.result, function(index, msg) {
-          console.log("msg:", msg);
           if (currentUserId == msg.sender__id || currentUserId == msg.recipient__id) {
-            chatContainer.append(`<div class="message sender">
-              <span style="font-size: small;">Sender: ${msg.sender__first_name}, Receiver: ${msg.recipient__first_name}</span><br>
-              ${msg.message}</div>`);
+            if (currentUserId == msg.sender__id) {
+              chatContainer.append(`<div class="message sender">
+                <span style="font-size: small;">You</span><br>
+                ${msg.message}</div>`);
+            } else {
+              chatContainer.append(`<div class="message receiver">
+                <span style="font-size: small;">${msg.sender__first_name}</span><br>
+                ${msg.message}</div>`);
+            }
           } 
         });
 
@@ -516,7 +520,6 @@
               message: initMessage,
           },
           success: function (response) {
-              // console.log("sender email", response);
               $("#initMessageModal").modal("hide");
               resetTable();
               resetInitMessageForm();
