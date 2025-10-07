@@ -281,7 +281,7 @@ def send_new_message(request, room_id):
 
         models.Chat.objects.create(
             sender=request.user,
-            recipient=room.receiver,
+            recipient=room.initiator,
             chatroom=room,
             message=message,
             status="sent"

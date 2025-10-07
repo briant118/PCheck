@@ -286,7 +286,8 @@
 <script src="{% static 'js/jquery-3.7.1.min.js' %}"></script>
 <script>
   const roomId = $("#roomId").val();
-  const senderId = "{{ request.user.id }}";  // current logged in user
+  const senderId = "{{ request.user.id }}"; 
+  const currentUserId = "{{ request.user.id }}";
 
   const chatSocket = new WebSocket(
     "ws://" + window.location.host + "/ws/chat/" + roomId + "/"
@@ -337,7 +338,7 @@
     }
   }
 
-  function loadMessages(currentUser) {
+  function loadMessages() {
     const messagesBody = $("#messagesTable tbody");
     $.ajax({
       url: "/ajax/load-messages",
@@ -352,7 +353,7 @@
           if (!seenRecipients.has(room.receiver__id)) {
             seenRecipients.add(room.receiver__id);
 
-            if (currentUser == room.receiver__email) {
+            if (currentUserId == room.receiver__id) {
               let row = `<tr class="messagesItem" 
                           data-receiver-id="${room.receiver__id}" data-sender-id=${room.initiator__id} data-room-id=${room.id}
                           data-receiver-email=${room.receiver__email}
@@ -362,7 +363,7 @@
               </tr>`;
   
               messagesBody.append(row);
-            } else if (currentUser == room.initiator__email) {
+            } else if (currentUserId == room.initiator__id) {
               let row = `<tr class="messagesItem" 
                           data-receiver-id="${room.initiator__id}" data-sender-id=${room.receiver__id} data-room-id=${room.id}
                           data-receiver-email=${room.receiver__email}
@@ -379,24 +380,23 @@
     });
   }
   
-  function loadConversation(roomId) { // r=receiverId, s=currentUserId
+  function loadConversation(roomId) {
     const chatContainer = $("#chatContainer");
     
     $.ajax({
       url: `/ajax/load-conversation/${roomId}`,
       method: "GET",
       success: function(data) {
+        console.log("data:", data);
         chatContainer.empty();
         
         $.each(data.result, function(index, msg) {
-          // Check who sent the message
-          if (msg.sender__id == msg.chatroom__initiator__id) {
-            // Current user sent this
-            chatContainer.append(`<div class="message sender">${msg.message}</div>`);
-          } else {
-            // Other user sent this
-            chatContainer.append(`<div class="message receiver">${msg.message}</div>`);
-          }
+          console.log("msg:", msg);
+          if (currentUserId == msg.sender__id || currentUserId == msg.recipient__id) {
+            chatContainer.append(`<div class="message sender">
+              <span style="font-size: small;">Sender: ${msg.sender__first_name}, Receiver: ${msg.recipient__first_name}</span><br>
+              ${msg.message}</div>`);
+          } 
         });
 
         // Scroll to bottom after loading
@@ -456,7 +456,7 @@
       $history.prop("hidden", true);
       $tabViolation.removeClass("active");
       $violation.prop("hidden", true);
-      loadMessages(currentUser);
+      loadMessages();
     });
     
     $tabViolation.on("click", function() {
@@ -559,7 +559,9 @@
         success: function (response) {
           // ✅ append directly to chatContainer
           const chatContainer = $("#chatContainer");
-          chatContainer.append(`<div class="message sender">${newMessage}</div>`);
+          chatContainer.append(`<div class="message sender">
+            <span style="font-size: small;">You</span><br>
+            ${newMessage}</div>`);
 
           // ✅ scroll to bottom
           chatContainer.scrollTop(chatContainer.prop("scrollHeight"));
