@@ -24,5 +24,6 @@ urlpatterns = [
         name='password_reset_complete'),
     path('register/', account_views.register, name='register'),
     path('verify/<email>/', account_views.verify, name='verify'),
-    # path('edit-profile/', account_views.edit_profile, name='edit-profile'),
+    path('profile/', account_views.ProfileDetailView.as_view(), name='profile'),
+    path('edit-profile/<int:pk>/', account_views.ProfileUpdateView.as_view(), name='edit-profile'),
 ]

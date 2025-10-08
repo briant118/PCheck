@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Profile{% endblock %}
+
+{% block content %}
+<div class="container mt-5 pt-5">
+  <div class="card col-md-6 offset-md-3 border rounded shadow-lg mb-5 bg-body">
+    <div class="card-header text-center bg-warning">
+      <h2>Profile</h2>
+    </div>
+    <div class="card-body rounded mb-1 bg-body d-flex">
+      <div class="col-md-8">
+        <h5>
+          {{ profile.user.get_full_name }} <br>
+          <small class="text-muted fs-6">{{ profile.user.email }}</small>
+        </h5>
+        <p><strong>College: </strong>{{ profile.college }}</p>
+        <p><strong>Course: </strong>{{ profile.course }}</p>
+        <p><strong>Year: </strong>{{ profile.year }}</p>
+        <p><strong>Block: </strong>{{ profile.block }}</p>
+      </div>
+      <div class="col-md-4 text-end">
+        <img src="..." class="card-img-end" alt="profile picture">
+      </div>
+    </div>
+    <div class="card-footer">
+      <div class="row">
+        <div class="col-md-6 mb-1 text-start">
+          <a href="{% url 'account:edit-profile' pk=profile.pk %}" class="btn btn-sm btn-secondary mb-1 me-1">update</a>
+          <a href="{% url 'account:password_change' %}" class="btn btn-sm btn-secondary mb-1 me-1">change password</a>
+        </div>
+        <div class="col-md-6 mb-1 text-end">
+          <a href="{% url 'main_app:pc-reservation' %}" class="btn btn-sm btn-secondary ">Home</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

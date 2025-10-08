@@ -5,54 +5,7 @@
 {% block title %}PC List{% endblock %}
 
 {% block links %}
-<style>
-.pc-button {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0px;
-    margin: 1em;
-}
-
-.pc-button:hover {
-    background: none;
-}
-
-.next-button.pc-button:hover {
-    background: #FFC107;
-}
-
-.pc-icon {
-    font-size: 1.7em;
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0px;
-}
-
-.pc-name {
-    font-size: 0.8em;
-    padding: 0px;
-}
-
-.reserve-next-button {
-    font-size: large;
-    width: 100%;
-    border: 1px solid #ccc;   /* light colored border */
-    border-radius: 12px;      /* rounded edges */
-    background-color: transparent;
-    color: inherit;           /* keeps text color consistent */
-    padding: 10px 15px;
-    transition: all 0.3s ease;
-}
-
-.reserve-next-button:hover {
-    background-color:	#FFC107; /* hover color */
-    border-color: #FFC107;     /* optional: border changes with hover */
-    color: #000;              /* make text readable on yellow */
-    font-style: normal;
-}
-</style>
+<link rel="stylesheet" href="{% static 'css/booking.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -70,10 +23,10 @@
             <div class="col-3 col-md-2 col-sm-2 col-xs-2 mb-4"> <!-- 5 equal columns (12/5 ≈ 2.4, use col-md-2 and centering) -->
           {% endif %}
 
-              <div class="mb-2 pc-container">
+              <div class="mb-2 pc-container text-black">
                 <button class="pc-button {% if pc.booking_status == 'in_use' %}text-danger{% elif pc.booking_status == 'in_queue' %}text-warning{% endif %}" 
                   data-pc-id="{{ pc.id }}" data-pc-name="{{ pc.name }}" {% if pc.booking_status == 'in_use' or pc.booking_status == 'in_queue' %}disabled{% endif %}>
-                  <i class="fa-solid fa-desktop pc-icon"></i><br>
+                  <i class="fa-solid fa-desktop" style="font-size: 1.7em;background: none;border: none;cursor: pointer;padding: 0px;"></i><br>
                   <span class="pc-name">{{ pc.name|get_int }}</span>
                 </button>
               </div>
@@ -89,7 +42,7 @@
         <ul class="pagination justify-content-center">
           {% if page_obj.has_previous %}
             <li class="page-item">
-              <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+              <a class="page-link" id="pageNavPrev" href="?page={{ page_obj.previous_page_number }}">
                 <i class="fa-solid fa-arrow-left-long"></i>
               </a>
             </li>
@@ -97,7 +50,7 @@
   
           {% if page_obj.has_next %}
             <li class="page-item">
-              <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+              <a class="page-link" id="pageNavNext" href="?page={{ page_obj.next_page_number }}">
                 <i class="fa-solid fa-arrow-right-long"></i>
               </a>
             </li>
@@ -113,16 +66,24 @@
         <!-- Left column: Legend -->
         <div id="legend" class="col-6 col-md-4 text-start">
           <span class="legend-item fs-6">
-            <i class="fa-solid fa-desktop"></i> Available
+            <button style="border: none; background: none; cursor:default;" readonly>
+              <i class="fa-solid fa-desktop"></i> <span style="color: black;">Available</span>
+            </button>
           </span><br>
           <span class="legend-item fs-6">
-            <i class="fa-solid fa-desktop text-success"></i> Selected
+            <button style="border: none; background: none; cursor:default; color: black;" readonly>
+              <i class="fa-solid fa-desktop text-success"></i> Selected
+            </button>
           </span><br>
           <span class="legend-item fs-6">
-            <i class="fa-solid fa-desktop text-warning"></i> In Queue
+            <button style="border: none; background: none; cursor:default; color: black;" readonly>
+              <i class="fa-solid fa-desktop text-warning"></i> In Queue
+            </button>
           </span><br>
           <span class="legend-item fs-6">
-            <i class="fa-solid fa-desktop text-danger"></i> In Use
+            <button style="border: none; background: none; cursor:default; color: black;" readonly>
+              <i class="fa-solid fa-desktop text-danger"></i> In Use
+            </button>
           </span>
         </div>
 
@@ -181,6 +142,24 @@
         </div>
       </div>
 
+      <!-- Remaining Time Modal -->
+      <div class="modal fade" id="timeRemainingModal" tabindex="-1" aria-labelledby="timeRemainingLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content text-center">
+            <div class="modal-header bg-warning">
+              <h5 class="modal-title" id="timeRemainingLabel">Booking Active</h5>
+            </div>
+            <div class="modal-body text-center bg-dark text-white ps-2 pt-10 pe-2 pb-10">
+              <i class="fa-solid fa-desktop mb-2" style="font-size: xx-large;"></i>
+              <p>Your booking is confirmed ✅</p>
+              <p>Time remaining 
+                <br> 
+                <span class="fw-bold" id="timeRemaining"></span>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
         
     </div>
 

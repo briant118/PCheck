@@ -216,7 +216,7 @@ def reservation_approved(request, pk):
     booking.status = 'confirmed'
     booking.save()
     messages.success(request, "Reservation has been approved.")
-    return HttpResponseRedirect(reverse_lazy('main_app:dashboard'))
+    return HttpResponseRedirect(reverse_lazy('main_app:bookings'))
 
 
 @login_required
@@ -387,9 +387,33 @@ class UserActivityListView(LoginRequiredMixin, ListView):
         bookings = models.Booking.objects.all()
         user_activities = self.get_queryset
         violations = models.Violation.objects.all()
+        search_user = self.request.GET.get("search_user")
+        print("search user", search_user)
+        if search_user != None:
+            users = User.objects.filter(first_name__icontains=search_user)
+        else:
+            users = User.objects.all()
         context = {
             "user_activities": user_activities,
             "violations": violations,
             "section": "user",
+            "users": users,
+            "search_user": self.request.GET.get('search_user', ''),
         }
         return context
+
+
+class UserListView(LoginRequiredMixin, ListView):
+    model = User
+    template_name = "main/users.html"
+    context_object_name = "users"
+    success_url = reverse_lazy("main_app:dashboard")
+    paginate_by = 50
+    
+    def get_queryset(self):
+        qs = super().get_queryset()
+        search_user = self.request.GET.get("search-user")
+
+        if search_user != "":
+            qs = qs.filter(name__icontains=search_user)
+        return qs

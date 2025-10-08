@@ -1,11 +1,15 @@
 from urllib import request
 from django.shortcuts import render, redirect
 from django.contrib.auth.views import LoginView
+from django.contrib.messages.views import SuccessMessageMixin
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth import authenticate, login, logout
+from django.urls import reverse_lazy, reverse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.contrib.auth.hashers import make_password
 from django.core.mail import send_mail
+from django.views.generic import TemplateView, CreateView, ListView, UpdateView, DetailView
 from django.contrib.auth.models import User
 from django.contrib.auth.backends import ModelBackend
 from . import forms
@@ -40,12 +44,36 @@ class CustomLoginView(LoginView):
     def get_success_url(self):
         user = self.request.user
         if user.profile.role == 'student' or user.profile.role == 'faculty':
-            return '/reserve-pc/'
+            return '/pc-reservation/'
         elif user.profile.role == 'staff':
             return '/'
         return '/'
-    
 
+
+class ProfileDetailView(LoginRequiredMixin, TemplateView):
+    template_name = 'account/profile.html'
+    
+    def get_context_data(self, **kwargs):
+        profile = models.Profile.objects.get(user=self.request.user)
+        context = super().get_context_data(**kwargs)
+        context.update({
+            'profile': profile,
+        })
+        return context
+        
+
+class ProfileUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
+    form_class = forms.ProfileEditForm
+    success_message = 'successfully updated!'
+    template_name = 'account/edit_profile.html'
+
+    def get_success_url(self):
+        return reverse_lazy('account:profile')
+
+    def get_queryset(self, **kwargs):
+        return models.Profile.objects.filter(pk=self.kwargs['pk'])
+    
+    
 @login_required
 def dashboard(request):
     return render(request, 'account/dashboard.html')
