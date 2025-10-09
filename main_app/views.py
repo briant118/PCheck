@@ -14,6 +14,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.views.generic import TemplateView, CreateView, ListView, UpdateView, DetailView
 from django.views.generic.edit import FormMixin
+from django.contrib.auth.decorators import permission_required
 from django.db.models import Count
 from datetime import datetime, timedelta
 from django.contrib.auth.models import User
@@ -117,7 +118,7 @@ def verify_pc_ip_address(request):
 def find_user(request):
     find_user = request.GET.get('find_user', '')
     result = User.objects.prefetch_related("profile").filter(
-        first_name__icontains=find_user,profile__role='staff').exclude(pk=request.user.pk).values(
+        first_name__icontains=find_user).exclude(pk=request.user.pk).values(
             'id','first_name','last_name','email',
             'profile__role','profile__college__name','profile__course',
             'profile__year','profile__block','profile__school_id')

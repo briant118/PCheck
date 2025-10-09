@@ -12,6 +12,7 @@ from django.core.mail import send_mail
 from django.views.generic import TemplateView, CreateView, ListView, UpdateView, DetailView
 from django.contrib.auth.models import User
 from django.contrib.auth.backends import ModelBackend
+from django.contrib.auth.decorators import permission_required
 from . import forms
 from . import models
 
@@ -75,8 +76,13 @@ class ProfileUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
     
     
 @login_required
+@permission_required('account.view_dashboard', raise_exception=True)
 def dashboard(request):
     return render(request, 'account/dashboard.html')
+
+
+def about(request):
+    return render(request, 'about.html')
 
 
 def custom_logout_view(request):
