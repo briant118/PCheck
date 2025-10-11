@@ -18,6 +18,10 @@ from . import models
 
 
 
+def permission_denied_view(request, exception):
+        return render(request, 'permission_denied.html', status=403)
+    
+
 class EmailPrefixBackend(ModelBackend):
     def authenticate(self, request, username=None, password=None, **kwargs):
         if username is None or password is None:

@@ -16,6 +16,7 @@ from django.views.generic import TemplateView, CreateView, ListView, UpdateView,
 from django.views.generic.edit import FormMixin
 from django.contrib.auth.decorators import permission_required
 from django.db.models import Count
+from django.db.models import Prefetch
 from datetime import datetime, timedelta
 from django.contrib.auth.models import User
 from account.models import Profile
@@ -224,15 +225,41 @@ def reserve_pc(request):
 
 @login_required
 def load_messages(request):
-    result = models.ChatRoom.objects.filter(
+    chatrooms = models.ChatRoom.objects.filter(
         Q(initiator=request.user) | Q(receiver=request.user)
-        ).values(
-            'initiator__first_name','initiator__last_name','initiator__email','initiator__id',
-            'receiver__first_name','receiver__last_name','receiver__email','receiver__id','id')
-    data = {
-        'result': list(result),
-    }
-    return JsonResponse(data, safe=False)
+    ).prefetch_related(
+        Prefetch('chats', queryset=models.Chat.objects.all().order_by('-timestamp'))
+    )
+
+    result = []
+    for room in chatrooms:
+        room_data = {
+            'id': room.id,
+            'initiator': {
+                'id': room.initiator.id,
+                'first_name': room.initiator.first_name,
+                'last_name': room.initiator.last_name,
+                'email': room.initiator.email,
+            },
+            'receiver': {
+                'id': room.receiver.id,
+                'first_name': room.receiver.first_name,
+                'last_name': room.receiver.last_name,
+                'email': room.receiver.email,
+            },
+            'chats': [
+                {
+                    'id': chat.id,
+                    'message': chat.message,
+                    'status': chat.status,
+                    'timestamp': chat.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                }
+                for chat in room.chats.all()
+            ]
+        }
+        result.append(room_data)
+
+    return JsonResponse({'result': result})
 
 
 @login_required
@@ -336,6 +363,19 @@ def suspend(request, pk):
     messages.success(request, "Account suspended!")
     return HttpResponseRedirect(reverse_lazy('main_app:user-activities'))
 
+
+@login_required
+@csrf_exempt
+def change_message_status(request):
+    if request.method == "POST":
+        room_id = request.POST.get("room_id")
+        chat = models.Chat.objects.filter(chatroom=room_id,status="sent")
+        chat.update(status="read")
+        
+        return JsonResponse({
+            "success": True,
+        })
+        
 
 class PCListView(LoginRequiredMixin, FormMixin, ListView):
     model = models.PC
@@ -474,6 +514,8 @@ class UserActivityListView(LoginRequiredMixin, ListView):
         bookings = models.Booking.objects.all()
         user_activities = self.get_queryset
         violations = models.Violation.objects.all()
+        unread_messages = models.Chat.objects.filter(
+            recipient=self.request.user, status="sent").count()
         search_user = self.request.GET.get("search_user")
         if search_user != None:
             users = User.objects.filter(first_name__icontains=search_user)
@@ -487,6 +529,7 @@ class UserActivityListView(LoginRequiredMixin, ListView):
             "users": users,
             "chat": chat,
             "search_user": self.request.GET.get('search_user', ''),
+            "unread_messages": unread_messages,
         }
         return context
 

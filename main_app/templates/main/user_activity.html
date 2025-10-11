@@ -76,7 +76,10 @@
     {% endif %}
     <li class="nav-item">
       <a class="nav-link" id="tabChat" data-bs-toggle="tab" data-current-user="{{ request.user.email }}" href="#chat">
-        Chat <span class="badge bg-danger rounded-pill">3</span>
+        Chat 
+        {% if unread_messages > 0 %}
+        <span class="badge bg-danger rounded-pill">{{ unread_messages }}</span>
+        {% endif %}
       </a>
     </li>
     {% if request.user.profile.role == 'staff' %}
@@ -358,27 +361,35 @@
         let seenRecipients = new Set();
 
         $.each(data.result, function (index, room) {
-          if (!seenRecipients.has(room.receiver__id)) {
-            seenRecipients.add(room.receiver__id);
+          if (!seenRecipients.has(room.receiver.id)) {
+            seenRecipients.add(room.receiver.id);
 
-            if (currentUserId == room.receiver__id) {
+            if (currentUserId == room.receiver.id) {
               let row = `<tr class="messagesItem" 
-                          data-receiver-id="${room.receiver__id}" data-sender-id=${room.initiator__id} data-room-id=${room.id}
-                          data-receiver-email=${room.receiver__email}
-                          data-receiver-fname=${room.receiver__first_name} data-receiver-lname=${room.receiver__last_name}
-                          data-initiator-fname=${room.initiator__first_name} data-initiator-lname=${room.initiator__last_name}>
-                  <td>${room.initiator__first_name} ${room.initiator__last_name}</td>
+                          data-receiver-id="${room.receiver.id}" data-sender-id=${room.initiator.id} data-room-id=${room.id}
+                          data-receiver-email=${room.receiver.email}
+                          data-receiver-fname=${room.receiver.first_name} data-receiver-lname=${room.receiver.last_name}
+                          data-initiator-fname=${room.initiator.first_name} data-initiator-lname=${room.initiator.last_name}>
+                  <td>${room.initiator.first_name} ${room.initiator.last_name}</td>
               </tr>`;
+              console.log("chat status:", room.chats.status);
+              if (room.chats.some(chat => chat.status === "sent")) {
+                row = $(row).addClass("text-primary");
+              }
   
               messagesBody.append(row);
-            } else if (currentUserId == room.initiator__id) {
+            } else if (currentUserId == room.initiator.id) {
               let row = `<tr class="messagesItem" 
-                          data-receiver-id="${room.initiator__id}" data-sender-id=${room.receiver__id} data-room-id=${room.id}
-                          data-receiver-email=${room.receiver__email}
-                          data-receiver-fname=${room.receiver__first_name} data-receiver-lname=${room.receiver__last_name}
-                          data-initiator-fname=${room.initiator__first_name} data-initiator-lname=${room.initiator__last_name}>
-                  <td>${room.receiver__first_name} ${room.receiver__last_name}</td>
+                          data-receiver-id="${room.initiator.id}" data-sender-id=${room.receiver.id} data-room-id=${room.id}
+                          data-receiver-email=${room.receiver.email}
+                          data-receiver-fname=${room.receiver.first_name} data-receiver-lname=${room.receiver.last_name}
+                          data-initiator-fname=${room.initiator.first_name} data-initiator-lname=${room.initiator.last_name}>
+                  <td>${room.receiver.first_name} ${room.receiver.last_name}</td>
               </tr>`;
+              console.log("chat status:", room.chats.status);
+              if (room.chats.some(chat => chat.status === "sent")) {
+                row = $(row).addClass("text-primary");
+              }
   
               messagesBody.append(row);
             }
@@ -434,6 +445,20 @@
   function sendInitMessage() {
     $("#initMessageModal").modal("show");
     $("#recipient").val(email).prop("disabled",true);
+  }
+
+  function changeMessageStatus(roomId) {
+    $.ajax({
+      url: "/ajax/change-message-status/",
+      method: "POST",
+      data: { room_id: roomId },
+      success: function (data) {
+        console.log("Message status updated");
+      },
+      error: function (xhr, status, error) {
+        console.error("Error updating message status:", error);
+      }
+    });
   }
 
   $("#user-activities-container").on("load", function() {
@@ -618,6 +643,7 @@
         }
         $("#conversationModal").modal("show");
         loadConversation(roomId);
+        changeMessageStatus(roomId);
     });
 
   });

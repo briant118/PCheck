@@ -37,6 +37,7 @@ urlpatterns = [
     path('ajax/find-user/', views.find_user, name='find-user'),
     path('ajax/load-messages/', views.load_messages, name='load-messages'),
     path('ajax/load-conversation/<int:room_id>/', views.load_conversation, name='load-conversation'),
+    path('ajax/change-message-status/', views.change_message_status, name='change-message-status'),
     
     # Reporting
     path('booking-data/', views.bookings_by_college, name='booking-data'),
