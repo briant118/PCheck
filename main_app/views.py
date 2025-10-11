@@ -498,6 +498,11 @@ class ReservePCListView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         qs = super().get_queryset()
         return qs.filter(status='connected').order_by('sort_number')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['total_pc'] = models.PC.objects.filter(status='connected').count()  # 👈 total number of PCs in database
+        return context
     
 
 class UserActivityListView(LoginRequiredMixin, ListView):

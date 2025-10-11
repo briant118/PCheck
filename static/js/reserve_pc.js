@@ -1,19 +1,22 @@
 $(document).ready(function () {
   const $pcButton = $(".pc-button");
   const $nextButton = $(".reserve-next-button");
+  const $blockButton = $(".book-block-button");
   const $pageNav = $("#page-nav");
 
   $pcButton.click(function () {
     $(this).toggleClass("text-success");
     $("#pc_id").val($(this).data("pc-id"));
-    $pcButton.not(this).prop("disabled", true); // Disable other buttons
-    $pageNav.attr("hidden", true); // Hide pag navigation
-    $nextButton.prop("hidden", !$pcButton.filter(".text-success").length); // Enable next button if any selected
-    if (!$(this).hasClass("text-success")) {
-      $pcButton.prop("disabled", false); // Re-enable all buttons if none selected
-      $nextButton.prop("hidden", true); // Disable next button
-      $pageNav.prop("hidden", false);
-    }
+
+    const hasSelected = $pcButton.filter(".text-success").length > 0;
+
+    // disable other buttons when one is selected, show/hide page nav
+    $pcButton.not(this).prop("disabled", hasSelected);
+    $pageNav.prop("hidden", hasSelected);
+
+    // next visible when any selected; block hidden when any selected
+    $nextButton.prop("hidden", !hasSelected);
+    $blockButton.prop("hidden", hasSelected);
   });
 
   const reserveUrl = $("#generate-qr-button").data("reserve-url");
@@ -161,5 +164,10 @@ $(document).ready(function () {
         }
       });
     }, 1000);
+  });
+
+  $blockButton.on("click", function () {
+    $("#students-booking").hide();
+    $("#faculty-booking").prop("hidden", false);
   });
 });
