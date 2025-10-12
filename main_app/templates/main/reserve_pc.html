@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load template_filters %}
+{% load math_filters %}
 {% load static %}
 
 {% block title %}PC List{% endblock %}
@@ -65,32 +66,21 @@
         <div class="text-center h6">Select Number of PCs</div>
         <div class="row justify-content-center text-center">
           <div class="mb-2 pc-container text-black">
-            <button class="pc-number-group" id="pcs-5">
-              <span>5</span>
-            </button>
-            <button class="pc-number-group" id="pcs-10">
-              <span>10</span>
-            </button>
-            <button class="pc-number-group" id="pcs-15">
-              <span>15</span>
-            </button>
-            <button class="pc-number-group" id="pcs-20">
-              <span>20</span>
-            </button>
+            {% for i in total_pc|divide:5|integer|to_range %}
+              <button class="pc-number-group" id="pcs-5">
+                <span>{{ i|multiply:5 }}</span>
+              </button>
+            {% endfor %}
+              <button class="pc-number-group" id="pcs-5">
+                <span>{{ total_pc }}</span>
+              </button>
           </div>
-          <!-- <div class="input-group justify-content-center" style="max-width:300px; margin:auto;"> -->
-            <!-- <label for="numOfPc">Custom: </label><br>
+          <div class="input-group justify-content-center mb-3" style="max-width:250px; margin:auto;">
+            <span class="input-group-text" id="basic-addon1">Custom</span>
+            <input type="number" id="numOfPc" name="numOfPc" class="form-control text-center" value="0" min="0">
             <button class="btn btn-outline-secondary" type="button" id="fb-minusBtn">−</button>
-            <input type="number" id="numOfPc" name="numOfPc" class="form-control text-center" value="1" min="1">
-            <button class="btn btn-outline-secondary" type="button" id="fb-plusBtn">+</button> -->
-
-            <div class="input-group justify-content-center mb-3" style="max-width:250px; margin:auto;">
-              <span class="input-group-text" id="basic-addon1">Custom</span>
-              <input type="number" id="numOfPc" name="numOfPc" class="form-control text-center" value="1" min="1">
-              <button class="btn btn-outline-secondary" type="button" id="fb-minusBtn">−</button>
-              <button class="btn btn-outline-secondary" type="button" id="fb-plusBtn">+</button>
-            </div>
-          <!-- </div> -->
+            <button class="btn btn-outline-secondary" type="button" id="fb-plusBtn">+</button>
+          </div>
         </div>
       </div> <!-- end of faculty-booking -->
 
@@ -123,9 +113,16 @@
           </span>
         </div>
 
+        {% if request.user.profile.role == 'faculty' %}
         <!-- Right column: Block button -->
         <div class="col-6 col-md-4 text-center">
-          <button class="book-block-button">Book a Block <i class="fa-solid fa-chevron-right"></i></button>
+          <button class="book-block-button" id="block-button">Book a Block</button>
+        </div>
+        {% endif %}
+        
+        <!-- Right column: Block button next -->
+        <div class="col-6 col-md-4 text-center">
+          <button class="book-block-button" id="block-button-next" hidden>Next <i class="fa-solid fa-chevron-right"></i></button>
         </div>
         
         <!-- Right column: Next button -->

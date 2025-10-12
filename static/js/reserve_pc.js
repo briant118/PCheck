@@ -1,7 +1,8 @@
 $(document).ready(function () {
   const $pcButton = $(".pc-button");
   const $nextButton = $(".reserve-next-button");
-  const $blockButton = $(".book-block-button");
+  const $blockButton = $("#block-button");
+  const $blockButtonNext = $("#block-button-next");
   const $pageNav = $("#page-nav");
 
   $pcButton.click(function () {
@@ -27,6 +28,44 @@ $(document).ready(function () {
   });
 
   // Plus and minus buttons
+  $("#plusBtn").click(function () {
+    let current = parseInt($("#durationInput").val()) || 0;
+    $("#durationInput").val(current + 5); // increment by 5 mins
+    if (current > 170) {
+      $(this).prop("disabled", true);
+    }
+  });
+
+  $("#minusBtn").click(function () {
+    let current = parseInt($("#durationInput").val()) || 0;
+    if (current > 1) {
+      $("#durationInput").val(current - 5); // decrement by 5 mins
+    }
+    if (current < 185) {
+      $("#plusBtn").prop("disabled", false);
+    }
+  });
+
+  // Plus and minus fb buttons
+  $("#fb-plusBtn").click(function () {
+    let current = parseInt($("#numOfPc").val()) || 0;
+    $("#numOfPc").val(current + 1); // increment by 1
+    if (current > 15) {
+      $(this).prop("disabled", true);
+    }
+  });
+
+  $("#fb-minusBtn").click(function () {
+    let current = parseInt($("#numOfPc").val()) || 0;
+    if (current >= 1) {
+      $("#numOfPc").val(current - 1); // decrement by 1
+    }
+    if (current < 15) {
+      $("#fb-plusBtn").prop("disabled", false);
+    }
+  });
+
+  // Plus button with max limit of 180 mins
   $("#plusBtn").click(function () {
     let current = parseInt($("#durationInput").val()) || 0;
     $("#durationInput").val(current + 5); // increment by 5 mins
@@ -169,5 +208,6 @@ $(document).ready(function () {
   $blockButton.on("click", function () {
     $("#students-booking").hide();
     $("#faculty-booking").prop("hidden", false);
+    $(this).prop("hidden", true);
   });
 });
