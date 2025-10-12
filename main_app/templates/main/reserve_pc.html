@@ -122,17 +122,18 @@
 
           <!-- Step 3: Attachment -->
           <div class="step" id="step3">
-            <h5 class="mb-5">Please provide the request letter with Dean's approval</h5>
+            <h5 class="mb-5 text-center">Kindly submit the request letter duly approved by the Dean.</h5>
             <input type="file" name="attachment" id="attachment" class="form-control mb-2" accept=".pdf,.doc,.docx,.jpg,.png">
             <div class="text-center">
-              <button type="submit" class="next-button" id="facultyFormSubmit">Submit</button>
+              <button type="submit" class="next next-button" data-next="step4" id="facultyFormSubmit">Submit</button>
             </div>
           </div>
+          <!-- Confirmation -->
+          <div class="step text-center" id="step4">
+            <p class="fs-5 mb-5">Thank you! Your request has been successfully submitted and is now pending approval.<br>A confirmation email will be sent to you once approved.</p>
+            <a href="{% url 'main_app:home' %}" class="btn btn-sm btn-secondary"><i class="fa-solid fa-chevron-left"></i> back to home page</a>
+          </div>
         </form>
-        <!-- Confirmation -->
-        <div class="step text-center" id="step4" hidden>
-          <p class="fs-5">Thank you! Your request has been successfully submitted and is now pending approval.<br>A confirmation email will be sent to you once approved.</p>
-        </div>
       </div>
 
       <!-- Duration Modal -->

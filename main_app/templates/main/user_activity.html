@@ -86,9 +86,6 @@
     <li class="nav-item">
       <a class="nav-link" id="tabViolation" data-bs-toggle="tab" href="#violation">Violation</a>
     </li>
-    <li class="nav-item">
-      <a class="nav-link" id="tabSuspension" data-bs-toggle="tab" href="#suspension">Suspension</a>
-    </li>
     {% endif %}
   </ul>
 
@@ -515,11 +512,6 @@
       $history.prop("hidden", true);
       $tabChat.removeClass("active");
       $chat.prop("hidden", true);
-    });
-
-    // Show violation form
-    $suspendButton.click(function () {
-      $("#violationModal").modal("show");
     });
 
     $("#suspend-button-submit").click(function () {

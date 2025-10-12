@@ -129,19 +129,6 @@ def find_user(request):
     return JsonResponse(data, safe=False)
 
 
-# @login_required
-# def add_pc(request):
-#     if request.method == 'POST':
-#         form = forms.CreatePCForm(request.POST, request.FILES)
-#         if form.is_valid():
-#             form.save()
-#             return HttpResponseRedirect(reverse_lazy('main_app:pc-list'))
-#     else:
-#         form = forms.CreatePCForm()
-
-#     return render(request,'main/add_pc.html',{'form':form})
-
-
 @login_required
 def add_pc_from_form(request):
     if request.method == "POST":

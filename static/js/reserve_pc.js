@@ -234,9 +234,7 @@ $(document).ready(function () {
     $("#" + nextStep).addClass("active");
   });
 
-  $("#facultyFormSubmit").click(function () {
-    $("#step3").prop("hidden", true);
-    $("#step4").prop("hidden", false);
-    $("#step4").addClass("active");
+  $("#facultyFormSubmit").click(function (e) {
+    e.preventDefault();
   });
 });

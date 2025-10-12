@@ -49,9 +49,9 @@ class CustomLoginView(LoginView):
     def get_success_url(self):
         user = self.request.user
         if user.profile.role == 'student' or user.profile.role == 'faculty':
-            return '/pc-reservation/'
-        elif user.profile.role == 'staff':
             return '/'
+        elif user.profile.role == 'staff':
+            return '/dashboard/'
         return '/'
 
 
@@ -83,6 +83,11 @@ class ProfileUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
 @permission_required('account.view_dashboard', raise_exception=True)
 def dashboard(request):
     return render(request, 'account/dashboard.html')
+
+
+@login_required
+def sf_home(request):
+    return render(request, 'main/sf_home.html')
 
 
 def about(request):
