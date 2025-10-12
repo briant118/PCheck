@@ -4,6 +4,7 @@ $(document).ready(function () {
   const $blockButton = $("#block-button");
   const $blockButtonNext = $("#block-button-next");
   const $pageNav = $("#page-nav");
+  const $pcGroupButton = $(".pc-group-number");
 
   $pcButton.click(function () {
     $(this).toggleClass("text-success");
@@ -207,7 +208,35 @@ $(document).ready(function () {
 
   $blockButton.on("click", function () {
     $("#students-booking").hide();
-    $("#faculty-booking").prop("hidden", false);
+    $("#legend").hide();
+    $("#faculty-booking-pc-group").prop("hidden", false);
     $(this).prop("hidden", true);
+  });
+
+  $pcGroupButton.click(function () {
+    $(this).toggleClass("bg-warning");
+    const hasSelected = $pcGroupButton.filter(".bg-warning").length > 0;
+    // disable other buttons when one is selected
+    $pcGroupButton.not(this).prop("disabled", hasSelected);
+    $blockButtonNext.prop("hidden", !hasSelected);
+  });
+
+  $blockButtonNext.click(function () {
+    $("#legend-and-control").prop("hidden", true);
+    $("#faculty-booking-pc-group").prop("hidden", true);
+    $("#faculty-form-section").prop("hidden", false);
+  });
+
+  $(".next").click(function(){
+    var nextStep = $(this).data("next");
+
+    $(this).closest(".step").removeClass("active");
+    $("#" + nextStep).addClass("active");
+  });
+
+  $("#facultyFormSubmit").click(function () {
+    $("#step3").prop("hidden", true);
+    $("#step4").prop("hidden", false);
+    $("#step4").addClass("active");
   });
 });

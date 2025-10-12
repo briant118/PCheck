@@ -129,17 +129,17 @@ def find_user(request):
     return JsonResponse(data, safe=False)
 
 
-@login_required
-def add_pc(request):
-    if request.method == 'POST':
-        form = forms.CreatePCForm(request.POST, request.FILES)
-        if form.is_valid():
-            form.save()
-            return HttpResponseRedirect(reverse_lazy('main_app:pc-list'))
-    else:
-        form = forms.CreatePCForm()
+# @login_required
+# def add_pc(request):
+#     if request.method == 'POST':
+#         form = forms.CreatePCForm(request.POST, request.FILES)
+#         if form.is_valid():
+#             form.save()
+#             return HttpResponseRedirect(reverse_lazy('main_app:pc-list'))
+#     else:
+#         form = forms.CreatePCForm()
 
-    return render(request,'main/add_pc.html',{'form':form})
+#     return render(request,'main/add_pc.html',{'form':form})
 
 
 @login_required
@@ -163,6 +163,17 @@ def add_pc_from_form(request):
                 "pc_list": models.PC.objects.all(),
             }
             return render(request, "main/pc_list.html", context)
+        
+        sort_num = extract_number(name)
+        value_length = len(str(sort_num))
+        if value_length == 1:
+            prefix_zero = '00'
+        elif value_length == 2:
+            prefix_zero = '0'
+        else:
+            prefix_zero = ''
+        
+        sort_number = f"{prefix_zero}{sort_num}"
 
         # If no errors, create PC
         models.PC.objects.create(
@@ -170,6 +181,7 @@ def add_pc_from_form(request):
             ip_address=ip_address,
             status='connected',
             system_condition='active',
+            sort_number=sort_number
         )
         messages.success(request, "PC added successfully.")
         return HttpResponseRedirect(reverse_lazy('main_app:pc-list'))

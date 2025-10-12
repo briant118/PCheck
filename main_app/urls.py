@@ -8,7 +8,7 @@ app_name = 'main_app'
 
 urlpatterns = [
     path('', account_views.dashboard, name='dashboard'),
-    path('add-pc/', views.add_pc, name='add-pc'),
+    # path('add-pc/', views.add_pc, name='add-pc'),
     path('delete-pc/<int:pk>/', views.delete_pc, name='delete-pc'),
     path('violation-suspend/<int:pk>/', views.suspend, name='violation-suspend'),
     path('reservation-approved/<int:pk>/', views.reservation_approved, name='reservation-approved'),

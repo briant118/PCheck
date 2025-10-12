@@ -40,7 +40,7 @@
         </div>
   
         {% if is_paginated %}
-        <nav class="mt-4" id="page-nav">
+        <nav class="mt-4" id="page-nav"> <!-- Pagination controls -->
           <ul class="pagination justify-content-center">
             {% if page_obj.has_previous %}
               <li class="page-item">
@@ -62,18 +62,18 @@
         {% endif %}
       </div> <!-- end of students-booking -->
 
-      <div id="faculty-booking" hidden> <!-- faculty-booking -->
+      <div id="faculty-booking-pc-group" hidden> <!-- faculty-booking-pc-group -->
         <div class="text-center h6">Select Number of PCs</div>
         <div class="row justify-content-center text-center">
           <div class="mb-2 pc-container text-black">
-            {% for i in total_pc|divide:5|integer|to_range %}
-              <button class="pc-number-group" id="pcs-5">
-                <span>{{ i|multiply:5 }}</span>
-              </button>
-            {% endfor %}
-              <button class="pc-number-group" id="pcs-5">
-                <span>{{ total_pc }}</span>
-              </button>
+          {% for i in total_pc|divide:5|integer|to_range %}
+            <button class="pc-group-number" id="pcs-{{ i|multiply:5 }}">
+              <span>{{ i|multiply:5 }}</span>
+            </button>
+          {% endfor %}
+            <button class="pc-group-number" id="pcs-{{ total_pc }}">
+              <span>{{ total_pc }}</span>
+            </button>
           </div>
           <div class="input-group justify-content-center mb-3" style="max-width:250px; margin:auto;">
             <span class="input-group-text" id="basic-addon1">Custom</span>
@@ -82,54 +82,57 @@
             <button class="btn btn-outline-secondary" type="button" id="fb-plusBtn">+</button>
           </div>
         </div>
-      </div> <!-- end of faculty-booking -->
+      </div> <!-- end of faculty-booking-pc-group -->
 
-    </div> <!-- end of card-body -->
-    
-    <div id="control" class="container mb-4">
-      <div class="row justify-content-center align-items-center">
-        
-        <!-- Left column: Legend -->
-        <div id="legend" class="col-6 col-md-4 text-start">
-          <span class="legend-item fs-6">
-            <button style="border: none; background: none; cursor:default;" readonly>
-              <i class="fa-solid fa-desktop"></i> <span style="color: black;">Available</span>
-            </button>
-          </span><br>
-          <span class="legend-item fs-6">
-            <button style="border: none; background: none; cursor:default; color: black;" readonly>
-              <i class="fa-solid fa-desktop text-success"></i> Selected
-            </button>
-          </span><br>
-          <span class="legend-item fs-6">
-            <button style="border: none; background: none; cursor:default; color: black;" readonly>
-              <i class="fa-solid fa-desktop text-warning"></i> In Queue
-            </button>
-          </span><br>
-          <span class="legend-item fs-6">
-            <button style="border: none; background: none; cursor:default; color: black;" readonly>
-              <i class="fa-solid fa-desktop text-danger"></i> In Use
-            </button>
-          </span>
-        </div>
+      <!-- Faculty Form -->
+      <div class="form-section card-body p-4" id="faculty-form-section" hidden>
+        <form id="facultyForm" method="post" enctype="multipart/form-data">
+          {% csrf_token %}
+          <!-- Step 1 -->
+          <div class="step active" id="step1">
+            <h3 class="text-center">Please fill up the form</h3>
+            <br>
+            <div class="justify-content-center">
+              <label for="course" class="form-label">Course</label><br>
+              <input type="text" id="course" name="course" class="form-control"><br>
+              <label for="block" class="form-label">Block</label><br>
+              <input type="text" id="block" name="block" class="form-control"><br>
+              <label for="college" class="form-label">College</label><br>
+              <input type="text" id="college" name="college" class="form-control"><br>
+              <label for="dateStart" class="form-label">Start date</label><br>
+              <input type="date" id="dateStart" name="dateStart" class="form-control"><br>
+              <label for="dateEnd" class="form-label">End date</label><br>
+              <input type="date" id="dateEnd" name="dateEnd" class="form-control">
+            </div>
+            <div class="text-center">
+              <button type="button" class="next next-button" data-next="step2">Next</button>
+            </div>
+          </div>
 
-        {% if request.user.profile.role == 'faculty' %}
-        <!-- Right column: Block button -->
-        <div class="col-6 col-md-4 text-center">
-          <button class="book-block-button" id="block-button">Book a Block</button>
-        </div>
-        {% endif %}
-        
-        <!-- Right column: Block button next -->
-        <div class="col-6 col-md-4 text-center">
-          <button class="book-block-button" id="block-button-next" hidden>Next <i class="fa-solid fa-chevron-right"></i></button>
-        </div>
-        
-        <!-- Right column: Next button -->
-        <div class="col-6 col-md-4 text-center">
-          <button class="reserve-next-button" hidden>Next <i class="fa-solid fa-chevron-right"></i></button>
-        </div>
+          <!-- Step 2: Email addresses -->
+          <div class="step" id="step2">
+            <h6>List of students' email - must be valid email addresses (separated by commas)</h6>
+            <div class="d-flex mb-2" style="max-width: auto;">
+              <textarea name="emailList" id="emailList" cols="40" rows="20" class="form-control"></textarea>
+            </div>
+            <div class="text-center">
+              <button type="button" class="next next-button" data-next="step3">Next</button>
+            </div>
+          </div>
 
+          <!-- Step 3: Attachment -->
+          <div class="step" id="step3">
+            <h5 class="mb-5">Please provide the request letter with Dean's approval</h5>
+            <input type="file" name="attachment" id="attachment" class="form-control mb-2" accept=".pdf,.doc,.docx,.jpg,.png">
+            <div class="text-center">
+              <button type="submit" class="next-button" id="facultyFormSubmit">Submit</button>
+            </div>
+          </div>
+        </form>
+        <!-- Confirmation -->
+        <div class="step text-center" id="step4" hidden>
+          <p class="fs-5">Thank you! Your request has been successfully submitted and is now pending approval.<br>A confirmation email will be sent to you once approved.</p>
+        </div>
       </div>
 
       <!-- Duration Modal -->
@@ -198,8 +201,56 @@
           </div>
         </div>
       </div>
+
+    </div> <!-- end of card-body -->
+    
+    <div id="legend-and-control" class="container mb-4"> <!-- Legend and page navigation controls -->
+      <div class="row justify-content-center align-items-center">
         
-    </div>
+        <!-- Left column: Legend -->
+        <div id="legend" class="col-6 col-md-4 text-start">
+          <span class="legend-item fs-6">
+            <button style="border: none; background: none; cursor:default;" readonly>
+              <i class="fa-solid fa-desktop"></i> <span style="color: black;">Available</span>
+            </button>
+          </span><br>
+          <span class="legend-item fs-6">
+            <button style="border: none; background: none; cursor:default; color: black;" readonly>
+              <i class="fa-solid fa-desktop text-success"></i> Selected
+            </button>
+          </span><br>
+          <span class="legend-item fs-6">
+            <button style="border: none; background: none; cursor:default; color: black;" readonly>
+              <i class="fa-solid fa-desktop text-warning"></i> In Queue
+            </button>
+          </span><br>
+          <span class="legend-item fs-6">
+            <button style="border: none; background: none; cursor:default; color: black;" readonly>
+              <i class="fa-solid fa-desktop text-danger"></i> In Use
+            </button>
+          </span>
+        </div>
+
+        {% if request.user.profile.role == 'faculty' %}
+        <!-- Right column: Block button -->
+        <div class="col-6 col-md-4 text-center">
+          <button class="book-block-button" id="block-button">Book a Block</button>
+        </div>
+        {% endif %}
+        
+        <!-- Right column: Block button next -->
+        <div class="col-6 col-md-4 text-center">
+          <button class="book-block-button" id="block-button-next" hidden>Next <i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+        
+        <!-- Right column: Next button -->
+        <div class="col-6 col-md-4 text-center">
+          <button class="reserve-next-button" hidden>Next <i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+
+      </div>
+        
+    </div> <!-- end of Legend and page navigation controls -->
 
   </div> <!-- end of card -->
 
