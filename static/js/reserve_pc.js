@@ -237,4 +237,29 @@ $(document).ready(function () {
   $("#facultyFormSubmit").click(function (e) {
     e.preventDefault();
   });
+
+  $("#emailList").on("change", function () {
+    const input = $("#emailList").val();
+    const emails = input.split(",").map(e => e.trim()).filter(e => e.length > 0);
+
+    const validEmails = [];
+    const invalidEmails = [];
+
+    // Simple email validation regex
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    emails.forEach(email => {
+      if (emailPattern.test(email)) {
+        validEmails.push(email);
+      } else {
+        invalidEmails.push(email);
+      }
+    });
+
+    // Show result
+    let resultHtml = ``;
+    resultHtml += `<p><strong>Invalid emails:</strong> <span style="color:red;">${invalidEmails.join(", ") || 'None'}</span></p>`;
+
+    $("#result").html(resultHtml);
+  });
 });
