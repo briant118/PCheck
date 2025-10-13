@@ -67,17 +67,19 @@
         <div class="row justify-content-center text-center">
           <div class="mb-2 pc-container text-black">
           {% for i in total_pc|divide:5|integer|to_range %}
-            <button class="pc-group-number" id="pcs-{{ i|multiply:5 }}">
+            {% if i|multiply:5 != total_pc %}
+            <button class="pc-group-number" id="pcs-{{ i|multiply:5 }}" data-qty="{{ i|multiply:5 }}">
               <span>{{ i|multiply:5 }}</span>
             </button>
+            {% endif %}
           {% endfor %}
-            <button class="pc-group-number" id="pcs-{{ total_pc }}">
+            <button class="pc-group-number" id="pcs-{{ total_pc }}" data-qty="{{ total_pc}}">
               <span>{{ total_pc }}</span>
             </button>
           </div>
           <div class="input-group justify-content-center mb-3" style="max-width:250px; margin:auto;">
             <span class="input-group-text" id="basic-addon1">Custom</span>
-            <input type="number" id="numOfPc" name="numOfPc" class="form-control text-center" value="0" min="0">
+            <input type="text" id="customNumOfPc" name="customNumOfPc" class="form-control text-center" value="0" min="0">
             <button class="btn btn-outline-secondary" type="button" id="fb-minusBtn">−</button>
             <button class="btn btn-outline-secondary" type="button" id="fb-plusBtn">+</button>
           </div>
@@ -86,23 +88,31 @@
 
       <!-- Faculty Form -->
       <div class="form-section card-body p-4" id="faculty-form-section" hidden>
-        <form id="facultyForm" method="post" enctype="multipart/form-data">
+        <form method="post" id="facultyForm" enctype="multipart/form-data" action="{% url 'main_app:submit-block-booking' %}">
           {% csrf_token %}
           <!-- Step 1 -->
           <div class="step active" id="step1">
             <h3 class="text-center">Please fill up the form</h3>
             <br>
             <div class="justify-content-center">
+              <input type="number" id="custNumOfPc" name="custNumOfPc" hidden>
+              <input type="number" id="numOfPc" name="numOfPc" hidden>
               <label for="course" class="form-label">Course</label><br>
               <input type="text" id="course" name="course" class="form-control"><br>
               <label for="block" class="form-label">Block</label><br>
               <input type="text" id="block" name="block" class="form-control"><br>
               <label for="college" class="form-label">College</label><br>
-              <input type="text" id="college" name="college" class="form-control"><br>
+              <select id="college" name="college" class="form-control select">
+                <option value="" selected disabled hidden>Select College</option>
+                {% for college in colleges %}
+                <option value="{{ college.id }}">{{ college.name }}</option>
+                {% endfor %}
+              </select>
+              <br>
               <label for="dateStart" class="form-label">Start date</label><br>
-              <input type="date" id="dateStart" name="dateStart" class="form-control"><br>
+              <input type="datetime-local" id="dateStart" name="dateStart" class="form-control"><br>
               <label for="dateEnd" class="form-label">End date</label><br>
-              <input type="date" id="dateEnd" name="dateEnd" class="form-control">
+              <input type="datetime-local" id="dateEnd" name="dateEnd" class="form-control">
             </div>
             <div class="text-center">
               <button type="button" class="next next-button" data-next="step2">Next</button>
@@ -128,11 +138,6 @@
             <div class="text-center">
               <button type="submit" class="next next-button" data-next="step4" id="facultyFormSubmit">Submit</button>
             </div>
-          </div>
-          <!-- Confirmation -->
-          <div class="step text-center" id="step4">
-            <p class="fs-5 mb-5">Thank you! Your request has been successfully submitted and is now pending approval.<br>A confirmation email will be sent to you once approved.</p>
-            <a href="{% url 'main_app:home' %}" class="btn btn-sm btn-secondary"><i class="fa-solid fa-chevron-left"></i> back to home page</a>
           </div>
         </form>
       </div>

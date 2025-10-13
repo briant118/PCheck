@@ -54,6 +54,10 @@ def ping_ip_address(request, pk):
     return render(request, "main/ping_address.html", {"result": result, 'ip_address': ip_address})
 
 
+def faculty_booking_confirmation(request):
+    return render(request, "main/faculty_booking_confirmation.html")
+
+
 def get_ping_data(request):
     ip_address = request.GET.get('ip_address')
     result = ping_address.ping(ip_address)
@@ -181,6 +185,37 @@ def add_pc_from_form(request):
 
 
 @login_required
+def submit_block_booking(request):
+    if request.method == "POST":
+        cust_num_of_pc = request.POST.get('custNumOfPc')
+        num_of_pc = request.POST.get('numOfPc')
+        course = request.POST.get('course')
+        block = request.POST.get('block')
+        college = request.POST.get('college')
+        date_start = request.POST.get('dateStart')
+        date_end = request.POST.get('dateEnd')
+        email_list = request.POST.get('emailList')
+        attachment = request.FILES.get('attachment')
+        
+        college_obj = get_object_or_404(models.College, pk=college)
+        
+        models.FacultyBooking.objects.create(
+            faculty=request.user,
+            college=college_obj,
+            course=course,
+            block=block,
+            start_time=date_start,
+            end_time=date_end,
+            type='multiple',
+            num_of_devices=cust_num_of_pc if cust_num_of_pc and int(cust_num_of_pc) > 0 else num_of_pc,
+            file=attachment,
+            email_addresses=email_list,
+        )
+        
+        return HttpResponseRedirect(reverse_lazy('main_app:faculty-booking-confirmation'))
+
+
+@login_required
 def delete_pc(request, pk):
     models.PC.objects.filter(pk=pk).delete()
     messages.success(request, "PC deleted successfully.")
@@ -201,7 +236,6 @@ def reserve_pc(request):
             pc=pc,
             start_time=datetime.now(),
             duration=duration,
-            num_of_devices=1,
         )
         
         scheme = 'https' if request.is_secure() else 'http'
@@ -374,6 +408,20 @@ def change_message_status(request):
         return JsonResponse({
             "success": True,
         })
+
+
+@login_required
+@csrf_exempt
+def cancel_reservation(request):
+    if request.method == "POST":
+        pc_id = request.POST.get("pc_id")
+        pc = models.PC.objects.get(pk=pc_id)
+        pc.status='available'
+        pc.save()
+        
+        return JsonResponse({
+            "success": True,
+        })
         
 
 class PCListView(LoginRequiredMixin, FormMixin, ListView):
@@ -501,6 +549,7 @@ class ReservePCListView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['total_pc'] = models.PC.objects.filter(status='connected').count()  # 👈 total number of PCs in database
+        context['colleges'] = models.College.objects.all()
         return context
     
 

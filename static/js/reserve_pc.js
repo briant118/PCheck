@@ -6,6 +6,20 @@ $(document).ready(function () {
   const $pageNav = $("#page-nav");
   const $pcGroupButton = $(".pc-group-number");
 
+  function cancelReservation(pcId) {
+    $.ajax({
+      url: "/ajax/cancel-reservation/",
+      method: "POST",
+      data: { pc_id: pcId },
+      success: function (data) {
+        console.log("Reservation cancelled");
+      },
+      error: function (xhr, status, error) {
+        console.error("Error updating message status:", error);
+      }
+    });
+  }
+
   $pcButton.click(function () {
     $(this).toggleClass("text-success");
     $("#pc_id").val($(this).data("pc-id"));
@@ -49,17 +63,17 @@ $(document).ready(function () {
 
   // Plus and minus fb buttons
   $("#fb-plusBtn").click(function () {
-    let current = parseInt($("#numOfPc").val()) || 0;
-    $("#numOfPc").val(current + 1); // increment by 1
+    let current = parseInt($("#customNumOfPc").val()) || 0;
+    $("#customNumOfPc").val(current + 1); // increment by 1
     if (current > 15) {
       $(this).prop("disabled", true);
     }
   });
 
   $("#fb-minusBtn").click(function () {
-    let current = parseInt($("#numOfPc").val()) || 0;
+    let current = parseInt($("#customNumOfPc").val()) || 0;
     if (current >= 1) {
-      $("#numOfPc").val(current - 1); // decrement by 1
+      $("#customNumOfPc").val(current - 1); // decrement by 1
     }
     if (current < 15) {
       $("#fb-plusBtn").prop("disabled", false);
@@ -126,6 +140,7 @@ $(document).ready(function () {
             clearInterval(countdownInterval);
             $("#qrCountdown").text("00:00");
             $("#qrModal").modal("hide"); // auto-close
+            cancelReservation(selected_pc);
             return;
           }
 
@@ -214,6 +229,8 @@ $(document).ready(function () {
   });
 
   $pcGroupButton.click(function () {
+    let qty = $(this).data("qty");
+    $("#numOfPc").val(qty);
     $(this).toggleClass("bg-warning");
     const hasSelected = $pcGroupButton.filter(".bg-warning").length > 0;
     // disable other buttons when one is selected
@@ -234,11 +251,7 @@ $(document).ready(function () {
     $("#" + nextStep).addClass("active");
   });
 
-  $("#facultyFormSubmit").click(function (e) {
-    e.preventDefault();
-  });
-
-  $("#emailList").on("change", function () {
+  $("#emailList").on("input", function () {
     const input = $("#emailList").val();
     const emails = input.split(",").map(e => e.trim()).filter(e => e.length > 0);
 
