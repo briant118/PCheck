@@ -53,12 +53,7 @@ Thumbs.db
 *.sqlite3
 
 # project folder
-*_project/__*.*
-*_project/settings.py
-*_project/asgi.py
-*_project/wsgi.py
 *project/
-*project/bookings/
 venv/
 pcheck_env/
 manage.py
