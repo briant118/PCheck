@@ -156,14 +156,14 @@ $(document).ready(function () {
   });
 
   let currentUrl = new URL(window.location.href);
-  let btn = $("#repair-button");
+  let repairBtn = $("#repair-button");
 
   // Set initial Filter button text based on URL
   if (currentUrl.searchParams.get("filter") === "repair") {
-    btn.addClass("bg-warning");
+    repairBtn.addClass("bg-warning");
   }
 
-  btn.on("click", function (e) {
+  repairBtn.on("click", function (e) {
     e.preventDefault();
 
     if (currentUrl.searchParams.get("filter") === "repair") {

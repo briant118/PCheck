@@ -26,7 +26,7 @@ class PendingUser(models.Model):
         
 
 class Profile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(User, related_name="profile", on_delete=models.CASCADE)
     role = models.CharField(max_length=20, null=True, choices=[('faculty', 'Faculty'), ('student', 'Student'), ('staff', 'Staff')])
     college = models.ForeignKey(to=College, on_delete=models.SET_NULL, null=True)
     course = models.CharField(max_length=100, null=True, blank=True)

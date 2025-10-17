@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load template_filters %}
+{% load math_filters %}
 {% load static %}
 
 {% block title %}PC List{% endblock %}
@@ -15,83 +16,130 @@
       <div class="p-4 bg-warning rounded-bottom rounded-5"></div>
     </div>
     <div class="card-body p-5">
-      <div class="text-center h6">Available PCs</div>
 
-      <div class="row justify-content-center text-center">
-        {% for pc in available_pcs %}
-          {% if forloop.counter0|divisibleby:3 %}
-            <div class="col-3 col-md-2 col-sm-2 col-xs-2 mb-4"> <!-- 5 equal columns (12/5 ≈ 2.4, use col-md-2 and centering) -->
-          {% endif %}
-
-              <div class="mb-2 pc-container text-black">
-                <button class="pc-button {% if pc.booking_status == 'in_use' %}text-danger{% elif pc.booking_status == 'in_queue' %}text-warning{% endif %}" 
-                  data-pc-id="{{ pc.id }}" data-pc-name="{{ pc.name }}" {% if pc.booking_status == 'in_use' or pc.booking_status == 'in_queue' %}disabled{% endif %}>
-                  <i class="fa-solid fa-desktop" style="font-size: 1.7em;background: none;border: none;cursor: pointer;padding: 0px;"></i><br>
-                  <span class="pc-name">{{ pc.name|get_int }}</span>
-                </button>
-              </div>
-
-          {% if forloop.counter|divisibleby:3 or forloop.last %}
-            </div> <!-- close column after 3 PCs -->
-          {% endif %}
-        {% endfor %}
-      </div>
-
-      {% if is_paginated %}
-      <nav class="mt-4" id="page-nav">
-        <ul class="pagination justify-content-center">
-          {% if page_obj.has_previous %}
-            <li class="page-item">
-              <a class="page-link" id="pageNavPrev" href="?page={{ page_obj.previous_page_number }}">
-                <i class="fa-solid fa-arrow-left-long"></i>
-              </a>
-            </li>
-          {% endif %}
+      <div id="students-booking"> <!-- students-booking -->
+        <div class="text-center h6">Available PCs</div>
+        <div class="row justify-content-center text-center">
+          {% for pc in available_pcs %}
+            {% if forloop.counter0|divisibleby:3 %}
+              <div class="col-3 col-md-2 col-sm-2 col-xs-2 mb-4"> <!-- 5 equal columns (12/5 ≈ 2.4, use col-md-2 and centering) -->
+            {% endif %}
   
-          {% if page_obj.has_next %}
-            <li class="page-item">
-              <a class="page-link" id="pageNavNext" href="?page={{ page_obj.next_page_number }}">
-                <i class="fa-solid fa-arrow-right-long"></i>
-              </a>
-            </li>
-          {% endif %}
-        </ul>
-      </nav>
-      {% endif %}
-    </div>
+                <div class="mb-2 pc-container text-black">
+                  <button class="pc-button {% if pc.booking_status == 'in_use' %}text-danger{% elif pc.booking_status == 'in_queue' %}text-warning{% endif %}" 
+                    data-pc-id="{{ pc.id }}" data-pc-name="{{ pc.name }}" {% if pc.booking_status == 'in_use' or pc.booking_status == 'in_queue' %}disabled{% endif %}>
+                    <i class="fa-solid fa-desktop" style="font-size: 1.7em;background: none;border: none;cursor: pointer;padding: 0px;"></i><br>
+                    <span class="pc-name">{{ pc.name|get_int }}</span>
+                  </button>
+                </div>
+  
+            {% if forloop.counter|divisibleby:3 or forloop.last %}
+              </div> <!-- close column after 3 PCs -->
+            {% endif %}
+          {% endfor %}
+        </div>
+  
+        {% if is_paginated %}
+        <nav class="mt-4" id="page-nav"> <!-- Pagination controls -->
+          <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+              <li class="page-item">
+                <a class="page-link" id="pageNavPrev" href="?page={{ page_obj.previous_page_number }}">
+                  <i class="fa-solid fa-arrow-left-long"></i>
+                </a>
+              </li>
+            {% endif %}
     
-    <div id="control" class="container mb-4">
-      <div class="row justify-content-center align-items-center">
-        
-        <!-- Left column: Legend -->
-        <div id="legend" class="col-6 col-md-4 text-start">
-          <span class="legend-item fs-6">
-            <button style="border: none; background: none; cursor:default;" readonly>
-              <i class="fa-solid fa-desktop"></i> <span style="color: black;">Available</span>
-            </button>
-          </span><br>
-          <span class="legend-item fs-6">
-            <button style="border: none; background: none; cursor:default; color: black;" readonly>
-              <i class="fa-solid fa-desktop text-success"></i> Selected
-            </button>
-          </span><br>
-          <span class="legend-item fs-6">
-            <button style="border: none; background: none; cursor:default; color: black;" readonly>
-              <i class="fa-solid fa-desktop text-warning"></i> In Queue
-            </button>
-          </span><br>
-          <span class="legend-item fs-6">
-            <button style="border: none; background: none; cursor:default; color: black;" readonly>
-              <i class="fa-solid fa-desktop text-danger"></i> In Use
-            </button>
-          </span>
-        </div>
+            {% if page_obj.has_next %}
+              <li class="page-item">
+                <a class="page-link" id="pageNavNext" href="?page={{ page_obj.next_page_number }}">
+                  <i class="fa-solid fa-arrow-right-long"></i>
+                </a>
+              </li>
+            {% endif %}
+          </ul>
+        </nav>
+        {% endif %}
+      </div> <!-- end of students-booking -->
 
-        <!-- Right column: Next button -->
-        <div class="col-6 col-md-4 text-center">
-          <button class="reserve-next-button" hidden>next</button>
+      <div id="faculty-booking-pc-group" hidden> <!-- faculty-booking-pc-group -->
+        <div class="text-center h6">Select Number of PCs</div>
+        <div class="row justify-content-center text-center">
+          <div class="mb-2 pc-container text-black">
+          {% for i in total_pc|divide:5|integer|to_range %}
+            {% if i|multiply:5 != total_pc %}
+            <button class="pc-group-number" id="pcs-{{ i|multiply:5 }}" data-qty="{{ i|multiply:5 }}">
+              <span>{{ i|multiply:5 }}</span>
+            </button>
+            {% endif %}
+          {% endfor %}
+            <button class="pc-group-number" id="pcs-{{ total_pc }}" data-qty="{{ total_pc}}">
+              <span>{{ total_pc }}</span>
+            </button>
+          </div>
+          <div class="input-group justify-content-center mb-3" style="max-width:250px; margin:auto;">
+            <span class="input-group-text" id="basic-addon1">Custom</span>
+            <input type="text" id="customNumOfPc" name="customNumOfPc" class="form-control text-center" value="0" min="0">
+            <button class="btn btn-outline-secondary" type="button" id="fb-minusBtn">−</button>
+            <button class="btn btn-outline-secondary" type="button" id="fb-plusBtn">+</button>
+          </div>
         </div>
+      </div> <!-- end of faculty-booking-pc-group -->
 
+      <!-- Faculty Form -->
+      <div class="form-section card-body p-4" id="faculty-form-section" hidden>
+        <form method="post" id="facultyForm" enctype="multipart/form-data" action="{% url 'main_app:submit-block-booking' %}">
+          {% csrf_token %}
+          <!-- Step 1 -->
+          <div class="step active" id="step1">
+            <h3 class="text-center">Please fill up the form</h3>
+            <br>
+            <div class="justify-content-center">
+              <input type="number" id="custNumOfPc" name="custNumOfPc" hidden>
+              <input type="number" id="numOfPc" name="numOfPc" hidden>
+              <label for="course" class="form-label">Course</label><br>
+              <input type="text" id="course" name="course" class="form-control"><br>
+              <label for="block" class="form-label">Block</label><br>
+              <input type="text" id="block" name="block" class="form-control"><br>
+              <label for="college" class="form-label">College</label><br>
+              <select id="college" name="college" class="form-control select">
+                <option value="" selected disabled hidden>Select College</option>
+                {% for college in colleges %}
+                <option value="{{ college.id }}">{{ college.name }}</option>
+                {% endfor %}
+              </select>
+              <br>
+              <label for="dateStart" class="form-label">Start date</label><br>
+              <input type="datetime-local" id="dateStart" name="dateStart" class="form-control"><br>
+              <label for="dateEnd" class="form-label">End date</label><br>
+              <input type="datetime-local" id="dateEnd" name="dateEnd" class="form-control">
+            </div>
+            <div class="text-center">
+              <button type="button" class="next next-button" data-next="step2">Next</button>
+            </div>
+          </div>
+
+          <!-- Step 2: Email addresses -->
+          <div class="step" id="step2">
+            <h6>List of students' email - must be valid email addresses (separated by commas)</h6>
+            <div class="d-flex mb-2" style="max-width: auto;">
+              <textarea name="emailList" id="emailList" cols="40" rows="20" class="form-control"></textarea>
+            </div>
+            <div id="result"></div>
+            <div class="text-center">
+              <button type="button" class="next next-button" data-next="step3">Next</button>
+            </div>
+          </div>
+
+          <!-- Step 3: Attachment -->
+          <div class="step" id="step3">
+            <h5 class="mb-5 text-center">Kindly submit the request letter duly approved by the Dean.</h5>
+            <input type="file" name="attachment" id="attachment" class="form-control mb-2" accept=".pdf,.doc,.docx,.jpg,.png">
+            <div class="text-center">
+              <button type="submit" class="next next-button" data-next="step4" id="facultyFormSubmit">Submit</button>
+            </div>
+          </div>
+        </form>
       </div>
 
       <!-- Duration Modal -->
@@ -160,8 +208,56 @@
           </div>
         </div>
       </div>
+
+    </div> <!-- end of card-body -->
+    
+    <div id="legend-and-control" class="container mb-4"> <!-- Legend and page navigation controls -->
+      <div class="row justify-content-center align-items-center">
         
-    </div>
+        <!-- Left column: Legend -->
+        <div id="legend" class="col-6 col-md-4 text-start">
+          <span class="legend-item fs-6">
+            <button style="border: none; background: none; cursor:default;" readonly>
+              <i class="fa-solid fa-desktop"></i> <span style="color: black;">Available</span>
+            </button>
+          </span><br>
+          <span class="legend-item fs-6">
+            <button style="border: none; background: none; cursor:default; color: black;" readonly>
+              <i class="fa-solid fa-desktop text-success"></i> Selected
+            </button>
+          </span><br>
+          <span class="legend-item fs-6">
+            <button style="border: none; background: none; cursor:default; color: black;" readonly>
+              <i class="fa-solid fa-desktop text-warning"></i> In Queue
+            </button>
+          </span><br>
+          <span class="legend-item fs-6">
+            <button style="border: none; background: none; cursor:default; color: black;" readonly>
+              <i class="fa-solid fa-desktop text-danger"></i> In Use
+            </button>
+          </span>
+        </div>
+
+        {% if request.user.profile.role == 'faculty' %}
+        <!-- Right column: Block button -->
+        <div class="col-6 col-md-4 text-center">
+          <button class="book-block-button" id="block-button">Book a Block</button>
+        </div>
+        {% endif %}
+        
+        <!-- Right column: Block button next -->
+        <div class="col-6 col-md-4 text-center">
+          <button class="book-block-button" id="block-button-next" hidden>Next <i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+        
+        <!-- Right column: Next button -->
+        <div class="col-6 col-md-4 text-center">
+          <button class="reserve-next-button" hidden>Next <i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+
+      </div>
+        
+    </div> <!-- end of Legend and page navigation controls -->
 
   </div> <!-- end of card -->
 

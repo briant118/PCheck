@@ -12,10 +12,15 @@ from django.core.mail import send_mail
 from django.views.generic import TemplateView, CreateView, ListView, UpdateView, DetailView
 from django.contrib.auth.models import User
 from django.contrib.auth.backends import ModelBackend
+from django.contrib.auth.decorators import permission_required
 from . import forms
 from . import models
 
 
+
+def permission_denied_view(request, exception):
+        return render(request, 'permission_denied.html', status=403)
+    
 
 class EmailPrefixBackend(ModelBackend):
     def authenticate(self, request, username=None, password=None, **kwargs):
@@ -44,10 +49,10 @@ class CustomLoginView(LoginView):
     def get_success_url(self):
         user = self.request.user
         if user.profile.role == 'student' or user.profile.role == 'faculty':
-            return '/pc-reservation/'
-        elif user.profile.role == 'staff':
             return '/'
-        return '/'
+        elif user.profile.role == 'staff':
+            return '/dashboard/'
+        return '/dashboard/'
 
 
 class ProfileDetailView(LoginRequiredMixin, TemplateView):
@@ -75,8 +80,18 @@ class ProfileUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
     
     
 @login_required
+@permission_required('account.view_dashboard', raise_exception=True)
 def dashboard(request):
     return render(request, 'account/dashboard.html')
+
+
+@login_required
+def sf_home(request):
+    return render(request, 'main/sf_home.html')
+
+
+def about(request):
+    return render(request, 'about.html')
 
 
 def custom_logout_view(request):

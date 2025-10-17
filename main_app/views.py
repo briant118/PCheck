@@ -2,6 +2,7 @@ import re
 import qrcode
 import base64
 from io import BytesIO
+from django.db.models import Q
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy, reverse
 from django.views.decorators.csrf import csrf_exempt
@@ -13,9 +14,12 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.views.generic import TemplateView, CreateView, ListView, UpdateView, DetailView
 from django.views.generic.edit import FormMixin
+from django.contrib.auth.decorators import permission_required
 from django.db.models import Count
+from django.db.models import Prefetch
 from datetime import datetime, timedelta
 from django.contrib.auth.models import User
+from account.models import Profile
 from . import forms, models, ping_address
 
 
@@ -48,6 +52,10 @@ def ping_ip_address(request, pk):
     ip_address = models.PC.objects.get(id=pk).ip_address
     result = ping_address.ping(ip_address)
     return render(request, "main/ping_address.html", {"result": result, 'ip_address': ip_address})
+
+
+def faculty_booking_confirmation(request):
+    return render(request, "main/faculty_booking_confirmation.html")
 
 
 def get_ping_data(request):
@@ -112,16 +120,17 @@ def verify_pc_ip_address(request):
 
 
 @login_required
-def add_pc(request):
-    if request.method == 'POST':
-        form = forms.CreatePCForm(request.POST, request.FILES)
-        if form.is_valid():
-            form.save()
-            return HttpResponseRedirect(reverse_lazy('main_app:pc-list'))
-    else:
-        form = forms.CreatePCForm()
-
-    return render(request,'main/add_pc.html',{'form':form})
+def find_user(request):
+    find_user = request.GET.get('find_user', '')
+    result = User.objects.prefetch_related("profile").filter(
+        first_name__icontains=find_user).exclude(pk=request.user.pk).values(
+            'id','first_name','last_name','email',
+            'profile__role','profile__college__name','profile__course',
+            'profile__year','profile__block','profile__school_id')
+    data = {
+        'result': list(result),
+    }
+    return JsonResponse(data, safe=False)
 
 
 @login_required
@@ -145,6 +154,17 @@ def add_pc_from_form(request):
                 "pc_list": models.PC.objects.all(),
             }
             return render(request, "main/pc_list.html", context)
+        
+        sort_num = extract_number(name)
+        value_length = len(str(sort_num))
+        if value_length == 1:
+            prefix_zero = '00'
+        elif value_length == 2:
+            prefix_zero = '0'
+        else:
+            prefix_zero = ''
+        
+        sort_number = f"{prefix_zero}{sort_num}"
 
         # If no errors, create PC
         models.PC.objects.create(
@@ -152,6 +172,7 @@ def add_pc_from_form(request):
             ip_address=ip_address,
             status='connected',
             system_condition='active',
+            sort_number=sort_number
         )
         messages.success(request, "PC added successfully.")
         return HttpResponseRedirect(reverse_lazy('main_app:pc-list'))
@@ -161,6 +182,37 @@ def add_pc_from_form(request):
         "pc_list": models.PC.objects.all()
     }
     return render(request, "main/pc_list.html", context)
+
+
+@login_required
+def submit_block_booking(request):
+    if request.method == "POST":
+        cust_num_of_pc = request.POST.get('custNumOfPc')
+        num_of_pc = request.POST.get('numOfPc')
+        course = request.POST.get('course')
+        block = request.POST.get('block')
+        college = request.POST.get('college')
+        date_start = request.POST.get('dateStart')
+        date_end = request.POST.get('dateEnd')
+        email_list = request.POST.get('emailList')
+        attachment = request.FILES.get('attachment')
+        
+        college_obj = get_object_or_404(models.College, pk=college)
+        
+        models.FacultyBooking.objects.create(
+            faculty=request.user,
+            college=college_obj,
+            course=course,
+            block=block,
+            start_datetime=date_start,
+            end_datetime=date_end,
+            num_of_devices=cust_num_of_pc if cust_num_of_pc and int(cust_num_of_pc) > 0 else num_of_pc,
+            file=attachment,
+            email_addresses=email_list,
+            status="pending"
+        )
+        
+        return HttpResponseRedirect(reverse_lazy('main_app:faculty-booking-confirmation'))
 
 
 @login_required
@@ -184,9 +236,7 @@ def reserve_pc(request):
             pc=pc,
             start_time=datetime.now(),
             duration=duration,
-            num_of_devices=1,
         )
-        print("booking ID:", booking.pk)
         
         scheme = 'https' if request.is_secure() else 'http'
         host = request.get_host()
@@ -203,6 +253,104 @@ def reserve_pc(request):
             "message": f"{pc.name} reserved for {duration} minutes",
             "qr_code": qr_base64,
             "booking_id": booking.pk
+        })
+
+
+@login_required
+def load_messages(request):
+    chatrooms = models.ChatRoom.objects.filter(
+        Q(initiator=request.user) | Q(receiver=request.user)
+    ).prefetch_related(
+        Prefetch('chats', queryset=models.Chat.objects.all().order_by('-timestamp'))
+    )
+
+    result = []
+    for room in chatrooms:
+        room_data = {
+            'id': room.id,
+            'initiator': {
+                'id': room.initiator.id,
+                'first_name': room.initiator.first_name,
+                'last_name': room.initiator.last_name,
+                'email': room.initiator.email,
+            },
+            'receiver': {
+                'id': room.receiver.id,
+                'first_name': room.receiver.first_name,
+                'last_name': room.receiver.last_name,
+                'email': room.receiver.email,
+            },
+            'chats': [
+                {
+                    'id': chat.id,
+                    'message': chat.message,
+                    'status': chat.status,
+                    'timestamp': chat.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                }
+                for chat in room.chats.all()
+            ]
+        }
+        result.append(room_data)
+
+    return JsonResponse({'result': result})
+
+
+@login_required
+def load_conversation(request, room_id):
+    result = models.Chat.objects.filter(chatroom=room_id).values(
+            'recipient__first_name','recipient__last_name','recipient__email','recipient__id',
+            'sender__first_name','sender__last_name','sender__email','sender__id','message','timestamp',
+            'chatroom__initiator__id','chatroom__receiver__id','chatroom__id')
+    data = {
+        'result': list(result),
+    }
+    return JsonResponse(data, safe=False)
+
+
+@csrf_exempt
+def send_init_message(request):
+    if request.method == "POST":
+        message = request.POST.get("message")
+        recipient = request.POST.get("recipient")
+        
+        recipient = User.objects.get(email=recipient)
+        room = models.ChatRoom.objects.create(
+            initiator=request.user,
+            receiver=recipient)
+        
+        models.Chat.objects.create(
+            chatroom=room,
+            sender=room.initiator,
+            recipient=room.receiver,
+            message=message,
+            status="sent"
+        )
+
+        return JsonResponse({
+            "success": True,
+            "message": message,
+            "sender": room.initiator.pk,
+        })
+
+
+@csrf_exempt
+def send_new_message(request, room_id):
+    if request.method == "POST":
+        room = get_object_or_404(models.ChatRoom, id=room_id)
+        message = request.POST.get("message")
+        receiver = room.receiver if room.initiator == request.user else room.initiator
+
+        models.Chat.objects.create(
+            sender=request.user,
+            recipient=receiver,
+            chatroom=room,
+            message=message,
+            status="sent"
+        )
+
+        return JsonResponse({
+            "success": True,
+            "message": message
         })
 
 
@@ -249,6 +397,33 @@ def suspend(request, pk):
     return HttpResponseRedirect(reverse_lazy('main_app:user-activities'))
 
 
+@login_required
+@csrf_exempt
+def change_message_status(request):
+    if request.method == "POST":
+        room_id = request.POST.get("room_id")
+        chat = models.Chat.objects.filter(chatroom=room_id,status="sent")
+        chat.update(status="read")
+        
+        return JsonResponse({
+            "success": True,
+        })
+
+
+@login_required
+@csrf_exempt
+def cancel_reservation(request):
+    if request.method == "POST":
+        pc_id = request.POST.get("pc_id")
+        pc = models.PC.objects.get(pk=pc_id)
+        pc.status='available'
+        pc.save()
+        
+        return JsonResponse({
+            "success": True,
+        })
+        
+
 class PCListView(LoginRequiredMixin, FormMixin, ListView):
     model = models.PC
     template_name = "main/pc_list.html"
@@ -293,7 +468,6 @@ class PCListView(LoginRequiredMixin, FormMixin, ListView):
             else:
                 prefix_zero = ''
             sort_number = f"{prefix_zero}{sort_number}"
-            print("sort number:", sort_number)
             f.sort_number = sort_number
             f.save()
             return redirect(self.get_success_url())
@@ -352,8 +526,12 @@ class BookingListView(LoginRequiredMixin, ListView):
             status__isnull=True).order_by('created_at')
         approved_bookings = models.Booking.objects.filter(
             pc__booking_status="in_use").order_by('created_at')
+        faculty_bookings = models.FacultyBooking.objects.all()
+        pending_faculty_approvals = models.FacultyBooking.objects.filter(status="pending")
         context = {
             "bookings": bookings,
+            "faculty_bookings": faculty_bookings,
+            "pending_faculty_approvals": pending_faculty_approvals,
             "section": 'bookings',
             "pending_approvals": pending_approvals,
             "approved_bookings": approved_bookings,
@@ -371,6 +549,12 @@ class ReservePCListView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         qs = super().get_queryset()
         return qs.filter(status='connected').order_by('sort_number')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['total_pc'] = models.PC.objects.filter(status='connected').count()  # 👈 total number of PCs in database
+        context['colleges'] = models.College.objects.all()
+        return context
     
 
 class UserActivityListView(LoginRequiredMixin, ListView):
@@ -387,18 +571,22 @@ class UserActivityListView(LoginRequiredMixin, ListView):
         bookings = models.Booking.objects.all()
         user_activities = self.get_queryset
         violations = models.Violation.objects.all()
+        unread_messages = models.Chat.objects.filter(
+            recipient=self.request.user, status="sent").count()
         search_user = self.request.GET.get("search_user")
-        print("search user", search_user)
         if search_user != None:
             users = User.objects.filter(first_name__icontains=search_user)
         else:
             users = User.objects.all()
+        chat = models.Chat.objects.filter(sender=self.request.user)
         context = {
             "user_activities": user_activities,
             "violations": violations,
             "section": "user",
             "users": users,
+            "chat": chat,
             "search_user": self.request.GET.get('search_user', ''),
+            "unread_messages": unread_messages,
         }
         return context
 

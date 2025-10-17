@@ -10,3 +10,8 @@ def get_int(value):
         return int(value)
     except (ValueError, TypeError):
         return None
+    
+
+@register.filter
+def to_range(value):
+    return range(1, value + 1)

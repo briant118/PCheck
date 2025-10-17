@@ -1,20 +1,38 @@
 $(document).ready(function () {
   const $pcButton = $(".pc-button");
   const $nextButton = $(".reserve-next-button");
+  const $blockButton = $("#block-button");
+  const $blockButtonNext = $("#block-button-next");
   const $pageNav = $("#page-nav");
+  const $pcGroupButton = $(".pc-group-number");
+
+  function cancelReservation(pcId) {
+    $.ajax({
+      url: "/ajax/cancel-reservation/",
+      method: "POST",
+      data: { pc_id: pcId },
+      success: function (data) {
+        console.log("Reservation cancelled");
+      },
+      error: function (xhr, status, error) {
+        console.error("Error updating message status:", error);
+      }
+    });
+  }
 
   $pcButton.click(function () {
     $(this).toggleClass("text-success");
     $("#pc_id").val($(this).data("pc-id"));
-    console.log("PC ID:", $("#pc_id").val());
-    $pcButton.not(this).prop("disabled", true); // Disable other buttons
-    $pageNav.attr("hidden", true); // Hide pag navigation
-    $nextButton.prop("hidden", !$pcButton.filter(".text-success").length); // Enable next button if any selected
-    if (!$(this).hasClass("text-success")) {
-      $pcButton.prop("disabled", false); // Re-enable all buttons if none selected
-      $nextButton.prop("hidden", true); // Disable next button
-      $pageNav.prop("hidden", false);
-    }
+
+    const hasSelected = $pcButton.filter(".text-success").length > 0;
+
+    // disable other buttons when one is selected, show/hide page nav
+    $pcButton.not(this).prop("disabled", hasSelected);
+    $pageNav.prop("hidden", hasSelected);
+
+    // next visible when any selected; block hidden when any selected
+    $nextButton.prop("hidden", !hasSelected);
+    $blockButton.prop("hidden", hasSelected);
   });
 
   const reserveUrl = $("#generate-qr-button").data("reserve-url");
@@ -25,6 +43,44 @@ $(document).ready(function () {
   });
 
   // Plus and minus buttons
+  $("#plusBtn").click(function () {
+    let current = parseInt($("#durationInput").val()) || 0;
+    $("#durationInput").val(current + 5); // increment by 5 mins
+    if (current > 170) {
+      $(this).prop("disabled", true);
+    }
+  });
+
+  $("#minusBtn").click(function () {
+    let current = parseInt($("#durationInput").val()) || 0;
+    if (current > 1) {
+      $("#durationInput").val(current - 5); // decrement by 5 mins
+    }
+    if (current < 185) {
+      $("#plusBtn").prop("disabled", false);
+    }
+  });
+
+  // Plus and minus fb buttons
+  $("#fb-plusBtn").click(function () {
+    let current = parseInt($("#customNumOfPc").val()) || 0;
+    $("#customNumOfPc").val(current + 1); // increment by 1
+    if (current > 15) {
+      $(this).prop("disabled", true);
+    }
+  });
+
+  $("#fb-minusBtn").click(function () {
+    let current = parseInt($("#customNumOfPc").val()) || 0;
+    if (current >= 1) {
+      $("#customNumOfPc").val(current - 1); // decrement by 1
+    }
+    if (current < 15) {
+      $("#fb-plusBtn").prop("disabled", false);
+    }
+  });
+
+  // Plus button with max limit of 180 mins
   $("#plusBtn").click(function () {
     let current = parseInt($("#durationInput").val()) || 0;
     $("#durationInput").val(current + 5); // increment by 5 mins
@@ -84,6 +140,7 @@ $(document).ready(function () {
             clearInterval(countdownInterval);
             $("#qrCountdown").text("00:00");
             $("#qrModal").modal("hide"); // auto-close
+            cancelReservation(selected_pc);
             return;
           }
 
@@ -162,5 +219,60 @@ $(document).ready(function () {
         }
       });
     }, 1000);
+  });
+
+  $blockButton.on("click", function () {
+    $("#students-booking").hide();
+    $("#legend").hide();
+    $("#faculty-booking-pc-group").prop("hidden", false);
+    $(this).prop("hidden", true);
+  });
+
+  $pcGroupButton.click(function () {
+    let qty = $(this).data("qty");
+    $("#numOfPc").val(qty);
+    $(this).toggleClass("bg-warning");
+    const hasSelected = $pcGroupButton.filter(".bg-warning").length > 0;
+    // disable other buttons when one is selected
+    $pcGroupButton.not(this).prop("disabled", hasSelected);
+    $blockButtonNext.prop("hidden", !hasSelected);
+  });
+
+  $blockButtonNext.click(function () {
+    $("#legend-and-control").prop("hidden", true);
+    $("#faculty-booking-pc-group").prop("hidden", true);
+    $("#faculty-form-section").prop("hidden", false);
+  });
+
+  $(".next").click(function(){
+    var nextStep = $(this).data("next");
+
+    $(this).closest(".step").removeClass("active");
+    $("#" + nextStep).addClass("active");
+  });
+
+  $("#emailList").on("input", function () {
+    const input = $("#emailList").val();
+    const emails = input.split(",").map(e => e.trim()).filter(e => e.length > 0);
+
+    const validEmails = [];
+    const invalidEmails = [];
+
+    // Simple email validation regex
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    emails.forEach(email => {
+      if (emailPattern.test(email)) {
+        validEmails.push(email);
+      } else {
+        invalidEmails.push(email);
+      }
+    });
+
+    // Show result
+    let resultHtml = ``;
+    resultHtml += `<p><strong>Invalid emails:</strong> <span style="color:red;">${invalidEmails.join(", ") || 'None'}</span></p>`;
+
+    $("#result").html(resultHtml);
   });
 });

@@ -57,6 +57,8 @@ Thumbs.db
 *_project/settings.py
 *_project/asgi.py
 *_project/wsgi.py
+*project/
+*project/bookings/
 venv/
 pcheck_env/
 manage.py

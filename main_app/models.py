@@ -42,9 +42,26 @@ class PC(models.Model):
         return self.name
 
 
+class FacultyBooking(models.Model):
+    faculty = models.ForeignKey(User, null=True, on_delete=models.CASCADE)
+    college = models.ForeignKey(College, null=True, on_delete=models.CASCADE)
+    course = models.CharField(max_length=100, null=True, blank=True)
+    block = models.CharField(max_length=100, null=True, blank=True)
+    start_datetime = models.DateTimeField(null=True, blank=True)
+    end_datetime = models.DateTimeField(null=True, blank=True)
+    num_of_devices = models.PositiveIntegerField(default=1)
+    file = models.FileField(upload_to='bookings/', null=True, blank=True)
+    email_addresses = models.TextField(null=True, blank=True)
+    status = models.CharField(
+        null=True, max_length=20, choices=[('pending', 'Pending'), ('confirmed', 'Confirmed'), ('cancelled', 'Cancelled')]
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
 class Booking(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    pc = models.ForeignKey(PC, on_delete=models.CASCADE)
+    pc = models.ForeignKey(PC, null=True, on_delete=models.CASCADE)
+    faculty_booking = models.ForeignKey(FacultyBooking, null=True, on_delete=models.CASCADE)
     start_time = models.DateTimeField(null=True, blank=True)
     end_time = models.DateTimeField(null=True, blank=True)
     status = models.CharField(
@@ -52,9 +69,6 @@ class Booking(models.Model):
     )
     duration = models.DurationField(null=True, blank=True)
     expiry = models.DateTimeField(null=True, blank=True)
-    uri = models.URLField(max_length=200, null=True, blank=True)
-    file = models.FileField(upload_to='bookings/', null=True, blank=True)
-    num_of_devices = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -71,10 +85,15 @@ class Violation(models.Model):
     status = models.CharField(null=True, blank=True, choices=[('suspended','Suspended'), ('active','Active')])
 
 
+class ChatRoom(models.Model):
+    initiator = models.ForeignKey(User, null=True, related_name='chat_room_initiator', on_delete=models.CASCADE)
+    receiver = models.ForeignKey(User, null=True, related_name='chat_room_receiver', on_delete=models.CASCADE)
+
+
 class Chat(models.Model):
-    sender = models.ForeignKey(User, related_name='sent_chats', on_delete=models.CASCADE)
-    recipient = models.ForeignKey(User, related_name='received_chats', on_delete=models.CASCADE)
-    subject = models.CharField(max_length=255)
+    chatroom = models.ForeignKey(ChatRoom, null=True, related_name='chats', on_delete=models.CASCADE)
+    sender = models.ForeignKey(User, null=True, related_name='sent_chats', on_delete=models.CASCADE)
+    recipient = models.ForeignKey(User, null=True, related_name='received_chats', on_delete=models.CASCADE)
     message = models.TextField()
     status = models.CharField(max_length=20, choices=[('sent', 'Sent'), ('delivered', 'Delivered'), ('read', 'Read')])
     timestamp = models.DateTimeField(auto_now_add=True)

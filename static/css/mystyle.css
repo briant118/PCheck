@@ -47,7 +47,7 @@
     font-size: large;
 }
 
-button:hover {
+.next-button:hover {
     background: #f3eea8;
 }
 
