@@ -18,31 +18,74 @@
       <a class="nav-link" id="tab-approved" href="#">Approved</a>
     </li>
   </ul>
-
+ 
   <div id="bookings">
-    <table class="table">
-      <head>
-        <tr>
-          <th>Name</th>
-          <th>College</th>
-          <th>Date</th>
-          <th>Inbox</th>
-          <th>Status</th>
-        </tr>
-      </head>
-      <tbody>
-        {% for booking in bookings %}
-        <tr>
-          <td>{{ booking.user.get_full_name }}</td>
-          <td>{{ booking.user.profile.college.name }}</td>
-          <td>{{ booking.created_at }}</td>
-          <td></td>
-          <td>{% if booking.status == None %}pending{% else %}{{ booking.status }}{% endif %}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <ul class="nav nav-tabs">
+      <li class="nav-item">
+        <a class="nav-link active" id="tab-student-bookings" aria-current="page" href="#">Student Bookings</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" id="tab-faculty-bookings" aria-current="page" href="#">Faculty Bookings</a>
+      </li>
+    </ul>
+
+    <div id="student-bookings">
+      <table class="table">
+        <head>
+          <tr>
+            <th colspan="5">Student Bookings</th>
+          </tr>
+          <tr>
+            <th>Name</th>
+            <th>College</th>
+            <th>Date</th>
+            <th>Inbox</th>
+            <th>Status</th>
+          </tr>
+        </head>
+        <tbody>
+          {% for booking in bookings %}
+          <tr>
+            <td>{{ booking.user.get_full_name }}</td>
+            <td>{{ booking.user.profile.college.name }}</td>
+            <td>{{ booking.created_at }}</td>
+            <td></td>
+            <td>{% if booking.status == None %}pending{% else %}{{ booking.status }}{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    
+    <div id="faculty-bookings" hidden>
+      <table class="table">
+        <head>
+          <tr>
+            <th colspan="5">Faculty Bookings</th>
+          </tr>
+          <tr>
+            <th>Requester</th>
+            <th>Start</th>
+            <th>End</th>
+            <th># of PC</th>
+            <th>Status</th>
+          </tr>
+        </head>
+        <tbody>
+          {% for booking in faculty_bookings %}
+          <tr>
+            <td>{{ booking.faculty.get_full_name }}</td>
+            <td>{{ booking.start_datetime }}</td>
+            <td>{{ booking.end_datetime }}</td>
+            <td>{{ booking.num_of_devices }}</td>
+            <td>{{ booking.status }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
+
   
   <div id="pending" hidden>
     <table class="table">
@@ -106,45 +149,71 @@
 {% block scripts %}
 <script src="{% static 'js/jquery-3.7.1.min.js' %}"></script>
 <script>
+  // Generic tab switcher (accepts jQuery collections OR arrays of elements/jQuery objects)
+  function initTabGroup(tabsInput, contentsInput) {
+    // Normalize to a single jQuery collection of DOM elements
+    const $tabs = (tabsInput instanceof jQuery)
+      ? tabsInput
+      : $(Array.prototype.concat.apply([], tabsInput.map(i => (i instanceof jQuery ? i.get() : i))));
+
+    const $contents = (contentsInput instanceof jQuery)
+      ? contentsInput
+      : $(Array.prototype.concat.apply([], contentsInput.map(i => (i instanceof jQuery ? i.get() : i))));
+
+    if ($tabs.length !== $contents.length) {
+      console.warn("initTabGroup: tabs and contents length mismatch", $tabs, $contents);
+    }
+
+    // Set initial state: hide all contents, remove active, then activate first tab
+    $contents.prop("hidden", true);
+    $tabs.removeClass("active");
+    if ($tabs.length && $contents.length) {
+      $tabs.first().addClass("active");
+      $contents.first().prop("hidden", false);
+    }
+
+    $tabs.on("click", function (e) {
+      e.preventDefault(); // if tabs are anchors, prevent navigation
+
+      const index = $tabs.index(this);
+      if (index === -1) return; // safety
+
+      // Hide all content sections and remove active class
+      $contents.prop("hidden", true);
+      $tabs.removeClass("active");
+
+      // Show the selected tab and its corresponding content
+      $(this).addClass("active");
+      $contents.eq(index).prop("hidden", false);
+    });
+  }
+
   $(document).ready(function () {
     const $bookings = $("#bookings");
+    const $studentBookings = $("#student-bookings");
+    const $facultyBookings = $("#faculty-bookings");
     const $pending = $("#pending");
     const $approved = $("#approved");
+
     const $tabBookings = $("#tab-bookings");
+    const $tabStudentBookings = $("#tab-student-bookings");
+    const $tabFacultyBookings = $("#tab-faculty-bookings");
     const $tabPending = $("#tab-pending");
     const $tabApproved = $("#tab-approved");
-    const $pendingRow = $(".pending");
 
-    $tabBookings.on("click", function() {
-      $bookings.prop("hidden", false);
-      $(this).addClass("active");
-      $tabPending.removeClass("active");
-      $tabApproved.removeClass("active");
-      $pending.prop("hidden", true);
-      $approved.prop("hidden", true);
-    });
+    // === Student / Faculty Bookings ===
+    // use .add() to build a single jQuery collection of tabs and contents
+    initTabGroup(
+      $tabStudentBookings.add($tabFacultyBookings),
+      $studentBookings.add($facultyBookings)
+    );
 
-    $tabPending.on("click", function() {
-      $pending.prop("hidden", false);
-      $(this).addClass("active");
-      $tabBookings.removeClass("active");
-      $tabApproved.removeClass("active");
-      $bookings.prop("hidden", true);
-      $approved.prop("hidden", true);
-    });
-
-    $tabApproved.on("click", function() {
-      $approved.prop("hidden", false);
-      $(this).addClass("active");
-      $tabBookings.removeClass("active");
-      $tabPending.removeClass("active");
-      $bookings.prop("hidden", true);
-      $pending.prop("hidden", true);
-    });
-
-    $pending.on("click", function() {
-
-    });
+    // === Bookings / Pending / Approved ===
+    initTabGroup(
+      $tabBookings.add($tabPending).add($tabApproved),
+      $bookings.add($pending).add($approved)
+    );
   });
+
 </script>
 {% endblock %}

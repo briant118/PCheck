@@ -204,12 +204,12 @@ def submit_block_booking(request):
             college=college_obj,
             course=course,
             block=block,
-            start_time=date_start,
-            end_time=date_end,
-            type='multiple',
+            start_datetime=date_start,
+            end_datetime=date_end,
             num_of_devices=cust_num_of_pc if cust_num_of_pc and int(cust_num_of_pc) > 0 else num_of_pc,
             file=attachment,
             email_addresses=email_list,
+            status="pending"
         )
         
         return HttpResponseRedirect(reverse_lazy('main_app:faculty-booking-confirmation'))
@@ -526,8 +526,12 @@ class BookingListView(LoginRequiredMixin, ListView):
             status__isnull=True).order_by('created_at')
         approved_bookings = models.Booking.objects.filter(
             pc__booking_status="in_use").order_by('created_at')
+        faculty_bookings = models.FacultyBooking.objects.all()
+        pending_faculty_approvals = models.FacultyBooking.objects.filter(status="pending")
         context = {
             "bookings": bookings,
+            "faculty_bookings": faculty_bookings,
+            "pending_faculty_approvals": pending_faculty_approvals,
             "section": 'bookings',
             "pending_approvals": pending_approvals,
             "approved_bookings": approved_bookings,

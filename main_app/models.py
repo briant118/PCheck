@@ -47,14 +47,15 @@ class FacultyBooking(models.Model):
     college = models.ForeignKey(College, null=True, on_delete=models.CASCADE)
     course = models.CharField(max_length=100, null=True, blank=True)
     block = models.CharField(max_length=100, null=True, blank=True)
-    start_time = models.DateTimeField(null=True, blank=True)
-    end_time = models.DateTimeField(null=True, blank=True)
-    type = models.CharField(
-        null=True, max_length=20, choices=[('single', 'Single'), ('multiple', 'Multiple')]
-    )
+    start_datetime = models.DateTimeField(null=True, blank=True)
+    end_datetime = models.DateTimeField(null=True, blank=True)
     num_of_devices = models.PositiveIntegerField(default=1)
     file = models.FileField(upload_to='bookings/', null=True, blank=True)
     email_addresses = models.TextField(null=True, blank=True)
+    status = models.CharField(
+        null=True, max_length=20, choices=[('pending', 'Pending'), ('confirmed', 'Confirmed'), ('cancelled', 'Cancelled')]
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
 
 
 class Booking(models.Model):

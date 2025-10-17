@@ -52,7 +52,7 @@ class CustomLoginView(LoginView):
             return '/'
         elif user.profile.role == 'staff':
             return '/dashboard/'
-        return '/'
+        return '/dashboard/'
 
 
 class ProfileDetailView(LoginRequiredMixin, TemplateView):
