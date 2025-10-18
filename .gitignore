@@ -63,3 +63,4 @@ static/js/jquery*.*
 staticfiles/
 .env
 main_app/migrations/
+account/migrations/
