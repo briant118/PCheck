@@ -1,13 +1,175 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard{% endblock %}
+{% block title %}📊 Analytics Dashboard{% endblock %}
 
 {% block content %}
-<div class="col-md-10 offset-md-1 rounded shadow mt-3 p-3">
-  <div class="text-center">
-    <h1>Dashboard</h1>
-    <p>Welcome to your dashboard.</p>
-    <canvas id="collegeChart"></canvas>
+<div class="container-fluid mt-3">
+  <!-- Header -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <h1 class="text-center">📊 Analytics Dashboard</h1>
+      <p class="text-center text-muted">Comprehensive insights into PC usage and booking patterns</p>
+    </div>
+  </div>
+
+  <!-- Pending QR Code Requests Alert -->
+  {% if pending_qr_requests > 0 %}
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        <i class="fa fa-exclamation-triangle"></i>
+        <strong>{{ pending_qr_requests }}</strong> QR code request(s) pending approval.
+        <a href="{% url 'main_app:bookings' %}" class="btn btn-sm btn-warning ms-2">
+          <i class="fa fa-eye"></i> Review Requests
+        </a>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Key Metrics Cards -->
+  <div class="row mb-4">
+    <div class="col-md-3 mb-3">
+      <div class="card bg-primary text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h4 class="card-title">{{ total_bookings }}</h4>
+              <p class="card-text">Total Sessions</p>
+            </div>
+            <div class="align-self-center">
+              <i class="fa fa-desktop fa-2x"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+      <div class="card bg-success text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h4 class="card-title">{{ avg_duration }} min</h4>
+              <p class="card-text">Avg Duration</p>
+            </div>
+            <div class="align-self-center">
+              <i class="fa fa-clock fa-2x"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+      <div class="card bg-info text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h4 class="card-title">{{ success_rate }}%</h4>
+              <p class="card-text">Success Rate</p>
+            </div>
+            <div class="align-self-center">
+              <i class="fa fa-chart-line fa-2x"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+      <div class="card bg-warning text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h4 class="card-title">{{ recent_bookings }}</h4>
+              <p class="card-text">This Week</p>
+            </div>
+            <div class="align-self-center">
+              <i class="fa fa-calendar-week fa-2x"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts Row -->
+  <div class="row mb-4">
+    <!-- College Breakdown -->
+    <div class="col-md-6 mb-4">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="card-title mb-0">🏫 College & Department Breakdown</h5>
+        </div>
+        <div class="card-body">
+          <canvas id="collegeChart" height="300"></canvas>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Peak Usage Hours -->
+    <div class="col-md-6 mb-4">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="card-title mb-0">⏰ Peak Usage Hours</h5>
+        </div>
+        <div class="card-body">
+          <canvas id="peakHoursChart" height="300"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Booking Status Breakdown -->
+  <div class="row mb-4">
+    <div class="col-md-6 mb-4">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="card-title mb-0">📈 Successful vs. Canceled Bookings</h5>
+        </div>
+        <div class="card-body">
+          <canvas id="statusChart" height="300"></canvas>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Export Reports -->
+    <div class="col-md-6 mb-4">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="card-title mb-0">📊 Exportable Reports</h5>
+        </div>
+        <div class="card-body">
+          <div class="d-grid gap-2">
+            <button class="btn btn-outline-primary" onclick="exportReport('daily')">
+              <i class="fa fa-download"></i> Daily Report
+            </button>
+            <button class="btn btn-outline-success" onclick="exportReport('weekly')">
+              <i class="fa fa-download"></i> Weekly Report
+            </button>
+            <button class="btn btn-outline-info" onclick="exportReport('monthly')">
+              <i class="fa fa-download"></i> Monthly Report
+            </button>
+          </div>
+          <hr>
+          <div class="row text-center">
+            <div class="col-4">
+              <h6 class="text-success">{{ confirmed_bookings }}</h6>
+              <small>Confirmed</small>
+            </div>
+            <div class="col-4">
+              <h6 class="text-danger">{{ cancelled_bookings }}</h6>
+              <small>Cancelled</small>
+            </div>
+            <div class="col-4">
+              <h6 class="text-warning">{{ pending_qr_requests }}</h6>
+              <small>Pending</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}
@@ -15,40 +177,153 @@
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+// College Breakdown Chart
 fetch("{% url 'main_app:booking-data' %}")
   .then(res => res.json())
   .then(data => {
     new Chart(document.getElementById("collegeChart"), {
-      type: 'pie',
+      type: 'doughnut',
       data: {
         labels: data.labels,
         datasets: [{
           label: 'Bookings by College',
           data: data.values,
-          backgroundColor: 'rgba(54, 162, 235, 0.6)',
-          borderColor: 'rgba(54, 162, 235, 1)',
-          borderWidth: 1
+          backgroundColor: [
+            'rgba(255, 99, 132, 0.8)',
+            'rgba(54, 162, 235, 0.8)',
+            'rgba(255, 205, 86, 0.8)',
+            'rgba(75, 192, 192, 0.8)',
+            'rgba(153, 102, 255, 0.8)',
+            'rgba(255, 159, 64, 0.8)'
+          ],
+          borderColor: [
+            'rgba(255, 99, 132, 1)',
+            'rgba(54, 162, 235, 1)',
+            'rgba(255, 205, 86, 1)',
+            'rgba(75, 192, 192, 1)',
+            'rgba(153, 102, 255, 1)',
+            'rgba(255, 159, 64, 1)'
+          ],
+          borderWidth: 2
         }]
       },
       options: {
         responsive: true,
+        maintainAspectRatio: false,
         plugins: {
-          legend: { display: true },
-          title: {
+          legend: { 
             display: true,
-            text: "Analytics",
-            font: {
-              size: 30
-            },
-            position: "top",
-            align: 'start'
+            position: 'bottom'
           }
-        },
-        scales: {
-          y: { beginAtZero: true }
         }
       }
     });
   });
+
+// Peak Hours Chart
+const peakHoursData = {{ peak_hours|safe }};
+new Chart(document.getElementById("peakHoursChart"), {
+  type: 'bar',
+  data: {
+    labels: peakHoursData.map(item => item.hour),
+    datasets: [{
+      label: 'Bookings per Hour',
+      data: peakHoursData.map(item => item.bookings),
+      backgroundColor: 'rgba(54, 162, 235, 0.6)',
+      borderColor: 'rgba(54, 162, 235, 1)',
+      borderWidth: 1
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false }
+    },
+    scales: {
+      y: { 
+        beginAtZero: true,
+        ticks: {
+          stepSize: 1
+        }
+      }
+    }
+  }
+});
+
+// Status Chart
+new Chart(document.getElementById("statusChart"), {
+  type: 'pie',
+  data: {
+    labels: ['Confirmed', 'Cancelled', 'Pending'],
+    datasets: [{
+      label: 'Booking Status',
+      data: [{{ confirmed_bookings }}, {{ cancelled_bookings }}, {{ pending_qr_requests }}],
+      backgroundColor: [
+        'rgba(40, 167, 69, 0.8)',
+        'rgba(220, 53, 69, 0.8)',
+        'rgba(255, 193, 7, 0.8)'
+      ],
+      borderColor: [
+        'rgba(40, 167, 69, 1)',
+        'rgba(220, 53, 69, 1)',
+        'rgba(255, 193, 7, 1)'
+      ],
+      borderWidth: 2
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { 
+        display: true,
+        position: 'bottom'
+      }
+    }
+  }
+});
+
+// Export Report Function
+function exportReport(type) {
+  const today = new Date();
+  let filename = '';
+  
+  switch(type) {
+    case 'daily':
+      filename = `daily_report_${today.getFullYear()}_${(today.getMonth()+1).toString().padStart(2, '0')}_${today.getDate().toString().padStart(2, '0')}.csv`;
+      break;
+    case 'weekly':
+      filename = `weekly_report_${today.getFullYear()}_week_${getWeekNumber(today)}.csv`;
+      break;
+    case 'monthly':
+      filename = `monthly_report_${today.getFullYear()}_${(today.getMonth()+1).toString().padStart(2, '0')}.csv`;
+      break;
+  }
+  
+  // Create CSV content (simplified - you can enhance this)
+  const csvContent = `Report Type,${type.toUpperCase()}\n` +
+    `Generated,${today.toISOString()}\n` +
+    `Total Bookings,{{ total_bookings }}\n` +
+    `Confirmed,{{ confirmed_bookings }}\n` +
+    `Cancelled,{{ cancelled_bookings }}\n` +
+    `Success Rate,{{ success_rate }}%\n` +
+    `Average Duration,{{ avg_duration }} minutes\n`;
+  
+  // Download CSV
+  const blob = new Blob([csvContent], { type: 'text/csv' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  window.URL.revokeObjectURL(url);
+}
+
+function getWeekNumber(date) {
+  const firstDay = new Date(date.getFullYear(), 0, 1);
+  const pastDaysOfYear = (date - firstDay) / 86400000;
+  return Math.ceil((pastDaysOfYear + firstDay.getDay() + 1) / 7);
+}
 </script>
 {% endblock %}

@@ -3,7 +3,123 @@ $(document).ready(function () {
   const $nextButton = $(".reserve-next-button");
   const $pageNav = $("#page-nav");
 
+  // Bootstrap 5 modal instances
+  const durationModal = new bootstrap.Modal(document.getElementById('durationModal'));
+  const qrModal = new bootstrap.Modal(document.getElementById('qrModal'));
+  
+  // Auto-refresh PC status every 2 seconds for real-time updates
+  setInterval(function() {
+    refreshPCStatus();
+  }, 2000);
+  
+  // Manual refresh button
+  $('#manual-refresh').click(function() {
+    refreshPCStatus();
+  });
+  
+  // Function to refresh PC status
+  function refreshPCStatus() {
+    // Show loading indicator
+    $('#last-updated').html('<i class="fa fa-sync-alt fa-spin text-primary"></i> Updating...');
+    
+    $.ajax({
+      url: '/ajax/get-pc-status/',
+      type: 'GET',
+      success: function(data) {
+        if (data.success) {
+          console.log('PC Status Update:', data.pc_status);
+          console.log('Debug Info:', data.debug_info);
+          updatePCButtons(data.pc_status);
+          updateLastRefreshTime();
+        }
+      },
+      error: function() {
+        console.log('Failed to refresh PC status');
+        $('#last-updated').html('<i class="fa fa-exclamation-triangle text-warning"></i> Connection error');
+      }
+    });
+  }
+  
+  // Function to update last refresh time
+  function updateLastRefreshTime() {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString();
+    $('#last-updated').html(`<i class="fa fa-check text-success"></i> Last updated: ${timeString}`);
+  }
+  
+  // Function to update PC button states
+  function updatePCButtons(pcStatus) {
+    console.log('Updating PC buttons with status:', pcStatus);
+    
+    $('.pc-button').each(function() {
+      const pcId = $(this).data('pc-id');
+      const status = pcStatus[pcId];
+      
+      if (status) {
+        console.log(`PC ${pcId} (${status.name}): ${status.booking_status} (${status.system_condition})`);
+        
+        // Update button appearance based on status
+        $(this).removeClass('text-success text-warning text-danger text-secondary');
+        $(this).removeAttr('disabled');
+        
+        if (status.system_condition === 'repair') {
+          $(this).addClass('text-secondary').prop('disabled', true);
+          $(this).attr('title', `PC ${status.name} - Status: Under Repair`);
+          $(this).find('.pc-time-display').hide();
+        } else if (status.booking_status === 'available') {
+          $(this).addClass('text-success');
+          $(this).attr('title', `PC ${status.name} - Status: Available`);
+          $(this).find('.pc-time-display').hide();
+        } else if (status.booking_status === 'in_queue') {
+          $(this).addClass('text-warning').prop('disabled', true);
+          $(this).attr('title', `PC ${status.name} - Status: In Queue`);
+          $(this).find('.pc-time-display').hide();
+        } else if (status.booking_status === 'in_use') {
+          $(this).addClass('text-danger').prop('disabled', true);
+          let title = `PC ${status.name} - Status: In Use`;
+          const timeDisplay = $(this).find('.pc-time-display');
+          
+          if (status.remaining_time && status.remaining_time > 0) {
+            const minutes = Math.floor(status.remaining_time / 60);
+            const seconds = status.remaining_time % 60;
+            const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            title += `\nTime remaining: ${timeString}`;
+            
+            // Show time on the button
+            timeDisplay.text(timeString).show();
+          } else {
+            timeDisplay.hide();
+          }
+          $(this).attr('title', title);
+        } else {
+          $(this).addClass('text-secondary').prop('disabled', true);
+          $(this).attr('title', `PC ${status.name} - Status: Offline`);
+          $(this).find('.pc-time-display').hide();
+        }
+      } else {
+        console.log(`No status found for PC ${pcId}`);
+      }
+    });
+  }
+
   $pcButton.click(function () {
+    // Only allow clicking on available PCs
+    if ($(this).prop('disabled')) {
+      const pcName = $(this).data("pc-name");
+      const title = $(this).attr('title');
+      const status = title.split('Status: ')[1].split('\n')[0];
+      
+      if (status === 'In Use') {
+        // Show remaining time for PCs in use
+        const timeRemaining = title.includes('Time remaining:') ? 
+          '\n' + title.split('Time remaining:')[1] : '';
+        alert(`PC ${pcName} is currently in use and cannot be selected.${timeRemaining}`);
+      } else {
+        alert(`PC ${pcName} is ${status} and cannot be selected.`);
+      }
+      return;
+    }
+    
     $(this).toggleClass("text-success");
     $("#pc_id").val($(this).data("pc-id"));
     console.log("PC ID:", $("#pc_id").val());
@@ -21,7 +137,7 @@ $(document).ready(function () {
 
   // Show duration form on "Next"
   $nextButton.click(function () {
-    $("#durationModal").modal("show");
+    durationModal.show();
   });
 
   // Plus and minus buttons
@@ -62,12 +178,21 @@ $(document).ready(function () {
         duration: duration,
       },
       success: function (response) {
-        $("#durationModal").modal("hide");
+        durationModal.hide();
+        
+        // Check if the reservation was successful
+        if (!response.success) {
+          alert(response.message || "Reservation failed. Please try again.");
+          return;
+        }
 
         // Show QR code in modal
         $("#qrImage").attr("src", "data:image/png;base64," + response.qr_code);
         $("#booking_id").text(response.booking_id);
-        $("#qrModal").modal("show");
+        qrModal.show();
+        
+        // Immediately refresh PC status to show the booked PC as "In Queue"
+        refreshPCStatus();
 
         // Countdown target = now + 10 minutes
         let endTime = new Date().getTime() + 10 * 60 * 1000;
@@ -83,7 +208,7 @@ $(document).ready(function () {
           if (diff <= 0) {
             clearInterval(countdownInterval);
             $("#qrCountdown").text("00:00");
-            $("#qrModal").modal("hide"); // auto-close
+            qrModal.hide(); // auto-close
             return;
           }
 

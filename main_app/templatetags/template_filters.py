@@ -6,7 +6,9 @@ register = template.Library()
 @register.filter
 def get_int(value):
     try:
-        value = re.search(r'\d+', str(value)).group()
-        return int(value)
+        match = re.search(r'\d+', str(value))
+        if match:
+            return int(match.group())
+        return None
     except (ValueError, TypeError):
         return None

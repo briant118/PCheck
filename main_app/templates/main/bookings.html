@@ -7,26 +7,55 @@
 {% block content %}
 <div class="container mt-5 pt-5">
 
+
+  <!-- Debug Information -->
+  <div class="alert alert-secondary mb-3">
+    <strong>Current Tab:</strong> {{ request.GET.tab|default:"all" }} | 
+    <strong>Pending Approvals:</strong> {{ pending_approvals|length }} | 
+    <strong>Approved Bookings:</strong> {{ approved_bookings|length }}
+  </div>
+
+  <!-- Quick Actions for Admin -->
+  {% if pending_approvals %}
+  <div class="alert alert-info mb-4">
+    <div class="row align-items-center">
+      <div class="col-md-8">
+        <i class="fa fa-info-circle"></i>
+        <strong>{{ pending_approvals|length }}</strong> QR code request(s) are waiting for your approval.
+      </div>
+      <div class="col-md-4 text-end">
+        <a href="?tab=pending" class="btn btn-sm btn-primary">
+          <i class="fa fa-eye"></i> View Pending Requests
+        </a>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
   <ul class="nav nav-tabs">
     <li class="nav-item">
-      <a class="nav-link active" id="tab-bookings" aria-current="page" href="#">All Bookings</a>
+      <a class="nav-link {% if not request.GET.tab or request.GET.tab == 'all' %}active{% endif %}" 
+         href="?tab=all">All Bookings</a>
     </li>
     <li class="nav-item">
-      <a class="nav-link" id="tab-pending" aria-current="page" href="#">Pending Approval</a>
+      <a class="nav-link {% if request.GET.tab == 'pending' %}active{% endif %}" 
+         href="?tab=pending">Pending Approval</a>
     </li>
     <li class="nav-item">
-      <a class="nav-link" id="tab-approved" href="#">Approved</a>
+      <a class="nav-link {% if request.GET.tab == 'approved' %}active{% endif %}" 
+         href="?tab=approved">Approved</a>
     </li>
   </ul>
 
-  <div id="bookings">
+  <div id="bookings" {% if request.GET.tab and request.GET.tab != 'all' %}style="display: none;"{% endif %}>
     <table class="table">
       <head>
         <tr>
           <th>Name</th>
           <th>College</th>
           <th>Date</th>
-          <th>Inbox</th>
+          <th>PC</th>
+          <th>Duration</th>
           <th>Status</th>
         </tr>
       </head>
@@ -36,24 +65,35 @@
           <td>{{ booking.user.get_full_name }}</td>
           <td>{{ booking.user.profile.college.name }}</td>
           <td>{{ booking.created_at }}</td>
-          <td></td>
-          <td>{% if booking.status == None %}pending{% else %}{{ booking.status }}{% endif %}</td>
+          <td>{{ booking.pc.name }}</td>
+          <td>{{ booking.duration }}</td>
+          <td>
+            {% if booking.status == None %}
+              <span class="badge bg-warning">QR Code Generated - Pending</span>
+            {% else %}
+              <span class="badge bg-{% if booking.status == 'confirmed' %}success{% else %}danger{% endif %}">
+                {{ booking.status|title }}
+              </span>
+            {% endif %}
+          </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
   
-  <div id="pending" hidden>
+  <div id="pending" {% if request.GET.tab != 'pending' %}style="display: none;"{% endif %}>
+    
     <table class="table">
       <head>
         <tr>
           <th>Name</th>
           <th>College</th>
           <th>Date</th>
-          <th>Inbox</th>
+          <th>PC</th>
+          <th>Duration</th>
           <th>Status</th>
-          <th>Action</th>
+          <th>Actions</th>
         </tr>
       </head>
       <tbody>
@@ -62,12 +102,31 @@
           <td>{{ pending.user.get_full_name }}</td>
           <td>{{ pending.user.profile.college.name }}</td>
           <td>{{ pending.created_at }}</td>
-          <td></td>
-          <td>{% if pending.status == None %}pending{% else %}{{ pending.status }}{% endif %}</td>
+          <td>{{ pending.pc.name }}</td>
+          <td>{{ pending.duration }}</td>
           <td>
-            <a href="{% url 'main_app:reservation-approval' pk=pending.pk %}" class="btn btn-sm btn-outline-secondary">
-              review
-            </a>
+            <span class="badge bg-warning">QR Code Generated - Pending Approval</span>
+          </td>
+          <td>
+            <div class="btn-group" role="group">
+              <a href="{% url 'main_app:reservation-approval' pk=pending.pk %}" class="btn btn-sm btn-outline-info">
+                <i class="fa fa-eye"></i> Review
+              </a>
+              <a href="{% url 'main_app:reservation-approved' pk=pending.pk %}" class="btn btn-sm btn-success" 
+                 onclick="return confirm('Are you sure you want to approve this QR code reservation?')">
+                <i class="fa fa-check"></i> Accept
+              </a>
+              <a href="{% url 'main_app:reservation-declined' pk=pending.pk %}" class="btn btn-sm btn-danger"
+                 onclick="return confirm('Are you sure you want to decline this QR code reservation?')">
+                <i class="fa fa-times"></i> Decline
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7" class="text-center text-muted">
+            <i class="fa fa-info-circle"></i> No pending QR code requests found.
           </td>
         </tr>
         {% endfor %}
@@ -75,14 +134,15 @@
     </table>
   </div>
   
-  <div id="approved" hidden>
+  <div id="approved" {% if request.GET.tab != 'approved' %}style="display: none;"{% endif %}>
     <table class="table">
       <head>
         <tr>
           <th>Name</th>
           <th>College</th>
           <th>Date</th>
-          <th>Inbox</th>
+          <th>PC</th>
+          <th>Duration</th>
           <th>Status</th>
         </tr>
       </head>
@@ -92,8 +152,11 @@
           <td>{{ approved.user.get_full_name }}</td>
           <td>{{ approved.user.profile.college.name }}</td>
           <td>{{ approved.created_at }}</td>
-          <td></td>
-          <td>{{ approved.status }}</td>
+          <td>{{ approved.pc.name }}</td>
+          <td>{{ approved.duration }}</td>
+          <td>
+            <span class="badge bg-success">{{ approved.status|title }}</span>
+          </td>
         </tr>
         {% endfor %}
       </tbody>
@@ -104,47 +167,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{% static 'js/jquery-3.7.1.min.js' %}"></script>
-<script>
-  $(document).ready(function () {
-    const $bookings = $("#bookings");
-    const $pending = $("#pending");
-    const $approved = $("#approved");
-    const $tabBookings = $("#tab-bookings");
-    const $tabPending = $("#tab-pending");
-    const $tabApproved = $("#tab-approved");
-    const $pendingRow = $(".pending");
-
-    $tabBookings.on("click", function() {
-      $bookings.prop("hidden", false);
-      $(this).addClass("active");
-      $tabPending.removeClass("active");
-      $tabApproved.removeClass("active");
-      $pending.prop("hidden", true);
-      $approved.prop("hidden", true);
-    });
-
-    $tabPending.on("click", function() {
-      $pending.prop("hidden", false);
-      $(this).addClass("active");
-      $tabBookings.removeClass("active");
-      $tabApproved.removeClass("active");
-      $bookings.prop("hidden", true);
-      $approved.prop("hidden", true);
-    });
-
-    $tabApproved.on("click", function() {
-      $approved.prop("hidden", false);
-      $(this).addClass("active");
-      $tabBookings.removeClass("active");
-      $tabPending.removeClass("active");
-      $bookings.prop("hidden", true);
-      $pending.prop("hidden", true);
-    });
-
-    $pending.on("click", function() {
-
-    });
-  });
-</script>
+<!-- No JavaScript needed - using URL parameters for tab switching -->
 {% endblock %}

@@ -76,7 +76,79 @@ class ProfileUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
     
 @login_required
 def dashboard(request):
-    return render(request, 'account/dashboard.html')
+    from main_app.models import Booking, PC
+    from django.db.models import Count, Avg, Q
+    from datetime import datetime, timedelta
+    import json
+    
+    # Get pending QR code requests for admin dashboard
+    pending_qr_requests = Booking.objects.filter(
+        qr_code_generated=True, status__isnull=True
+    ).count()
+    
+    # Analytics data
+    total_bookings = Booking.objects.count()
+    confirmed_bookings = Booking.objects.filter(status='confirmed').count()
+    cancelled_bookings = Booking.objects.filter(status='cancelled').count()
+    
+    # Average session duration (in minutes)
+    confirmed_bookings_with_duration = Booking.objects.filter(
+        status='confirmed', 
+        start_time__isnull=False, 
+        end_time__isnull=False
+    )
+    
+    if confirmed_bookings_with_duration.exists():
+        total_duration = sum([
+            (booking.end_time - booking.start_time).total_seconds() / 60 
+            for booking in confirmed_bookings_with_duration
+        ])
+        avg_duration = total_duration / confirmed_bookings_with_duration.count()
+    else:
+        avg_duration = 0
+    
+    # Peak usage hours (simplified - you can enhance this)
+    peak_hours = []
+    for hour in range(24):
+        hour_bookings = Booking.objects.filter(
+            start_time__hour=hour,
+            status='confirmed'
+        ).count()
+        peak_hours.append({'hour': f"{hour:02d}:00", 'bookings': hour_bookings})
+    
+    # College breakdown
+    college_data = []
+    for college in models.College.objects.all():
+        college_bookings = Booking.objects.filter(
+            user__profile__college=college
+        ).count()
+        if college_bookings > 0:
+            college_data.append({
+                'name': college.name,
+                'bookings': college_bookings
+            })
+    
+    # Recent activity (last 7 days)
+    week_ago = datetime.now() - timedelta(days=7)
+    recent_bookings = Booking.objects.filter(
+        created_at__gte=week_ago
+    ).count()
+    
+    # Success rate
+    success_rate = (confirmed_bookings / total_bookings * 100) if total_bookings > 0 else 0
+    
+    context = {
+        'pending_qr_requests': pending_qr_requests,
+        'total_bookings': total_bookings,
+        'confirmed_bookings': confirmed_bookings,
+        'cancelled_bookings': cancelled_bookings,
+        'avg_duration': round(avg_duration, 1),
+        'success_rate': round(success_rate, 1),
+        'recent_bookings': recent_bookings,
+        'college_data': json.dumps(college_data),
+        'peak_hours': json.dumps(peak_hours),
+    }
+    return render(request, 'account/dashboard.html', context)
 
 
 def custom_logout_view(request):

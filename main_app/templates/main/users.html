@@ -6,23 +6,252 @@
 
 {% block content %}
 <div class="container mt-5 pt-5">
+  {% csrf_token %}
 
-  <div id="users">
-    <ul>
-      {% for user in users %}
-      <li>{{ user.get_full_name }}</li>
-      {% endfor %}
-    </ul>
+  <!-- Search and Filter Section -->
+  <div class="row mb-4">
+    <div class="col-md-6">
+      <h2>User Management</h2>
+    </div>
+    <div class="col-md-6">
+      <form method="GET" class="d-flex">
+        <input type="text" name="search-user" class="form-control me-2" placeholder="Search users..." value="{{ search_user }}">
+        <button type="submit" class="btn btn-outline-primary">Search</button>
+      </form>
+    </div>
   </div>
+
+  <!-- Users Table -->
+  <div class="card">
+    <div class="card-body">
+      <table class="table table-hover">
+        <thead class="table-dark">
+          <tr>
+            <th>Name</th>
+            <th>Username</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>College</th>
+            <th>School ID</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for user in users %}
+          <tr>
+            <td>{{ user.get_full_name }}</td>
+            <td>{{ user.username }}</td>
+            <td>{{ user.email }}</td>
+            <td>
+              <span class="badge bg-{% if user.profile.role == 'staff' %}danger{% elif user.profile.role == 'faculty' %}warning{% else %}info{% endif %}">
+                {{ user.profile.role|title|default:"Student" }}
+              </span>
+            </td>
+            <td>{{ user.profile.college.name|default:"N/A" }}</td>
+            <td>{{ user.profile.school_id|default:"N/A" }}</td>
+            <td>
+              {% if user.is_active %}
+                <span class="badge bg-success">Active</span>
+              {% else %}
+                <span class="badge bg-danger">Inactive</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="btn-group" role="group">
+                <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#viewUserModal{{ user.id }}">
+                  <i class="fa fa-eye"></i> View
+                </button>
+                {% if user.is_active %}
+                  <button type="button" class="btn btn-sm btn-warning" onclick="toggleUserStatus({{ user.id }}, false)">
+                    <i class="fa fa-ban"></i> Deactivate
+                  </button>
+                {% else %}
+                  <button type="button" class="btn btn-sm btn-success" onclick="toggleUserStatus({{ user.id }}, true)">
+                    <i class="fa fa-check"></i> Activate
+                  </button>
+                {% endif %}
+                <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#suspendUserModal{{ user.id }}">
+                  <i class="fa fa-exclamation-triangle"></i> Suspend
+                </button>
+              </div>
+            </td>
+          </tr>
+
+          <!-- View User Modal -->
+          <div class="modal fade" id="viewUserModal{{ user.id }}" tabindex="-1" aria-labelledby="viewUserModalLabel{{ user.id }}" aria-hidden="true">
+            <div class="modal-dialog">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title" id="viewUserModalLabel{{ user.id }}">User Details</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                  <div class="row">
+                    <div class="col-md-6">
+                      <p><strong>Name:</strong> {{ user.get_full_name }}</p>
+                      <p><strong>Username:</strong> {{ user.username }}</p>
+                      <p><strong>Email:</strong> {{ user.email }}</p>
+                      <p><strong>Role:</strong> {{ user.profile.role|title|default:"Student" }}</p>
+                    </div>
+                    <div class="col-md-6">
+                      <p><strong>College:</strong> {{ user.profile.college.name|default:"N/A" }}</p>
+                      <p><strong>Course:</strong> {{ user.profile.course|default:"N/A" }}</p>
+                      <p><strong>Year:</strong> {{ user.profile.year|default:"N/A" }}</p>
+                      <p><strong>School ID:</strong> {{ user.profile.school_id|default:"N/A" }}</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Suspend User Modal -->
+          <div class="modal fade" id="suspendUserModal{{ user.id }}" tabindex="-1" aria-labelledby="suspendUserModalLabel{{ user.id }}" aria-hidden="true">
+            <div class="modal-dialog">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title" id="suspendUserModalLabel{{ user.id }}">Suspend User</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                  <form id="suspendForm{{ user.id }}">
+                    <div class="mb-3">
+                      <label for="violationLevel{{ user.id }}" class="form-label">Violation Level:</label>
+                      <select class="form-select" id="violationLevel{{ user.id }}" name="level" required>
+                        <option value="">Select Level</option>
+                        <option value="minor">Minor</option>
+                        <option value="moderate">Moderate</option>
+                        <option value="major">Major</option>
+                      </select>
+                    </div>
+                    <div class="mb-3">
+                      <label for="reason{{ user.id }}" class="form-label">Reason:</label>
+                      <textarea class="form-control" id="reason{{ user.id }}" name="reason" rows="3" required placeholder="Enter reason for suspension..."></textarea>
+                    </div>
+                  </form>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                  <button type="button" class="btn btn-danger" onclick="suspendUser({{ user.id }})">Suspend User</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% empty %}
+          <tr>
+            <td colspan="8" class="text-center text-muted">
+              <i class="fa fa-info-circle"></i> No users found.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Pagination -->
+  {% if is_paginated %}
+  <nav aria-label="Users pagination">
+    <ul class="pagination justify-content-center">
+      {% if page_obj.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="?page=1{% if search_user %}&search-user={{ search_user }}{% endif %}">First</a>
+        </li>
+        <li class="page-item">
+          <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_user %}&search-user={{ search_user }}{% endif %}">Previous</a>
+        </li>
+      {% endif %}
+      
+      <li class="page-item active">
+        <span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+      </li>
+      
+      {% if page_obj.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_user %}&search-user={{ search_user }}{% endif %}">Next</a>
+        </li>
+        <li class="page-item">
+          <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search_user %}&search-user={{ search_user }}{% endif %}">Last</a>
+        </li>
+      {% endif %}
+    </ul>
+  </nav>
+  {% endif %}
 
 </div>
 {% endblock %}
 
 {% block scripts %}
-<script src="{% static 'js/jquery-3.7.1.min.js' %}"></script>
 <script>
-  $(document).ready(function () {
-    console.log("test");
-  });
+  function toggleUserStatus(userId, activate) {
+    if (confirm(activate ? 'Are you sure you want to activate this user?' : 'Are you sure you want to deactivate this user?')) {
+      // Create a form and submit it
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '{% url "main_app:toggle-user-status" pk=0 %}'.replace('0', userId);
+      
+      // Add CSRF token
+      const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+      if (csrfToken) {
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = csrfToken.value;
+        form.appendChild(csrfInput);
+      }
+      
+      document.body.appendChild(form);
+      form.submit();
+    }
+  }
+
+  function suspendUser(userId) {
+    const form = document.getElementById('suspendForm' + userId);
+    const formData = new FormData(form);
+    const level = formData.get('level');
+    const reason = formData.get('reason');
+    
+    if (!level || !reason) {
+      alert('Please fill in all fields');
+      return;
+    }
+    
+    if (confirm('Are you sure you want to suspend this user?')) {
+      // Create a form and submit it
+      const submitForm = document.createElement('form');
+      submitForm.method = 'POST';
+      submitForm.action = '{% url "main_app:suspend-user" pk=0 %}'.replace('0', userId);
+      
+      // Add form data
+      const levelInput = document.createElement('input');
+      levelInput.type = 'hidden';
+      levelInput.name = 'level';
+      levelInput.value = level;
+      submitForm.appendChild(levelInput);
+      
+      const reasonInput = document.createElement('input');
+      reasonInput.type = 'hidden';
+      reasonInput.name = 'reason';
+      reasonInput.value = reason;
+      submitForm.appendChild(reasonInput);
+      
+      // Add CSRF token
+      const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+      if (csrfToken) {
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = csrfToken.value;
+        submitForm.appendChild(csrfInput);
+      }
+      
+      document.body.appendChild(submitForm);
+      submitForm.submit();
+    }
+  }
 </script>
 {% endblock %}

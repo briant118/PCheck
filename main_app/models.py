@@ -37,6 +37,24 @@ class PC(models.Model):
     def decline(self):
         self.booking_status = 'available'
         self.save()
+    
+    def make_available(self):
+        """Mark PC as available when session ends"""
+        self.booking_status = 'available'
+        self.save()
+    
+    def is_session_expired(self):
+        """Check if current session has expired"""
+        if self.booking_status == 'in_use':
+            # Check if there's an active booking that has expired
+            from django.utils import timezone
+            active_booking = Booking.objects.filter(
+                pc=self, 
+                status='confirmed',
+                end_time__lte=timezone.now()
+            ).first()
+            return active_booking is not None
+        return False
 
     def __str__(self):
         return self.name
@@ -55,8 +73,24 @@ class Booking(models.Model):
     uri = models.URLField(max_length=200, null=True, blank=True)
     file = models.FileField(upload_to='bookings/', null=True, blank=True)
     num_of_devices = models.PositiveIntegerField(default=1)
+    qr_code_generated = models.BooleanField(default=False, help_text="Whether QR code has been generated for this booking")
+    qr_code_expires_at = models.DateTimeField(null=True, blank=True, help_text="When the QR code expires")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    def complete_session(self):
+        """Mark session as completed and make PC available"""
+        if self.status == 'confirmed' and self.pc.booking_status == 'in_use':
+            self.pc.make_available()
+            return True
+        return False
+    
+    def is_session_expired(self):
+        """Check if the session has expired based on end_time"""
+        from django.utils import timezone
+        if self.end_time and self.end_time <= timezone.now():
+            return True
+        return False
 
 
 class Violation(models.Model):

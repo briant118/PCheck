@@ -85,7 +85,7 @@ button:hover {
       <h1>Hello, <br>Create your account</h1>
     </div>
     <div class="form-section card-body p-4">
-      <form id="registrationForm" method="post">
+      <form id="registrationForm" method="post" novalidate>
         {% csrf_token %}
         <!-- Step 1: Role -->
         <div class="step active" id="step1">
@@ -154,7 +154,7 @@ button:hover {
 {% endblock %}
 
 {% block scripts %}
-<script src="{% static 'js/jquery-3.7.1.min.js' %}"></script>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="{% static 'js/registration.js' %}"></script>
 <script src="{% static 'js/myscript.js' %}"></script>
 {% endblock %}

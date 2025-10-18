@@ -175,4 +175,15 @@ $(document).ready(function () {
     window.location.href = currentUrl.toString();
   });
 
+  // Handle repair toggle buttons
+  $('.toggle-repair-btn').on('click', function(e) {
+    e.preventDefault();
+    const pcId = $(this).data('pc-id');
+    const currentCondition = $(this).data('current-condition');
+    
+    if (confirm(`Are you sure you want to ${currentCondition === 'repair' ? 'fix' : 'send for repair'} this PC?`)) {
+      window.location.href = `/toggle-repair/${pcId}/`;
+    }
+  });
+
 });

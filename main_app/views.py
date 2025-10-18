@@ -13,7 +13,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.views.generic import TemplateView, CreateView, ListView, UpdateView, DetailView
 from django.views.generic.edit import FormMixin
-from django.db.models import Count
+from django.db.models import Count, Q
 from datetime import datetime, timedelta
 from django.contrib.auth.models import User
 from . import forms, models, ping_address
@@ -37,8 +37,10 @@ def bookings_by_college(request):
 
 def extract_number(value):
     try:
-        value = re.search(r'\d+', str(value)).group()
-        return int(value)
+        match = re.search(r'\d+', str(value))
+        if match:
+            return int(match.group())
+        return 0
     except (ValueError, TypeError):
         return 0
     
@@ -177,6 +179,14 @@ def reserve_pc(request):
         duration = request.POST.get("duration")
 
         pc = get_object_or_404(models.PC, id=pc_id)
+        
+        # Check if PC is available for booking
+        if pc.booking_status != 'available':
+            return JsonResponse({
+                "success": False,
+                "message": f"PC {pc.name} is not available for booking. Current status: {pc.booking_status}"
+            })
+        
         pc.reserve()
         
         booking = models.Booking.objects.create(
@@ -185,6 +195,8 @@ def reserve_pc(request):
             start_time=datetime.now(),
             duration=duration,
             num_of_devices=1,
+            qr_code_generated=True,
+            qr_code_expires_at=datetime.now() + timedelta(minutes=10),  # QR code expires in 10 minutes
         )
         print("booking ID:", booking.pk)
         
@@ -212,10 +224,12 @@ def reservation_approved(request, pk):
     pc = models.PC.objects.get(pk=booking.pc.pk)
     pc.approve()
     booking.start_time = datetime.now()
-    booking.end_time = booking.start_time + timedelta(minutes=booking.duration.seconds)
+    # Fix duration calculation - convert duration to minutes properly
+    duration_minutes = booking.duration.total_seconds() / 60 if booking.duration else 0
+    booking.end_time = booking.start_time + timedelta(minutes=duration_minutes)
     booking.status = 'confirmed'
     booking.save()
-    messages.success(request, "Reservation has been approved.")
+    messages.success(request, f"QR Code reservation for {booking.user.get_full_name()} has been approved. PC {pc.name} is now in use.")
     return HttpResponseRedirect(reverse_lazy('main_app:bookings'))
 
 
@@ -227,8 +241,8 @@ def reservation_declined(request, pk):
     booking.status = 'cancelled'
     booking.start_time = datetime.now()
     booking.save()
-    messages.success(request, "Reservation has been declined.")
-    return HttpResponseRedirect(reverse_lazy('main_app:dashboard'))
+    messages.warning(request, f"QR Code reservation for {booking.user.get_full_name()} has been declined. PC {pc.name} is now available.")
+    return HttpResponseRedirect(reverse_lazy('main_app:bookings'))
 
 
 @login_required
@@ -249,6 +263,130 @@ def suspend(request, pk):
     return HttpResponseRedirect(reverse_lazy('main_app:user-activities'))
 
 
+@login_required
+def toggle_user_status(request, pk):
+    """Toggle user active/inactive status"""
+    if request.method == "POST":
+        user = get_object_or_404(User, pk=pk)
+        user.is_active = not user.is_active
+        user.save()
+        
+        status = "activated" if user.is_active else "deactivated"
+        messages.success(request, f"User {user.get_full_name()} has been {status}.")
+        
+    return HttpResponseRedirect(reverse_lazy('main_app:users'))
+
+
+@login_required
+def suspend_user(request, pk):
+    """Suspend a user with violation details"""
+    if request.method == "POST":
+        user = get_object_or_404(User, pk=pk)
+        level = request.POST.get("level")
+        reason = request.POST.get("reason")
+        
+        # Create a violation record
+        models.Violation.objects.create(
+            user=user,
+            pc=None,  # No specific PC for user suspension
+            level=level,
+            reason=reason,
+            status="suspended"
+        )
+        
+        # Deactivate the user
+        user.is_active = False
+        user.save()
+        
+        messages.warning(request, f"User {user.get_full_name()} has been suspended.")
+        
+    return HttpResponseRedirect(reverse_lazy('main_app:users'))
+
+
+@login_required
+def toggle_repair_status(request, pk):
+    """Toggle PC repair status between active and repair"""
+    pc = get_object_or_404(models.PC, pk=pk)
+    
+    if pc.system_condition == 'active':
+        pc.system_condition = 'repair'
+        pc.booking_status = 'available'  # Make sure it's available when in repair
+        messages.success(request, f'PC {pc.name} marked for repair.')
+    else:
+        pc.system_condition = 'active'
+        messages.success(request, f'PC {pc.name} marked as active.')
+    
+    pc.save()
+    return HttpResponseRedirect(reverse_lazy('main_app:pc-list'))
+
+
+def get_pc_status(request):
+    """AJAX endpoint to get current PC status for real-time updates"""
+    from django.utils import timezone
+    
+    # Check for expired sessions first
+    current_time = timezone.now()
+    expired_bookings = models.Booking.objects.filter(
+        status='confirmed',
+        end_time__lte=current_time,
+        pc__booking_status='in_use'
+    )
+    
+    for booking in expired_bookings:
+        booking.complete_session()
+    
+    # Check for confirmed bookings that should have their PCs marked as in_use
+    confirmed_bookings = models.Booking.objects.filter(
+        status='confirmed',
+        pc__booking_status='in_queue'  # PC is still in queue but booking is confirmed
+    )
+    
+    for booking in confirmed_bookings:
+        booking.pc.approve()  # Make sure PC is marked as in_use
+    
+    # Get all connected PCs
+    pcs = models.PC.objects.filter(status='connected')
+    pc_status = {}
+    
+    for pc in pcs:
+        pc_status[pc.id] = {
+            'name': pc.name,
+            'booking_status': pc.booking_status,
+            'system_condition': pc.system_condition,
+            'remaining_time': None,
+            'end_time': None
+        }
+        
+        # If PC is in use, get remaining time
+        if pc.booking_status == 'in_use':
+            active_booking = models.Booking.objects.filter(
+                pc=pc,
+                status='confirmed',
+                end_time__gt=current_time
+            ).first()
+            
+            if active_booking and active_booking.end_time:
+                remaining_seconds = (active_booking.end_time - current_time).total_seconds()
+                if remaining_seconds > 0:
+                    pc_status[pc.id]['remaining_time'] = int(remaining_seconds)
+                    pc_status[pc.id]['end_time'] = active_booking.end_time.isoformat()
+                else:
+                    # Session has expired, mark PC as available
+                    pc.make_available()
+                    pc_status[pc.id]['booking_status'] = 'available'
+    
+    return JsonResponse({
+        'success': True,
+        'pc_status': pc_status,
+        'debug_info': {
+            'total_pcs': len(pcs),
+            'current_time': current_time.isoformat(),
+            'expired_bookings_count': expired_bookings.count(),
+            'confirmed_bookings_count': confirmed_bookings.count()
+        }
+    })
+
+
 class PCListView(LoginRequiredMixin, FormMixin, ListView):
     model = models.PC
     template_name = "main/pc_list.html"
@@ -256,12 +394,42 @@ class PCListView(LoginRequiredMixin, FormMixin, ListView):
     success_url = reverse_lazy("main_app:pc-list")
     
     def get_queryset(self):
+        # Check for expired sessions and make PCs available
+        self.check_expired_sessions()
+        
         qs = super().get_queryset()
         filter_type = self.request.GET.get("filter")
 
         if filter_type == "repair":
             qs = qs.filter(system_condition='repair')
         return qs.order_by('sort_number')
+    
+    def check_expired_sessions(self):
+        """Check for expired sessions and make PCs available"""
+        from django.utils import timezone
+        current_time = timezone.now()
+        
+        # Find all confirmed bookings that have expired
+        expired_bookings = models.Booking.objects.filter(
+            status='confirmed',
+            end_time__lte=current_time,
+            pc__booking_status='in_use'
+        )
+        
+        for booking in expired_bookings:
+            booking.complete_session()
+        
+        # Also check for PCs that should be available but aren't
+        pcs_in_use = models.PC.objects.filter(booking_status='in_use')
+        for pc in pcs_in_use:
+            # Check if there are any active bookings for this PC
+            active_bookings = models.Booking.objects.filter(
+                pc=pc,
+                status='confirmed',
+                end_time__gt=current_time
+            )
+            if not active_bookings.exists():
+                pc.make_available()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -312,7 +480,7 @@ class PCDetailView(LoginRequiredMixin, TemplateView):
         return context
 
 
-class ReservationApprovalDetailView(LoginRequiredMixin, TemplateView):
+class ReservationApprovalDetailView(TemplateView):
     template_name = 'main/reservation_approval.html'
     
     def get_context_data(self, **kwargs):
@@ -348,10 +516,16 @@ class BookingListView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         bookings = self.get_queryset
+        # Filter for QR code generated bookings that are pending approval
         pending_approvals = models.Booking.objects.filter(
-            status__isnull=True).order_by('created_at')
+            qr_code_generated=True, status__isnull=True).order_by('created_at')
         approved_bookings = models.Booking.objects.filter(
-            pc__booking_status="in_use").order_by('created_at')
+            status='confirmed').order_by('created_at')
+        
+        # Debug information
+        print(f"DEBUG: Found {pending_approvals.count()} pending QR code requests")
+        print(f"DEBUG: Found {approved_bookings.count()} approved bookings")
+        
         context = {
             "bookings": bookings,
             "section": 'bookings',
@@ -369,8 +543,46 @@ class ReservePCListView(LoginRequiredMixin, ListView):
     paginate_by = 12
     
     def get_queryset(self):
+        # Check for expired sessions and make PCs available
+        self.check_expired_sessions()
+        
         qs = super().get_queryset()
-        return qs.filter(status='connected').order_by('sort_number')
+        return qs.filter(
+            status='connected'
+        ).order_by('sort_number')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Get all PCs for display
+        context['all_pcs'] = self.get_queryset()
+        return context
+    
+    def check_expired_sessions(self):
+        """Check for expired sessions and make PCs available"""
+        from django.utils import timezone
+        current_time = timezone.now()
+        
+        # Find all confirmed bookings that have expired
+        expired_bookings = models.Booking.objects.filter(
+            status='confirmed',
+            end_time__lte=current_time,
+            pc__booking_status='in_use'
+        )
+        
+        for booking in expired_bookings:
+            booking.complete_session()
+        
+        # Also check for PCs that should be available but aren't
+        pcs_in_use = models.PC.objects.filter(booking_status='in_use')
+        for pc in pcs_in_use:
+            # Check if there are any active bookings for this PC
+            active_bookings = models.Booking.objects.filter(
+                pc=pc,
+                status='confirmed',
+                end_time__gt=current_time
+            )
+            if not active_bookings.exists():
+                pc.make_available()
     
 
 class UserActivityListView(LoginRequiredMixin, ListView):
@@ -385,21 +597,25 @@ class UserActivityListView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         bookings = models.Booking.objects.all()
-        user_activities = self.get_queryset
+        user_activities = self.get_queryset()
         violations = models.Violation.objects.all()
         search_user = self.request.GET.get("search_user")
         print("search user", search_user)
-        if search_user != None:
-            users = User.objects.filter(first_name__icontains=search_user)
+        if search_user and search_user != "":
+            users = User.objects.filter(
+                Q(first_name__icontains=search_user) |
+                Q(last_name__icontains=search_user) |
+                Q(username__icontains=search_user)
+            )
         else:
             users = User.objects.all()
-        context = {
+        context.update({
             "user_activities": user_activities,
             "violations": violations,
             "section": "user",
             "users": users,
             "search_user": self.request.GET.get('search_user', ''),
-        }
+        })
         return context
 
 
@@ -414,6 +630,16 @@ class UserListView(LoginRequiredMixin, ListView):
         qs = super().get_queryset()
         search_user = self.request.GET.get("search-user")
 
-        if search_user != "":
-            qs = qs.filter(name__icontains=search_user)
+        if search_user and search_user != "":
+            qs = qs.filter(
+                Q(first_name__icontains=search_user) |
+                Q(last_name__icontains=search_user) |
+                Q(username__icontains=search_user) |
+                Q(email__icontains=search_user)
+            )
         return qs
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['search_user'] = self.request.GET.get('search-user', '')
+        return context

@@ -34,8 +34,16 @@
     </div>
   </div><!-- end of card -->
   <div id="control" class="p2 text-center mt-2">
-    <a href="{% url 'main_app:reservation-approved' pk=reservation.pk %}" class="btn btn-lg btn-success rounded rounded-3">approve</a>
-    <a href="{% url 'main_app:reservation-declined' pk=reservation.pk %}" class="btn btn-lg btn-danger rounded rounded-3">decline</a>
+    {% if user.is_authenticated %}
+      <a href="{% url 'main_app:reservation-approved' pk=reservation.pk %}" class="btn btn-lg btn-success rounded rounded-3">approve</a>
+      <a href="{% url 'main_app:reservation-declined' pk=reservation.pk %}" class="btn btn-lg btn-danger rounded rounded-3">decline</a>
+    {% else %}
+      <div class="alert alert-warning">
+        <h5>Admin Login Required</h5>
+        <p>You need to be logged in as an admin to approve or decline this reservation.</p>
+        <a href="{% url 'account:login' %}" class="btn btn-primary">Login as Admin</a>
+      </div>
+    {% endif %}
   </div>
 </div>
 {% endblock %}
