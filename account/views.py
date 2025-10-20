@@ -73,7 +73,7 @@ class ProfileUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
     template_name = 'account/edit_profile.html'
 
     def get_success_url(self):
-        return reverse_lazy('account:profile')
+        return reverse_lazy('profile')
 
     def get_queryset(self, **kwargs):
         return models.Profile.objects.filter(pk=self.kwargs['pk'])
@@ -96,7 +96,7 @@ def about(request):
 
 def custom_logout_view(request):
     logout(request)
-    return redirect('account:login')
+    return redirect('login')
 
 
 def register(request):
@@ -113,7 +113,8 @@ def register(request):
         year = request.POST['year']
         block = request.POST['block']
         email = request.POST['email_prefix']
-        email = email + "@psu.palawan.edu.ph"
+        # email = email + "@psu.palawan.edu.ph"
+        email = email + "@gmail.com"
         print("email address:", email)
         username = email
         password = request.POST['password']
@@ -143,7 +144,7 @@ def register(request):
         )
 
         messages.success(request, "We sent a verification code to your email.")
-        return redirect("account:verify", email=email)
+        return redirect("verify", email=email)
 
     return render(request, "account/register.html", {"colleges": colleges})
 
@@ -155,7 +156,7 @@ def verify(request, email):
             pending = models.PendingUser.objects.get(email=email)
         except models.PendingUser.DoesNotExist:
             messages.error(request, "Invalid request.")
-            return redirect("account:register")
+            return redirect("register")
 
         if pending.verification_code == code:
             # create actual user
@@ -176,7 +177,7 @@ def verify(request, email):
             profile.save()
             pending.delete()
             messages.success(request, "Account verified! You can log in now.")
-            return redirect("account:login")
+            return redirect("login")
         else:
             messages.error(request, "Invalid verification code.")
 

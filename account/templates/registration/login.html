@@ -15,7 +15,7 @@
         Please try again.
       </p>
       {% endif %}
-      <form action="{% url 'account:login' %}" method="post">
+      <form action="{% url 'login' %}" method="post">
         <p><b>Email</b></p>
         <div class="d-flex" style="max-width: 500px;">
           <div class="form-group mb-2">
@@ -29,7 +29,7 @@
         <div class="form-group mb-2">
           <label for="password">Password</label>
           <input type="password" name="password" class="form-control" required>
-          <a class="btn btn-link" href="{% url 'account:password_reset' %}">
+          <a class="btn btn-link" href="{% url 'password_reset' %}">
             forgot password?
           </a>
         </div>
@@ -40,7 +40,7 @@
         </div>
         <div>
           <p><span class="text-muted">Don't have an account? </span>
-            <a href="{% url 'account:register' %}" class="btn btn-link">
+            <a href="{% url 'register' %}" class="btn btn-link">
               Create an account
             </a>
           </p>
