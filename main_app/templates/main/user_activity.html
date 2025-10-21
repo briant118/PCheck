@@ -293,9 +293,16 @@
 {% block scripts %}
 <script src="{% static 'js/jquery-3.7.1.min.js' %}"></script>
 <script>
+
   const roomId = $("#roomId").val();
   const senderId = "{{ request.user.id }}"; 
   const currentUserId = "{{ request.user.id }}";
+  const currentUserRole = $("#user-activities-container").data("user-role");
+
+  if (currentUserRole == 'student' || currentUserRole == 'faculty') {
+    $("#history").prop("hidden", true);
+    $("#chat").prop("hidden", false);
+  }
 
   const chatSocket = new WebSocket(
     "ws://" + window.location.host + "/ws/chat/" + roomId + "/"
@@ -458,10 +465,6 @@
     });
   }
 
-  $("#user-activities-container").on("load", function() {
-    alert("Hello");
-  });
-
   $(document).ready(function () {
     const $history = $("#history");
     const $chat = $("#chat");
@@ -496,6 +499,7 @@
     
     $tabChat.on("click", function() {
       let currentUser = $(this).data("current-user");
+      let currentUserRole = $(this).data("user-role");
       $chat.prop("hidden", false);
       $(this).addClass("active");
       $tabHistory.removeClass("active");

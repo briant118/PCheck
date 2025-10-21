@@ -73,7 +73,9 @@
                 <li><a class="nav-link" href="{% url 'main_app:home' %}"><i class="fa-solid fa-house-chimney"></i> Home</a></li>
                 {% endif %}
                 <li><a class="nav-link" href="{% url 'account:profile' %}"><i class="fa-solid fa-id-card"></i> Profile</a></li>
+                {% if request.user.profile.role != 'staff' %}
                 <li><a class="nav-link" href="{% url 'main_app:user-activities' %}"><i class="fa-solid fa-comments"></i> Chat</a></li>
+                {% endif %}
                 <li><a class="nav-link" href="{% url 'account:about' %}"><i class="fa-solid fa-info-circle"></i> About</a></li>
                 <li><a class="nav-link" href="{% url 'account:logout' %}"><i class="fa-solid fa-right-from-bracket"></i> Logout</a></li>
               </ul>
