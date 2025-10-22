@@ -521,20 +521,24 @@ class BookingListView(LoginRequiredMixin, ListView):
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        bookings = self.get_queryset
-        pending_approvals = models.Booking.objects.filter(
+        student_bookings = self.get_queryset
+        student_pending_approvals = models.Booking.objects.filter(
             status__isnull=True).order_by('created_at')
-        approved_bookings = models.Booking.objects.filter(
+        student_approved_bookings = models.Booking.objects.filter(
             pc__booking_status="in_use").order_by('created_at')
         faculty_bookings = models.FacultyBooking.objects.all()
-        pending_faculty_approvals = models.FacultyBooking.objects.filter(status="pending")
+        faculty_pending_approvals = models.FacultyBooking.objects.filter(status="pending")
+        faculty_approved_bookings = models.FacultyBooking.objects.filter(status="confirmed")
+        faculty_pending_count = faculty_pending_approvals.count()
         context = {
-            "bookings": bookings,
+            "student_bookings": student_bookings,
             "faculty_bookings": faculty_bookings,
-            "pending_faculty_approvals": pending_faculty_approvals,
+            "faculty_pending_approvals": faculty_pending_approvals,
+            "faculty_approved_bookings": faculty_approved_bookings,
+            "student_pending_approvals": student_pending_approvals,
+            "student_approved_bookings": student_approved_bookings,
+            "faculty_pending_count": faculty_pending_count,
             "section": 'bookings',
-            "pending_approvals": pending_approvals,
-            "approved_bookings": approved_bookings,
         }
         return context
 

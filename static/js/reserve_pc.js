@@ -274,5 +274,10 @@ $(document).ready(function () {
     resultHtml += `<p><strong>Invalid emails:</strong> <span style="color:red;">${invalidEmails.join(", ") || 'None'}</span></p>`;
 
     $("#result").html(resultHtml);
+
+    if (emails.length > 0) {
+      console.log("email list is not empty");
+    }
   });
+  
 });
