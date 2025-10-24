@@ -64,3 +64,4 @@ staticfiles/
 .env
 main_app/migrations/
 account/migrations/
+bookings_attachments/

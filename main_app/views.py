@@ -380,6 +380,24 @@ def reservation_declined(request, pk):
 
 
 @login_required
+def block_reservation_approved(request, pk):
+    booking = models.FacultyBooking.objects.get(pk=pk)
+    booking.status = 'confirmed'
+    booking.save()
+    messages.success(request, "Reservation confirmed!")
+    return HttpResponseRedirect(reverse_lazy('main_app:bookings'))
+
+
+@login_required
+def block_reservation_declined(request, pk):
+    booking = models.FacultyBooking.objects.get(pk=pk)
+    booking.status = 'cancelled'
+    booking.save()
+    messages.success(request, "Reservation declined!")
+    return HttpResponseRedirect(reverse_lazy('main_app:dashboard'))
+
+
+@login_required
 @csrf_exempt
 def suspend(request, pk):
     if request.method == "POST":
@@ -491,6 +509,18 @@ class ReservationApprovalDetailView(LoginRequiredMixin, TemplateView):
     
     def get_context_data(self, **kwargs):
         reservation = models.Booking.objects.get(id=self.kwargs['pk'])
+        context = super().get_context_data(**kwargs)
+        context.update({
+            'reservation': reservation,
+        })
+        return context
+
+
+class BlockReservationApprovalDetailView(LoginRequiredMixin, TemplateView):
+    template_name = 'main/block_reservation_approval.html'
+    
+    def get_context_data(self, **kwargs):
+        reservation = models.FacultyBooking.objects.get(id=self.kwargs['pk'])
         context = super().get_context_data(**kwargs)
         context.update({
             'reservation': reservation,

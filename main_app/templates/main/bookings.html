@@ -167,6 +167,7 @@
             <th>End</th>
             <th># of PC</th>
             <th>Status</th>
+            <th>Action</th>
           </tr>
         </head>
         <tbody>
@@ -177,6 +178,11 @@
             <td>{{ booking.end_datetime }}</td>
             <td>{{ booking.num_of_devices }}</td>
             <td>{{ booking.status }}</td>
+            <td>
+              <a href="{% url 'main_app:block-reservation-approval' pk=booking.pk %}" class="btn btn-sm btn-outline-secondary">
+                review
+              </a>
+            </td>
           </tr>
           {% endfor %}
         </tbody>

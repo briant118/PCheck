@@ -50,7 +50,7 @@ class FacultyBooking(models.Model):
     start_datetime = models.DateTimeField(null=True, blank=True)
     end_datetime = models.DateTimeField(null=True, blank=True)
     num_of_devices = models.PositiveIntegerField(default=1)
-    file = models.FileField(upload_to='bookings/', null=True, blank=True)
+    file = models.FileField(upload_to='bookings_attachments/', null=True, blank=True)
     email_addresses = models.TextField(null=True, blank=True)
     status = models.CharField(
         null=True, max_length=20, choices=[('pending', 'Pending'), ('confirmed', 'Confirmed'), ('cancelled', 'Cancelled')]

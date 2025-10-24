@@ -21,9 +21,13 @@ urlpatterns = [
     path('ping-ip/<int:pk>/', views.ping_ip_address, name='ping-ip'),
     path('reservation-approved/<int:pk>/', views.reservation_approved, name='reservation-approved'),
     path('reservation-declined/<int:pk>/', views.reservation_declined, name='reservation-declined'),
+    path('block-reservation-approved/<int:pk>/', views.block_reservation_approved, name='block-reservation-approved'),
+    path('block-reservation-declined/<int:pk>/', views.block_reservation_declined, name='block-reservation-declined'),
     path('pc-reservation/', views.ReservePCListView.as_view(), name='pc-reservation'),
     path('reservation-approval/<int:pk>/', views.ReservationApprovalDetailView.as_view(), 
          name='reservation-approval'),
+    path('block-reservation-approval/<int:pk>/', views.BlockReservationApprovalDetailView.as_view(), 
+         name='block-reservation-approval'),
     path('faculty-booking-confirmation/', views.faculty_booking_confirmation, name='faculty-booking-confirmation'),
     
     # AJAX callback
