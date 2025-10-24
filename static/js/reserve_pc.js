@@ -264,6 +264,9 @@ $(document).ready(function () {
     emails.forEach(email => {
       if (emailPattern.test(email)) {
         validEmails.push(email);
+        if ($("#id_result").text() == 'None' && input != '') {
+          $("#step3NextBtn").prop("hidden", false);
+        }
       } else {
         invalidEmails.push(email);
       }
@@ -271,13 +274,9 @@ $(document).ready(function () {
 
     // Show result
     let resultHtml = ``;
-    resultHtml += `<p><strong>Invalid emails:</strong> <span style="color:red;">${invalidEmails.join(", ") || 'None'}</span></p>`;
+    resultHtml += `<p><strong>Invalid emails:</strong> <span style="color:red;" id="id_result">${invalidEmails.join(", ") || 'None'}</span></p>`;
 
     $("#result").html(resultHtml);
-
-    if (emails.length > 0) {
-      console.log("email list is not empty");
-    }
   });
   
 });
