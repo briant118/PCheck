@@ -1,6 +1,10 @@
 import re
+import os
 import qrcode
 import base64
+import mimetypes
+from django.http import FileResponse, Http404
+from django.conf import settings
 from io import BytesIO
 from django.db.models import Q
 from django.shortcuts import render, redirect, get_object_or_404
@@ -440,6 +444,17 @@ def cancel_reservation(request):
         return JsonResponse({
             "success": True,
         })
+        
+
+@login_required
+def view_file(request, filename):
+    file_path = os.path.join(settings.MEDIA_ROOT, filename)
+    
+    if not os.path.exists(file_path):
+        raise Http404("File not found")
+    
+    mime_type, _ = mimetypes.guess_type(file_path)
+    return FileResponse(open(file_path, 'rb'), content_type=mime_type)
         
 
 class PCListView(LoginRequiredMixin, FormMixin, ListView):

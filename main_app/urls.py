@@ -30,6 +30,8 @@ urlpatterns = [
          name='block-reservation-approval'),
     path('faculty-booking-confirmation/', views.faculty_booking_confirmation, name='faculty-booking-confirmation'),
     
+    path('view/<path:filename>/', views.view_file, name='view_file'),
+    
     # AJAX callback
     path('ajax/get-ping-data/', views.get_ping_data, name='get-ping-data'),
     path('ajax/verify-pc-name/', views.verify_pc_name, name='verify-pc-name'),

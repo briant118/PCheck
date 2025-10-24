@@ -30,7 +30,11 @@
           <strong>Block: </strong>{{ reservation.block }} <br>
           <strong>From: </strong>{{ reservation.start_datetime }} <br>
           <strong>To: </strong>{{ reservation.end_datetime }} <br>
-          <strong>Attached file: </strong>{{ reservation.file }} <br>
+          <strong>Attached file: </strong>
+          <a href="{% url 'main_app:view_file' filename=reservation.file.name %}" class="btn btn-sm btn-outline-secondary">
+            view attachment
+          </a>
+          <br>
           <strong>Number of PC: </strong>{{ reservation.num_of_devices }}
         </p>
       </div>
