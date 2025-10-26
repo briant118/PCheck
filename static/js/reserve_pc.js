@@ -179,7 +179,7 @@ $(document).ready(function () {
     let approvalChecker = setInterval(async function () {
       checkApproval(function (status) {
         if (status === "confirmed") {
-          alert("Your reservation has been confirmed!");
+          // alert("Your reservation has been confirmed!");
           $("#qrModal").fadeOut();
           clearInterval(approvalChecker);
           console.log("Approval detected. Script stopped.");

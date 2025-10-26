@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Dashboard{% endblock %}
 
@@ -13,6 +14,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{% static 'js/jquery-3.7.1.min.js' %}"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 fetch("{% url 'main_app:booking-data' %}")
@@ -50,5 +52,20 @@ fetch("{% url 'main_app:booking-data' %}")
       }
     });
   });
+</script>
+<script>
+$(document).ready(function() {
+    // Automatically call Django function on page load
+    $.ajax({
+        url: "{% url 'main_app:clearup_pcs' %}",
+        method: "GET",
+        success: function(response) {
+            console.log("Django response:", response.message);
+        },
+        error: function(xhr, status, error) {
+            console.error("Error calling Django function:", error);
+        }
+    });
+});
 </script>
 {% endblock %}

@@ -31,6 +31,7 @@ urlpatterns = [
     path('faculty-booking-confirmation/', views.faculty_booking_confirmation, name='faculty-booking-confirmation'),
     
     path('view/<path:filename>/', views.view_file, name='view_file'),
+    path('clearup-pcs/', views.clearup_pcs, name='clearup_pcs'),
     
     # AJAX callback
     path('ajax/get-ping-data/', views.get_ping_data, name='get-ping-data'),

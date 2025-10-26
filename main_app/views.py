@@ -22,11 +22,27 @@ from django.contrib.auth.decorators import permission_required
 from django.db.models import Count
 from django.db.models import Prefetch
 from datetime import datetime, timedelta
+from django.utils import timezone
 from django.contrib.auth.models import User
 from account.models import Profile
 from . import forms, models, ping_address
 
 
+today = timezone.now()
+
+@login_required
+def clearup_pcs(request):
+    today = timezone.now()
+    bookings = models.Booking.objects.filter(end_time__lt=today,expiry__isnull=True)
+    for booking in bookings:
+        pc = booking.pc
+        pc.booking_status = 'available'
+        pc.save()
+        booking.expiry = booking.end_time
+        booking.save()
+    data = {"message": "All PC have been cleared."}
+    return JsonResponse(data)
+    
 
 @login_required
 def bookings_by_college(request):
@@ -363,7 +379,7 @@ def reservation_approved(request, pk):
     booking = models.Booking.objects.get(pk=pk)
     pc = models.PC.objects.get(pk=booking.pc.pk)
     pc.approve()
-    booking.start_time = datetime.now()
+    booking.start_time = timezone.now()
     booking.end_time = booking.start_time + timedelta(minutes=booking.duration.seconds)
     booking.status = 'confirmed'
     booking.save()
@@ -377,7 +393,7 @@ def reservation_declined(request, pk):
     pc = models.PC.objects.get(pk=booking.pc.pk)
     pc.decline()
     booking.status = 'cancelled'
-    booking.start_time = datetime.now()
+    booking.start_time = timezone.now()
     booking.save()
     messages.success(request, "Reservation has been declined.")
     return HttpResponseRedirect(reverse_lazy('main_app:dashboard'))
@@ -574,6 +590,7 @@ class BookingListView(LoginRequiredMixin, ListView):
         faculty_bookings = models.FacultyBooking.objects.all()
         faculty_pending_approvals = models.FacultyBooking.objects.filter(status="pending")
         faculty_approved_bookings = models.FacultyBooking.objects.filter(status="confirmed")
+        student_pending_count = student_pending_approvals.count()
         faculty_pending_count = faculty_pending_approvals.count()
         context = {
             "student_bookings": student_bookings,
@@ -583,6 +600,7 @@ class BookingListView(LoginRequiredMixin, ListView):
             "student_pending_approvals": student_pending_approvals,
             "student_approved_bookings": student_approved_bookings,
             "faculty_pending_count": faculty_pending_count,
+            "student_pending_count": student_pending_count,
             "section": 'bookings',
         }
         return context

@@ -20,14 +20,14 @@
         <p><strong>Block: </strong>{{ profile.block }}</p>
       </div>
       <div class="col-md-4 text-end">
-        <img src="..." class="card-img-end" alt="profile picture">
+        <img src="#" class="card-img-end" alt="profile picture">
       </div>
     </div>
     <div class="card-footer">
       <div class="row">
         <div class="col-md-6 mb-1 text-start">
-          <a href="{% url 'account:edit-profile' pk=profile.pk %}" class="btn btn-sm btn-secondary mb-1 me-1">update</a>
-          <a href="{% url 'account:password_change' %}" class="btn btn-sm btn-secondary mb-1 me-1">change password</a>
+          <a href="{% url 'edit-profile' pk=profile.pk %}" class="btn btn-sm btn-secondary mb-1 me-1">update</a>
+          <a href="{% url 'password_change' %}" class="btn btn-sm btn-secondary mb-1 me-1">change password</a>
         </div>
         <div class="col-md-6 mb-1 text-end">
           <a href="{% url 'main_app:pc-reservation' %}" class="btn btn-sm btn-secondary ">Home</a>

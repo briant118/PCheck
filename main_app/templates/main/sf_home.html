@@ -29,4 +29,19 @@
 {% block scripts %}
 <script src="{% static 'js/jquery-3.7.1.min.js' %}"></script>
 <script src="{% static 'js/reserve_pc.js' %}"></script>
+<script>
+$(document).ready(function() {
+    // Automatically call Django function on page load
+    $.ajax({
+        url: "{% url 'main_app:clearup_pcs' %}",
+        method: "GET",
+        success: function(response) {
+            console.log("Django response:", response.message);
+        },
+        error: function(xhr, status, error) {
+            console.error("Error calling Django function:", error);
+        }
+    });
+});
+</script>
 {% endblock %}

@@ -25,6 +25,11 @@
     <div class="nav nav-tabs subtabs">
       <button id="tab-student-all" class="nav-link active subtab">All</button>
       <button id="tab-student-pending" class="nav-link subtab position-relative">
+        {% if student_pending_count %}
+        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+          {{student_pending_count}}
+        </span>
+        {% endif %}
         Pending
       </button>
       <button id="tab-student-approved" class="nav-link subtab">Approved</button>
