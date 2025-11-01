@@ -13,7 +13,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse, HttpResponseBadRequest
 from django.contrib.messages.views import SuccessMessageMixin
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.views.generic import TemplateView, CreateView, ListView, UpdateView, DetailView
@@ -25,7 +25,11 @@ from datetime import datetime, timedelta
 from django.utils import timezone
 from django.contrib.auth.models import User
 from account.models import Profile
+from functools import wraps
+from django.core.exceptions import PermissionDenied
 from . import forms, models, ping_address
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
 
 today = timezone.now()
@@ -42,7 +46,25 @@ def clearup_pcs(request):
         booking.save()
     data = {"message": "All PC have been cleared."}
     return JsonResponse(data)
-    
+
+
+def staff_required(view_func):
+    """Decorator to ensure only staff users can access a view."""
+    @wraps(view_func)
+    def wrapped_view(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('account:login')
+        if not hasattr(request.user, 'profile') or request.user.profile.role != 'staff':
+            raise PermissionDenied("You don't have permission to access this page.")
+        return view_func(request, *args, **kwargs)
+    return wrapped_view
+
+
+class StaffRequiredMixin(UserPassesTestMixin):
+    """Mixin to ensure only staff users can access a class-based view."""
+    def test_func(self):
+        return self.request.user.is_authenticated and hasattr(self.request.user, 'profile') and self.request.user.profile.role == 'staff'
+
 
 @login_required
 def bookings_by_college(request):
@@ -61,9 +83,11 @@ def bookings_by_college(request):
 
 def extract_number(value):
     try:
-        value = re.search(r'\d+', str(value)).group()
-        return int(value)
-    except (ValueError, TypeError):
+        match = re.search(r'\d+', str(value))
+        if match:
+            return int(match.group())
+        return 0
+    except (ValueError, TypeError, AttributeError):
         return 0
     
 
@@ -154,6 +178,7 @@ def find_user(request):
 
 
 @login_required
+@staff_required
 def add_pc_from_form(request):
     if request.method == "POST":
         name = request.POST.get('name')
@@ -236,44 +261,315 @@ def submit_block_booking(request):
 
 
 @login_required
+@staff_required
 def delete_pc(request, pk):
     models.PC.objects.filter(pk=pk).delete()
     messages.success(request, "PC deleted successfully.")
     return HttpResponseRedirect(reverse_lazy('main_app:pc-list'))
 
 
+@login_required
+def get_pc_booking(request, pk):
+    """Get booking information for a specific PC"""
+    try:
+        from django.utils import timezone
+        pc = models.PC.objects.get(pk=pk)
+        # Get the most recent active booking for this PC
+        booking = models.Booking.objects.filter(
+            pc=pc,
+            status__in=['confirmed', None]
+        ).exclude(status='cancelled').order_by('-created_at').first()
+        
+        data = {
+            'pc_name': pc.name,
+            'booking_status': pc.booking_status,
+            'time_remaining': 'Unknown',
+            'created_time': 'Unknown',
+            'user': 'Unknown',
+            'booking_id': None,
+            'college': 'Unknown'
+        }
+        
+        if booking:
+            data['user'] = booking.user.get_full_name() or booking.user.username
+            data['booking_id'] = booking.id
+            data['created_time'] = booking.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            
+            # Get college if available
+            if hasattr(booking.user, 'profile') and booking.user.profile.college:
+                data['college'] = booking.user.profile.college.name
+            
+            # Calculate time remaining if booking is active
+            if pc.booking_status == 'in_use' and booking.end_time:
+                now = timezone.now()
+                # Handle timezone-aware datetime
+                if booking.end_time.tzinfo:
+                    remaining = booking.end_time - now
+                else:
+                    from datetime import datetime
+                    remaining = booking.end_time - datetime.now()
+                    
+                if remaining.total_seconds() > 0:
+                    hours = int(remaining.total_seconds() // 3600)
+                    minutes = int((remaining.total_seconds() % 3600) // 60)
+                    data['time_remaining'] = f"{hours}h {minutes}m"
+                else:
+                    data['time_remaining'] = 'Expired'
+            elif pc.booking_status == 'in_queue':
+                data['time_remaining'] = 'Waiting for approval'
+        
+        return JsonResponse(data)
+    except models.PC.DoesNotExist:
+        return JsonResponse({'error': 'PC not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def get_my_active_booking(request):
+    """Get active booking for current user"""
+    try:
+        from django.utils import timezone
+        
+        # Get the user's most recent booking that's either in_queue or confirmed
+        booking = models.Booking.objects.filter(
+            user=request.user,
+            status__in=['confirmed', None]
+        ).exclude(status='cancelled').order_by('-created_at').first()
+        
+        if booking:
+            pc = booking.pc
+            data = {
+                'has_booking': True,
+                'pc_id': pc.id if pc else None,
+                'pc_name': pc.name if pc else 'Unknown',
+                'status': pc.booking_status if pc else 'unknown',
+                'booking_status': booking.status,
+                'time_remaining': 'Unknown',
+                'end_time': None,
+                'duration_minutes': 0
+            }
+            
+            # Calculate time remaining if booking is active
+            if booking.end_time and pc and pc.booking_status == 'in_use':
+                now = timezone.now()
+                # Handle timezone-aware datetime
+                if booking.end_time.tzinfo:
+                    # Both are timezone-aware
+                    remaining = booking.end_time - now
+                else:
+                    # If end_time is naive, compare with naive datetime
+                    from datetime import datetime
+                    remaining = booking.end_time - datetime.now()
+                
+                if remaining.total_seconds() > 0:
+                    hours = int(remaining.total_seconds() // 3600)
+                    minutes = int((remaining.total_seconds() % 3600) // 60)
+                    data['time_remaining'] = f"{hours}h {minutes}m"
+                    data['end_time'] = booking.end_time.isoformat()
+                else:
+                    data['time_remaining'] = 'Expired'
+                    data['has_booking'] = False
+            elif pc and pc.booking_status == 'in_queue':
+                data['time_remaining'] = 'Waiting for approval'
+            
+            # Calculate duration in minutes
+            if booking.duration:
+                data['duration_minutes'] = int(booking.duration.total_seconds() / 60)
+                
+            return JsonResponse(data)
+        else:
+            return JsonResponse({'has_booking': False})
+            
+    except Exception as e:
+        return JsonResponse({'has_booking': False, 'error': str(e)})
+
+
+@login_required
+def end_session(request, booking_id):
+    """End user's session early - staff can end any session, users can only end their own"""
+    if request.method == "POST":
+        try:
+            from django.utils import timezone
+            booking = get_object_or_404(models.Booking, pk=booking_id)
+            
+            # Staff can end any session, users can only end their own
+            if not (request.user.profile.role == 'staff' or booking.user == request.user):
+                return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+            
+            if booking:
+                pc = booking.pc
+                pc.booking_status = 'available'
+                pc.save()
+                
+                booking.status = 'cancelled'
+                booking.save()
+                
+                return JsonResponse({'success': True, 'message': 'Session ended successfully'})
+            else:
+                return JsonResponse({'success': False, 'error': 'No active session found'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request'}, status=400)
+
+
+@login_required
+@staff_required
+def extend_session(request, booking_id):
+    """Extend user's session by specified minutes"""
+    if request.method == "POST":
+        try:
+            import json
+            from django.utils import timezone
+            data = json.loads(request.body)
+            minutes = int(data.get('minutes', 30))
+            
+            booking = get_object_or_404(models.Booking, pk=booking_id)
+            
+            if booking.status == 'confirmed' and booking.end_time:
+                # Extend the end time
+                booking.end_time = booking.end_time + timedelta(minutes=minutes)
+                booking.save()
+                
+                # Get user information
+                user_name = booking.user.get_full_name() or booking.user.username
+                user_college = ''
+                if hasattr(booking.user, 'profile') and booking.user.profile.college:
+                    user_college = booking.user.profile.college.name
+                
+                return JsonResponse({
+                    'success': True, 
+                    'message': f'Session extended by {minutes} minutes',
+                    'new_end_time': booking.end_time.isoformat(),
+                    'user_name': user_name,
+                    'user_college': user_college,
+                    'pc_name': booking.pc.name if booking.pc else ''
+                })
+            else:
+                return JsonResponse({'success': False, 'error': 'Session not active or cannot be extended'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request'}, status=400)
+
+
+@login_required
+@staff_required
+def export_report(request):
+    """Export analytics report as CSV"""
+    import csv
+    from django.http import HttpResponse
+    from datetime import datetime, timedelta
+    
+    period = request.GET.get('period', 'daily')
+    
+    # Determine date range based on period
+    today = datetime.now()
+    if period == 'daily':
+        start_date = today - timedelta(days=1)
+        filename = f'report_daily_{today.strftime("%Y%m%d")}.csv'
+    elif period == 'weekly':
+        start_date = today - timedelta(days=7)
+        filename = f'report_weekly_{today.strftime("%Y%m%d")}.csv'
+    elif period == 'monthly':
+        start_date = today - timedelta(days=30)
+        filename = f'report_monthly_{today.strftime("%Y%m%d")}.csv'
+    else:
+        start_date = today - timedelta(days=1)
+        filename = f'report_{today.strftime("%Y%m%d")}.csv'
+    
+    # Get booking data
+    bookings = models.Booking.objects.filter(created_at__gte=start_date)
+    
+    # Create CSV response
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    writer = csv.writer(response)
+    
+    # Write header
+    writer.writerow(['Date', 'Time', 'User', 'PC Name', 'College', 'Status', 'Duration (minutes)'])
+    
+    # Write data rows
+    for booking in bookings:
+        duration_minutes = 0
+        if booking.duration:
+            duration_minutes = int(booking.duration.total_seconds() / 60)
+        
+        writer.writerow([
+            booking.created_at.strftime('%Y-%m-%d'),
+            booking.created_at.strftime('%H:%M:%S'),
+            booking.user.get_full_name(),
+            booking.pc.name if booking.pc else 'N/A',
+            booking.user.profile.college.name if hasattr(booking.user, 'profile') else 'N/A',
+            booking.status or 'Pending',
+            duration_minutes
+        ])
+    
+    return response
+
+
 @csrf_exempt
 def reserve_pc(request):
     if request.method == "POST":
-        pc_id = request.POST.get("pc_id")
-        duration = request.POST.get("duration")
+        try:
+            pc_id = request.POST.get("pc_id")
+            duration = request.POST.get("duration")
+            
+            if not pc_id or not duration:
+                return JsonResponse({
+                    "success": False,
+                    "error": "Missing pc_id or duration"
+                }, status=400)
 
-        pc = get_object_or_404(models.PC, id=pc_id)
-        pc.reserve()
-        
-        booking = models.Booking.objects.create(
-            user=request.user,
-            pc=pc,
-            start_time=datetime.now(),
-            duration=duration,
-        )
-        
-        scheme = 'https' if request.is_secure() else 'http'
-        host = request.get_host()
+            pc = get_object_or_404(models.PC, id=pc_id)
+            pc.reserve()
+            
+            # Convert duration (minutes) to DurationField (timedelta)
+            duration_timedelta = timedelta(minutes=int(duration))
+            
+            print(f"Creating booking: user={request.user}, pc={pc}, duration={duration_timedelta}")
+            
+            booking = models.Booking.objects.create(
+                user=request.user,
+                pc=pc,
+                start_time=datetime.now(),
+                duration=duration_timedelta,
+            )
+            
+            print(f"Booking created successfully: {booking.id}, status={booking.status}")
+            
+            scheme = 'https' if request.is_secure() else 'http'
+            host = request.get_host()
 
-        # Generate QR code (data = reservation details or URL)
-        qr_data = f"{scheme}://{host}/reservation-approval/{booking.pk}"
-        qr = qrcode.make(qr_data)
-        buffer = BytesIO()
-        qr.save(buffer, format="PNG")
-        qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+            # Generate QR code (data = reservation details or URL)
+            qr_data = f"{scheme}://{host}/reservation-approval/{booking.pk}/"
+            qr = qrcode.make(qr_data)
+            buffer = BytesIO()
+            qr.save(buffer, format="PNG")
+            qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
-        return JsonResponse({
-            "success": True,
-            "message": f"{pc.name} reserved for {duration} minutes",
-            "qr_code": qr_base64,
-            "booking_id": booking.pk
-        })
+            return JsonResponse({
+                "success": True,
+                "message": f"{pc.name} reserved for {duration} minutes",
+                "qr_code": qr_base64,
+                "booking_id": booking.pk
+            })
+        except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"ERROR creating booking: {error_details}")
+            return JsonResponse({
+                "success": False,
+                "error": str(e),
+                "details": error_details[:500]  # First 500 chars of traceback
+            }, status=500)
+    
+    return JsonResponse({
+        "success": False,
+        "error": "Method not allowed"
+    }, status=405)
 
 
 @login_required
@@ -375,12 +671,14 @@ def send_new_message(request, room_id):
 
 
 @login_required
+@staff_required
 def reservation_approved(request, pk):
     booking = models.Booking.objects.get(pk=pk)
     pc = models.PC.objects.get(pk=booking.pc.pk)
     pc.approve()
     booking.start_time = timezone.now()
-    booking.end_time = booking.start_time + timedelta(minutes=booking.duration.seconds)
+    # booking.duration is already a timedelta, so use it directly
+    booking.end_time = booking.start_time + booking.duration
     booking.status = 'confirmed'
     booking.save()
     messages.success(request, "Reservation has been approved.")
@@ -388,6 +686,7 @@ def reservation_approved(request, pk):
 
 
 @login_required
+@staff_required
 def reservation_declined(request, pk):
     booking = models.Booking.objects.get(pk=pk)
     pc = models.PC.objects.get(pk=booking.pc.pk)
@@ -400,6 +699,7 @@ def reservation_declined(request, pk):
 
 
 @login_required
+@staff_required
 def block_reservation_approved(request, pk):
     booking = models.FacultyBooking.objects.get(pk=pk)
     booking.status = 'confirmed'
@@ -409,6 +709,7 @@ def block_reservation_approved(request, pk):
 
 
 @login_required
+@staff_required
 def block_reservation_declined(request, pk):
     booking = models.FacultyBooking.objects.get(pk=pk)
     booking.status = 'cancelled'
@@ -418,6 +719,7 @@ def block_reservation_declined(request, pk):
 
 
 @login_required
+@staff_required
 @csrf_exempt
 def suspend(request, pk):
     if request.method == "POST":
@@ -433,6 +735,24 @@ def suspend(request, pk):
     )
     messages.success(request, "Account suspended!")
     return HttpResponseRedirect(reverse_lazy('main_app:user-activities'))
+
+
+@login_required
+@staff_required
+@csrf_exempt
+def unsuspend(request, pk):
+    """Mark a violation as active (unsuspend)."""
+    try:
+        violation = models.Violation.objects.get(pk=pk)
+        violation.status = 'active'
+        violation.resolved = True
+        violation.save(update_fields=['status', 'resolved'])
+        messages.success(request, "Account unsuspended!")
+        return JsonResponse({"success": True})
+    except models.Violation.DoesNotExist:
+        return JsonResponse({"success": False, "error": "Violation not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=500)
 
 
 @login_required
@@ -473,7 +793,7 @@ def view_file(request, filename):
     return FileResponse(open(file_path, 'rb'), content_type=mime_type)
         
 
-class PCListView(LoginRequiredMixin, FormMixin, ListView):
+class PCListView(StaffRequiredMixin, LoginRequiredMixin, FormMixin, ListView):
     model = models.PC
     template_name = "main/pc_list.html"
     form_class = forms.CreatePCForm
@@ -508,6 +828,16 @@ class PCListView(LoginRequiredMixin, FormMixin, ListView):
 
         if form.is_valid():
             f = form.save(commit=False)
+            
+            # Set default values for new PCs if not provided
+            if not pc_id:
+                if not f.status:
+                    f.status = 'connected'
+                if not f.system_condition:
+                    f.system_condition = 'active'
+                if not f.booking_status:
+                    f.booking_status = 'available'
+                
             sort_number = extract_number(f.name)
             value_length = len(str(sort_number))
             if value_length == 1:
@@ -519,7 +849,15 @@ class PCListView(LoginRequiredMixin, FormMixin, ListView):
             sort_number = f"{prefix_zero}{sort_number}"
             f.sort_number = sort_number
             f.save()
+            messages.success(request, "PC saved successfully!")
             return redirect(self.get_success_url())
+        else:
+            # Form has errors
+            error_messages = []
+            for field, errors in form.errors.items():
+                for error in errors:
+                    error_messages.append(f"{field}: {error}")
+            messages.error(request, f"Form validation errors: {' '.join(error_messages)}")
         return self.render_to_response(self.get_context_data(form=form))
         
 
@@ -535,19 +873,32 @@ class PCDetailView(LoginRequiredMixin, TemplateView):
         return context
 
 
-class ReservationApprovalDetailView(LoginRequiredMixin, TemplateView):
-    template_name = 'main/reservation_approval.html'
+class ReservationApprovalDetailView(StaffRequiredMixin, LoginRequiredMixin, TemplateView):
+    """Automatically approve when accessed via QR scan. Approve/Decline only for faculty bulk bookings."""
     
-    def get_context_data(self, **kwargs):
-        reservation = models.Booking.objects.get(id=self.kwargs['pk'])
-        context = super().get_context_data(**kwargs)
-        context.update({
-            'reservation': reservation,
-        })
-        return context
+    def dispatch(self, request, *args, **kwargs):
+        # Auto-approve when accessed (QR scan or direct link)
+        # This removes the need for approve/decline buttons
+        try:
+            reservation = models.Booking.objects.get(id=self.kwargs['pk'])
+            pc = reservation.pc
+            pc.approve()  # Mark PC as in_use (green)
+            reservation.start_time = timezone.now()
+            reservation.end_time = reservation.start_time + reservation.duration
+            reservation.status = 'confirmed'
+            reservation.save()
+            
+            messages.success(request, f"Reservation for {pc.name} has been automatically approved!")
+            return HttpResponseRedirect(reverse_lazy('main_app:dashboard'))
+        except models.Booking.DoesNotExist:
+            messages.error(request, "Reservation not found.")
+            return HttpResponseRedirect(reverse_lazy('main_app:dashboard'))
+        except Exception as e:
+            messages.error(request, f"Error approving reservation: {str(e)}")
+            return HttpResponseRedirect(reverse_lazy('main_app:dashboard'))
 
 
-class BlockReservationApprovalDetailView(LoginRequiredMixin, TemplateView):
+class BlockReservationApprovalDetailView(StaffRequiredMixin, LoginRequiredMixin, TemplateView):
     template_name = 'main/block_reservation_approval.html'
     
     def get_context_data(self, **kwargs):
@@ -559,7 +910,7 @@ class BlockReservationApprovalDetailView(LoginRequiredMixin, TemplateView):
         return context
     
 
-class PCUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
+class PCUpdateView(StaffRequiredMixin, LoginRequiredMixin, SuccessMessageMixin, UpdateView):
     form_class = forms.UpdatePCForm
     success_message = 'successfully updated!'
     template_name = 'main/update_pc.html'
@@ -571,25 +922,40 @@ class PCUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
         return models.PC.objects.filter(pk=self.kwargs['pk'])
 
 
-class BookingListView(LoginRequiredMixin, ListView):
+class BookingListView(StaffRequiredMixin, LoginRequiredMixin, ListView):
     model = models.Booking
     template_name = "main/bookings.html"
     success_url = reverse_lazy("main_app:bookings")
     
     def get_queryset(self):
         qs = super().get_queryset()
-        return qs.order_by('created_at')
+        return qs.order_by('-created_at')
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        student_bookings = self.get_queryset
+        student_bookings = self.get_queryset()
         student_pending_approvals = models.Booking.objects.filter(
-            status__isnull=True).order_by('created_at')
+            status__isnull=True).order_by('-created_at')
         student_approved_bookings = models.Booking.objects.filter(
-            pc__booking_status="in_use").order_by('created_at')
-        faculty_bookings = models.FacultyBooking.objects.all()
-        faculty_pending_approvals = models.FacultyBooking.objects.filter(status="pending")
-        faculty_approved_bookings = models.FacultyBooking.objects.filter(status="confirmed")
+            status='confirmed').order_by('-created_at')
+        
+        # Debug: Print booking counts
+        total_bookings = models.Booking.objects.count()
+        pending_count = student_pending_approvals.count()
+        approved_count = student_approved_bookings.count()
+        
+        print(f"DEBUG BookingsListView:")
+        print(f"  Total bookings: {total_bookings}")
+        print(f"  Pending bookings: {pending_count}")
+        print(f"  Approved bookings: {approved_count}")
+        
+        if total_bookings > 0:
+            sample_booking = models.Booking.objects.first()
+            print(f"  Sample booking: status={sample_booking.status}, user={sample_booking.user}, created={sample_booking.created_at}")
+        
+        faculty_bookings = models.FacultyBooking.objects.all().order_by('-created_at')
+        faculty_pending_approvals = models.FacultyBooking.objects.filter(status="pending").order_by('-created_at')
+        faculty_approved_bookings = models.FacultyBooking.objects.filter(status="confirmed").order_by('-created_at')
         student_pending_count = student_pending_approvals.count()
         faculty_pending_count = faculty_pending_approvals.count()
         context = {
@@ -615,12 +981,15 @@ class ReservePCListView(LoginRequiredMixin, ListView):
     
     def get_queryset(self):
         qs = super().get_queryset()
-        return qs.filter(status='connected').order_by('sort_number')
+        # Return all PCs, not just connected ones
+        print(f"Total PCs in database: {qs.count()}")
+        return qs.order_by('sort_number')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['total_pc'] = models.PC.objects.filter(status='connected').count()  # 👈 total number of PCs in database
+        context['total_pc'] = models.PC.objects.count()  # total number of PCs in database
         context['colleges'] = models.College.objects.all()
+        context['connected_pcs'] = models.PC.objects.filter(status='connected').count()
         return context
     
 
@@ -628,16 +997,24 @@ class UserActivityListView(LoginRequiredMixin, ListView):
     model = models.Booking
     template_name = "main/user_activity.html"
     paginate_by = 12
+
+    def dispatch(self, request, *args, **kwargs):
+        # Only allow staff; others get denied/re-directed
+        user = getattr(request, "user", None)
+        if not user or not user.is_authenticated or not hasattr(user, "profile") or user.profile.role != "staff":
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied("You do not have access to this page.")
+        return super().dispatch(request, *args, **kwargs)
     
     def get_queryset(self):
         qs = super().get_queryset()
-        return qs.order_by('created_at')
+        return qs.order_by('created_at').distinct()
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         bookings = models.Booking.objects.all()
-        user_activities = self.get_queryset
-        violations = models.Violation.objects.all()
+        user_activities = self.get_queryset()
+        violations = models.Violation.objects.filter(status='suspended')
         unread_messages = models.Chat.objects.filter(
             recipient=self.request.user, status="sent").count()
         search_user = self.request.GET.get("search_user")
@@ -652,13 +1029,12 @@ class UserActivityListView(LoginRequiredMixin, ListView):
             "section": "user",
             "users": users,
             "chat": chat,
-            "search_user": self.request.GET.get('search_user', ''),
             "unread_messages": unread_messages,
         }
         return context
 
 
-class UserListView(LoginRequiredMixin, ListView):
+class UserListView(StaffRequiredMixin, LoginRequiredMixin, ListView):
     model = User
     template_name = "main/users.html"
     context_object_name = "users"
@@ -668,7 +1044,70 @@ class UserListView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         qs = super().get_queryset()
         search_user = self.request.GET.get("search-user")
-
-        if search_user != "":
-            qs = qs.filter(name__icontains=search_user)
+        # Do NOT exclude any role; always include staff/admin too
+        if search_user and search_user != "":
+            qs = qs.filter(username__icontains=search_user) | qs.filter(email__icontains=search_user)
         return qs
+
+
+class ChatView(LoginRequiredMixin, TemplateView):
+    template_name = "main/chat.html"
+    def dispatch(self, request, *args, **kwargs):
+        user = getattr(request, "user", None)
+        # Only allow for non-staff roles
+        if not user or not user.is_authenticated or not hasattr(user, "profile") or user.profile.role == "staff":
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied("Staff users should use the Users link, not chat.")
+        return super().dispatch(request, *args, **kwargs)
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        from .models import Chat
+        unread_messages = Chat.objects.filter(recipient=self.request.user, status="sent").count()
+        context["unread_messages"] = unread_messages
+        return context
+
+
+@csrf_exempt
+def peripheral_event(request):
+    if request.method != 'POST':
+        return JsonResponse({"success": False, "error": "Method not allowed"}, status=405)
+    try:
+        pc_name = request.POST.get('pc_name') or request.POST.get('pc')
+        device_id = request.POST.get('device_id')
+        device_name = request.POST.get('device_name')
+        action = request.POST.get('action')  # removed/attached
+        metadata = request.POST.dict()
+
+        pc = None
+        if pc_name:
+            pc = models.PC.objects.filter(name=pc_name).first()
+        evt = models.PeripheralEvent.objects.create(
+            pc=pc,
+            device_id=device_id,
+            device_name=device_name,
+            action=action or 'removed',
+            metadata=metadata
+        )
+        # Broadcast to staff
+        try:
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                'alerts_staff',
+                {
+                    'type': 'alert_message',
+                    'title': 'Peripheral change',
+                    'message': f"{pc_name or 'PC'}: {device_name or device_id} {action}",
+                    'payload': {
+                        'pc': pc_name,
+                        'device_id': device_id,
+                        'device_name': device_name,
+                        'action': action,
+                        'created_at': evt.created_at.isoformat()
+                    }
+                }
+            )
+        except Exception:
+            pass
+        return JsonResponse({"success": True})
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=500)

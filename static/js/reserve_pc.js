@@ -182,7 +182,9 @@ $(document).ready(function () {
           // alert("Your reservation has been confirmed!");
           $("#qrModal").fadeOut();
           clearInterval(approvalChecker);
-          console.log("Approval detected. Script stopped.");
+          // Clear the QR expiration countdown timer
+          clearInterval(countdownInterval);
+          console.log("Approval detected. QR expiration timer stopped.");
           let durationMinutes = parseInt($("#durationInput").val()); 
           let endTime = new Date().getTime() + durationMinutes * 60 * 1000;
 
@@ -210,7 +212,9 @@ $(document).ready(function () {
         else if (status === "cancelled"){
           $("#qrModal").fadeOut();
           clearInterval(approvalChecker);
-          console.log("Approval detected. Script stopped.");
+          // Clear the QR expiration countdown timer
+          clearInterval(countdownInterval);
+          console.log("Reservation cancelled. QR expiration timer stopped.");
           alert("Your reservation has been declined!");
           window.location.href = "/pc-reservation/";
         } 

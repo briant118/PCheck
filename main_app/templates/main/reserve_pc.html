@@ -17,8 +17,16 @@
     </div>
     <div class="card-body p-5">
 
+      <input type="hidden" id="pc_id" name="pc_id">
+
       <div id="students-booking"> <!-- students-booking -->
-        <div class="text-center h6">Available PCs</div>
+        <div class="text-center h6">Available PCs ({{ available_pcs|length }})</div>
+        {% if not available_pcs %}
+        <div class="alert alert-warning text-center">
+          <p>No PCs found. Please add some PCs first in the PC List page.</p>
+          <a href="{% url 'main_app:pc-list' %}" class="btn btn-primary">Go to PC List</a>
+        </div>
+        {% endif %}
         <div class="row justify-content-center text-center">
           {% for pc in available_pcs %}
             {% if forloop.counter0|divisibleby:3 %}
@@ -27,8 +35,13 @@
   
                 <div class="mb-2 pc-container text-black">
                   <button class="pc-button {% if pc.booking_status == 'in_use' %}text-danger{% elif pc.booking_status == 'in_queue' %}text-warning{% endif %}" 
-                    data-pc-id="{{ pc.id }}" data-pc-name="{{ pc.name }}" {% if pc.booking_status == 'in_use' or pc.booking_status == 'in_queue' %}disabled{% endif %}>
-                    <i class="fa-solid fa-desktop" style="font-size: 1.7em;background: none;border: none;cursor: pointer;padding: 0px;"></i><br>
+                    data-pc-id="{{ pc.id }}" data-pc-name="{{ pc.name }}" 
+                    {% if pc.booking_status == 'in_use' or pc.booking_status == 'in_queue' %}
+                      onclick="showPCStatus({{ pc.id }}, this);"
+                    {% else %}
+                      onclick="selectPCForReservation({{ pc.id }}, this);"
+                    {% endif %}>
+                    <i class="fa-solid fa-desktop" style="font-size: 1.7em; display: inline-block;"></i><br>
                     <span class="pc-name">{{ pc.name|get_int }}</span>
                   </button>
                 </div>
@@ -68,20 +81,23 @@
           <div class="mb-2 pc-container text-black">
           {% for i in total_pc|divide:5|integer|to_range %}
             {% if i|multiply:5 != total_pc %}
-            <button class="pc-group-number" id="pcs-{{ i|multiply:5 }}" data-qty="{{ i|multiply:5 }}">
+            <button class="pc-group-number" id="pcs-{{ i|multiply:5 }}" data-qty="{{ i|multiply:5 }}" onclick="handlePcGroupClick(this)">
               <span>{{ i|multiply:5 }}</span>
             </button>
             {% endif %}
           {% endfor %}
-            <button class="pc-group-number" id="pcs-{{ total_pc }}" data-qty="{{ total_pc}}">
+            <button class="pc-group-number" id="pcs-{{ total_pc }}" data-qty="{{ total_pc}}" onclick="handlePcGroupClick(this)">
               <span>{{ total_pc }}</span>
             </button>
           </div>
           <div class="input-group justify-content-center mb-3" style="max-width:250px; margin:auto;">
             <span class="input-group-text" id="basic-addon1">Custom</span>
             <input type="text" id="customNumOfPc" name="customNumOfPc" class="form-control text-center" value="0" min="0">
-            <button class="btn btn-outline-secondary" type="button" id="fb-minusBtn">−</button>
-            <button class="btn btn-outline-secondary" type="button" id="fb-plusBtn">+</button>
+              <button class="btn btn-outline-secondary" type="button" id="fb-minusBtn" onclick="decrementCustomPc()">−</button>
+            <button class="btn btn-outline-secondary" type="button" id="fb-plusBtn" onclick="incrementCustomPc()">+</button>
+          </div>
+          <div class="text-center mt-3">
+            <button type="button" class="btn btn-success" id="block-button-next" hidden onclick="goToBlockBookingForm()">Next <i class="fa-solid fa-chevron-right"></i></button>
           </div>
         </div>
       </div> <!-- end of faculty-booking-pc-group -->
@@ -115,7 +131,7 @@
               <input type="datetime-local" id="dateEnd" name="dateEnd" class="form-control">
             </div>
             <div class="text-center">
-              <button type="button" class="next next-button" data-next="step2">Next</button>
+              <button type="button" class="next next-button" data-next="step2" onclick="advanceStep('step1', 'step2')">Next</button>
             </div>
           </div>
 
@@ -123,11 +139,11 @@
           <div class="step" id="step2">
             <h6>List of students' email - must be valid email addresses (separated by commas)</h6>
             <div class="d-flex mb-2" style="max-width: auto;">
-              <textarea name="emailList" id="emailList" cols="40" rows="20" class="form-control"></textarea>
+              <textarea name="emailList" id="emailList" cols="40" rows="20" class="form-control" oninput="validateEmailList(this)"></textarea>
             </div>
             <div id="result"></div>
             <div class="text-center">
-              <button type="button" class="next next-button" data-next="step3" id="step3NextBtn" hidden>Next</button>
+              <button type="button" class="next next-button" data-next="step3" id="step3NextBtn" hidden onclick="advanceStep('step2', 'step3')">Next</button>
             </div>
           </div>
 
@@ -217,42 +233,34 @@
         <!-- Left column: Legend -->
         <div id="legend" class="col-6 col-md-4 text-start">
           <span class="legend-item fs-6">
-            <button style="border: none; background: none; cursor:default;" readonly>
-              <i class="fa-solid fa-desktop"></i> <span style="color: black;">Available</span>
-            </button>
+            <i class="fa-solid fa-desktop" style="color: #000; display: inline-block; width: 20px;"></i> Available
           </span><br>
           <span class="legend-item fs-6">
-            <button style="border: none; background: none; cursor:default; color: black;" readonly>
-              <i class="fa-solid fa-desktop text-success"></i> Selected
-            </button>
+            <i class="fa-solid fa-desktop" style="color: #198754; display: inline-block; width: 20px;"></i> Selected
           </span><br>
           <span class="legend-item fs-6">
-            <button style="border: none; background: none; cursor:default; color: black;" readonly>
-              <i class="fa-solid fa-desktop text-warning"></i> In Queue
-            </button>
+            <i class="fa-solid fa-desktop" style="color: #ffc107; display: inline-block; width: 20px;"></i> In Queue
           </span><br>
           <span class="legend-item fs-6">
-            <button style="border: none; background: none; cursor:default; color: black;" readonly>
-              <i class="fa-solid fa-desktop text-danger"></i> In Use
-            </button>
+            <i class="fa-solid fa-desktop" style="color: #dc3545; display: inline-block; width: 20px;"></i> In Use
           </span>
         </div>
 
         {% if request.user.profile.role == 'faculty' %}
         <!-- Right column: Block button -->
         <div class="col-6 col-md-4 text-center">
-          <button class="book-block-button" id="block-button">Book a Block</button>
+          <button class="book-block-button" id="block-button" onclick="showBlockBooking()">Book a Block</button>
         </div>
         {% endif %}
         
         <!-- Right column: Block button next -->
         <div class="col-6 col-md-4 text-center">
-          <button class="book-block-button" id="block-button-next" hidden>Next <i class="fa-solid fa-chevron-right"></i></button>
+          <button type="button" class="btn btn-success book-block-button" id="block-button-next" hidden onclick="goToBlockBookingForm()">Next <i class="fa-solid fa-chevron-right"></i></button>
         </div>
         
         <!-- Right column: Next button -->
         <div class="col-6 col-md-4 text-center">
-          <button class="reserve-next-button" hidden>Next <i class="fa-solid fa-chevron-right"></i></button>
+          <button type="button" class="btn btn-success reserve-next-button" hidden>Next <i class="fa-solid fa-chevron-right"></i></button>
         </div>
 
       </div>
@@ -262,9 +270,663 @@
   </div> <!-- end of card -->
 
 </div>
+
+<!-- Student Active Session Modal -->
+<div class="modal fade" id="mySessionModal" tabindex="-1" aria-labelledby="mySessionModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title" id="mySessionModalLabel">
+          <i class="fa-solid fa-desktop"></i> Your Active Session
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center">
+        <h3 id="session-pc-name">PC XXX</h3>
+        <p class="mb-3">
+          <strong>Status:</strong> <span id="session-status" class="badge bg-warning">In Queue</span>
+        </p>
+        <div id="session-time-info" style="display: none;">
+          <p><strong>Time Remaining:</strong></p>
+          <h2 class="text-primary" id="session-time-left">0h 0m</h2>
+        </div>
+        <div id="session-waiting" class="alert alert-warning">
+          <i class="fa-solid fa-hourglass-half"></i><br>
+          Waiting for staff approval...
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-danger" id="end-session-btn" style="display: none;">
+          <i class="fa-solid fa-stop-circle"></i> End Session Early
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
-<script src="{% static 'js/jquery-3.7.1.min.js' %}"></script>
+<script>
+// Function to show PC status for PCs in use or in queue
+function showPCStatus(pcId, button) {
+  console.log('Checking PC status:', pcId);
+  
+  // Fetch booking information for this PC
+  fetch(`/ajax/get-pc-booking/${pcId}/`)
+    .then(response => response.json())
+    .then(data => {
+      console.log('PC booking data:', data);
+      let message = '';
+      
+      if (data.booking_status === 'in_queue') {
+        message = `PC ${data.pc_name} is waiting for staff approval.\n\nThe request was made at ${data.created_time}.`;
+      } else if (data.booking_status === 'in_use') {
+        const timeLeft = data.time_remaining;
+        message = `PC ${data.pc_name} is currently in use.\n\nEstimated time remaining: ${timeLeft}`;
+      } else {
+        message = `PC ${data.pc_name} is ${data.booking_status}`;
+      }
+      
+      alert(message);
+    })
+    .catch(error => {
+      console.error('Error fetching PC status:', error);
+      alert('Unable to fetch PC status information.');
+    });
+}
+
+// Function to handle PC selection for reservation
+function selectPCForReservation(pcId, button) {
+  console.log('PC clicked:', pcId);
+  
+  // Toggle the selected class
+  button.classList.toggle('text-success');
+  var isSelected = button.classList.contains('text-success');
+  
+  // Set the hidden PC ID field
+  var pcIdInput = document.getElementById('pc_id');
+  if (pcIdInput) {
+    pcIdInput.value = pcId;
+  }
+  
+  // Disable other PC buttons if this one is selected
+  var allButtons = document.querySelectorAll('.pc-button');
+  allButtons.forEach(function(btn) {
+    if (btn !== button && isSelected) {
+      btn.disabled = true;
+    } else if (btn !== button && !isSelected) {
+      btn.disabled = false;
+    }
+  });
+  
+  // Show/hide pagination
+  var pageNav = document.getElementById('page-nav');
+  if (pageNav) {
+    pageNav.hidden = isSelected;
+  }
+  
+  // Show/hide Next button
+  var nextButton = document.querySelector('.reserve-next-button');
+  if (nextButton) {
+    nextButton.hidden = !isSelected;
+    console.log('Next button hidden:', !isSelected);
+  }
+  
+  // Show/hide Block button
+  var blockButton = document.getElementById('block-button');
+  if (blockButton) {
+    blockButton.hidden = isSelected;
+  }
+  
+  console.log('PC selection complete. Selected:', isSelected);
+}
+
+// Function to show block booking form
+function showBlockBooking() {
+  console.log('Block booking button clicked');
+  var studentsBooking = document.getElementById('students-booking');
+  var legend = document.getElementById('legend');
+  var blockPcGroup = document.getElementById('faculty-booking-pc-group');
+  var blockButton = document.getElementById('block-button');
+  
+  if (studentsBooking) studentsBooking.style.display = 'none';
+  if (legend) legend.style.display = 'none';
+  if (blockPcGroup) blockPcGroup.removeAttribute('hidden');
+  if (blockButton) blockButton.style.display = 'none';
+  
+  console.log('Block booking form shown');
+}
+
+// Function to handle PC group button click
+function handlePcGroupClick(button) {
+  console.log('PC group button clicked');
+  var qty = button.getAttribute('data-qty');
+  var numOfPcInput = document.getElementById('numOfPc');
+  var custNumOfPcInput = document.getElementById('custNumOfPc');
+  var blockButtonNext = document.getElementById('block-button-next');
+  
+  console.log('Selected quantity:', qty);
+  
+  if (numOfPcInput) numOfPcInput.value = qty;
+  if (custNumOfPcInput) custNumOfPcInput.value = qty;
+  
+  // Clear other button selections first
+  var allPcGroupButtons = document.querySelectorAll('.pc-group-number');
+  var isSelected = button.classList.contains('bg-warning');
+  
+  // Toggle selected state
+  button.classList.toggle('bg-warning');
+  isSelected = button.classList.contains('bg-warning');
+  
+  // Disable other buttons
+  allPcGroupButtons.forEach(function(btn) {
+    if (btn !== button) {
+      btn.disabled = isSelected;
+      if (isSelected) {
+        btn.classList.remove('bg-warning');
+      }
+    }
+  });
+  
+  // Clear custom input if a button is selected
+  var customInput = document.getElementById('customNumOfPc');
+  if (customInput && isSelected) {
+    customInput.value = 0;
+  }
+  
+  // Show/hide next button
+  if (blockButtonNext) {
+    blockButtonNext.hidden = !isSelected;
+    console.log('Next button hidden:', blockButtonNext.hidden);
+  }
+}
+
+// Function to go to next step in block booking
+function goToBlockBookingForm() {
+  var legendAndControl = document.getElementById('legend-and-control');
+  var facultyBookingPcGroup = document.getElementById('faculty-booking-pc-group');
+  var facultyFormSection = document.getElementById('faculty-form-section');
+  
+  if (legendAndControl) legendAndControl.setAttribute('hidden', 'true');
+  if (facultyBookingPcGroup) facultyBookingPcGroup.setAttribute('hidden', 'true');
+  if (facultyFormSection) facultyFormSection.removeAttribute('hidden');
+  
+  console.log('Showing faculty block booking form');
+}
+
+// Function to handle custom PC number input
+function handleCustomPcInput() {
+  var customInput = document.getElementById('customNumOfPc');
+  var custNumOfPcHidden = document.getElementById('custNumOfPc');
+  var blockButtonNext = document.getElementById('block-button-next');
+  
+  if (customInput && custNumOfPcHidden) {
+    custNumOfPcHidden.value = customInput.value;
+  }
+  
+  // Show next button if value > 0
+  if (blockButtonNext && customInput) {
+    var value = parseInt(customInput.value) || 0;
+    blockButtonNext.hidden = (value <= 0);
+    console.log('Custom PC input:', value, 'Next button hidden:', blockButtonNext.hidden);
+  }
+}
+
+// Plus button for custom PC count
+function incrementCustomPc() {
+  var customInput = document.getElementById('customNumOfPc');
+  if (customInput) {
+    var current = parseInt(customInput.value) || 0;
+    customInput.value = current + 1;
+    handleCustomPcInput();
+  }
+}
+
+// Minus button for custom PC count
+function decrementCustomPc() {
+  var customInput = document.getElementById('customNumOfPc');
+  if (customInput) {
+    var current = parseInt(customInput.value) || 0;
+    if (current > 0) {
+      customInput.value = current - 1;
+      handleCustomPcInput();
+    }
+  }
+}
+
+// Function to validate email list and show/hide Next button
+function validateEmailList(textarea) {
+  var input = textarea.value;
+  var emails = input.split(',').map(e => e.trim()).filter(e => e.length > 0);
+  var emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  var step3NextBtn = document.getElementById('step3NextBtn');
+  
+  // Check if all emails are valid
+  var allValid = emails.length > 0 && emails.every(email => emailPattern.test(email));
+  
+  if (step3NextBtn) {
+    step3NextBtn.hidden = !allValid;
+    console.log('Email validation - Valid emails:', allValid, 'Total:', emails.length);
+  }
+}
+
+// Function to advance to next step in the form
+function advanceStep(currentStep, nextStep) {
+  console.log('Advancing from', currentStep, 'to', nextStep);
+  var currentStepDiv = document.getElementById(currentStep);
+  var nextStepDiv = document.getElementById(nextStep);
+  
+  if (currentStepDiv) {
+    currentStepDiv.classList.remove('active');
+  }
+  
+  if (nextStepDiv) {
+    nextStepDiv.classList.add('active');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  console.log("Reserve PC page loaded");
+  
+  // Check if any PCs exist
+  var pcButtons = document.querySelectorAll('.pc-button');
+  console.log("Found PC buttons:", pcButtons.length);
+  
+  // Check if hidden field exists
+  var pcIdInput = document.getElementById('pc_id');
+  if (!pcIdInput) {
+    console.warn("Warning: pc_id input field not found!");
+  }
+  
+  // Add event listeners for PC group buttons
+  var pcGroupButtons = document.querySelectorAll('.pc-group-number');
+  pcGroupButtons.forEach(function(button) {
+    button.addEventListener('click', function() {
+      handlePcGroupClick(button);
+    });
+  });
+  
+  // Add event listener for block button next
+  var blockButtonNext = document.getElementById('block-button-next');
+  if (blockButtonNext) {
+    blockButtonNext.addEventListener('click', goToBlockBookingForm);
+  }
+  
+  // Add event listeners for custom PC input +/- buttons
+  var fbPlusBtn = document.getElementById('fb-plusBtn');
+  var fbMinusBtn = document.getElementById('fb-minusBtn');
+  var customNumOfPc = document.getElementById('customNumOfPc');
+  
+  if (fbPlusBtn) {
+    fbPlusBtn.addEventListener('click', incrementCustomPc);
+  }
+  
+  if (fbMinusBtn) {
+    fbMinusBtn.addEventListener('click', decrementCustomPc);
+  }
+  
+  if (customNumOfPc) {
+    customNumOfPc.addEventListener('input', handleCustomPcInput);
+  }
+  
+  // Add click handler for Next button to show modal
+  var nextButton = document.querySelector('.reserve-next-button');
+  if (nextButton) {
+    nextButton.addEventListener('click', function() {
+      console.log('Next button clicked, showing duration modal');
+      var durationModal = document.getElementById('durationModal');
+      if (durationModal) {
+        // Use Bootstrap 5 modal API
+        if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+          var modal = new bootstrap.Modal(durationModal);
+          modal.show();
+        } else {
+          // Fallback if bootstrap not loaded
+          durationModal.style.display = 'block';
+          durationModal.classList.add('show');
+        }
+      } else {
+        console.error('Duration modal not found!');
+      }
+    });
+  }
+  
+  // Add handlers for duration +/- buttons
+  var plusBtn = document.getElementById('plusBtn');
+  var minusBtn = document.getElementById('minusBtn');
+  var durationInput = document.getElementById('durationInput');
+  
+  if (plusBtn && durationInput) {
+    plusBtn.addEventListener('click', function() {
+      var current = parseInt(durationInput.value) || 0;
+      var newValue = Math.min(current + 5, 180);
+      durationInput.value = newValue;
+      console.log('Duration increased to:', newValue);
+      
+      // Disable plus button if at max
+      if (newValue >= 180) {
+        plusBtn.disabled = true;
+      }
+      // Enable minus button
+      if (minusBtn) minusBtn.disabled = false;
+    });
+  }
+  
+  if (minusBtn && durationInput) {
+    minusBtn.addEventListener('click', function() {
+      var current = parseInt(durationInput.value) || 0;
+      var newValue = Math.max(current - 5, 1);
+      durationInput.value = newValue;
+      console.log('Duration decreased to:', newValue);
+      
+      // Disable minus button if at min
+      if (newValue <= 1) {
+        minusBtn.disabled = true;
+      }
+      // Enable plus button
+      if (plusBtn) plusBtn.disabled = false;
+    });
+  }
+  
+  // Add handler for Generate QR Code button
+  var generateQRBtn = document.getElementById('generate-qr-button');
+  if (generateQRBtn) {
+    generateQRBtn.addEventListener('click', function() {
+      console.log('Generate QR Code button clicked');
+      var duration = durationInput ? durationInput.value : null;
+      var selectedPC = document.getElementById('pc_id') ? document.getElementById('pc_id').value : null;
+      
+      console.log('Duration:', duration, 'PC:', selectedPC);
+      
+      if (!duration || duration <= 0) {
+        alert("Please enter a valid duration.");
+        return;
+      }
+      
+      if (!selectedPC) {
+        alert("Please select a PC first.");
+        return;
+      }
+      
+      var reserveUrl = generateQRBtn.getAttribute('data-reserve-url') || '/reserve-pc/';
+      console.log('Sending request to:', reserveUrl);
+      
+      // Show loading state
+      generateQRBtn.disabled = true;
+      generateQRBtn.textContent = 'Generating...';
+      
+      // Send AJAX request with form data
+      var formData = new URLSearchParams();
+      formData.append('pc_id', selectedPC);
+      formData.append('duration', duration);
+      
+      fetch(reserveUrl, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+        },
+        body: formData
+      })
+      .then(response => {
+        console.log('Response status:', response.status);
+        console.log('Response headers:', response.headers.get('content-type'));
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        return response.json();
+      })
+      .then(data => {
+        console.log('Response received:', data);
+        
+        if (!data.success) {
+          alert('Error: ' + (data.error || 'Unknown error'));
+          return;
+        }
+        
+        // Hide duration modal
+        var durationModal = document.getElementById('durationModal');
+        if (durationModal && typeof bootstrap !== 'undefined') {
+          var modal = bootstrap.Modal.getInstance(durationModal);
+          if (modal) modal.hide();
+        }
+        
+        // Show QR code modal
+        var qrModal = document.getElementById('qrModal');
+        var qrImage = document.getElementById('qrImage');
+        var bookingIdSpan = document.getElementById('booking_id');
+        var qrCountdown = document.getElementById('qrCountdown');
+        
+        // Set QR code image
+        if (qrImage && data.qr_code) {
+          qrImage.src = 'data:image/png;base64,' + data.qr_code;
+          console.log('QR code image set');
+        }
+        
+        // Set booking ID
+        if (bookingIdSpan && data.booking_id) {
+          bookingIdSpan.textContent = data.booking_id;
+          console.log('Booking ID set:', data.booking_id);
+        }
+        
+        // Start countdown timer (10 minutes = 600 seconds)
+        var countdownSeconds = 600;
+        var countdownInterval;
+        
+        function updateCountdown() {
+          var minutes = Math.floor(countdownSeconds / 60);
+          var seconds = countdownSeconds % 60;
+          var displayTime = minutes.toString().padStart(2, '0') + ':' + seconds.toString().padStart(2, '0');
+          
+          if (qrCountdown) {
+            qrCountdown.textContent = displayTime;
+          }
+          
+          countdownSeconds--;
+          
+          if (countdownSeconds < 0) {
+            clearInterval(countdownInterval);
+            if (qrCountdown) qrCountdown.textContent = '00:00';
+            
+            // Auto-close modal
+            if (qrModal && typeof bootstrap !== 'undefined') {
+              var modal = bootstrap.Modal.getInstance(qrModal);
+              if (modal) modal.hide();
+            }
+          }
+        }
+        
+        // Start countdown
+        updateCountdown();
+        countdownInterval = setInterval(updateCountdown, 1000);
+        console.log('Countdown started');
+        
+        // Show QR modal
+        if (qrModal && typeof bootstrap !== 'undefined') {
+          var modal = new bootstrap.Modal(qrModal);
+          modal.show();
+          console.log('QR modal shown');
+        }
+        
+        // Check for approval periodically
+        var bookingId = data.booking_id;
+        var approvalChecker = setInterval(function() {
+          if (!bookingId) return;
+          
+          fetch(`/ajax/waiting-approval/${bookingId}`)
+            .then(response => response.json())
+            .then(function(approvalData) {
+              if (approvalData.status === 'confirmed') {
+                clearInterval(approvalChecker);
+                clearInterval(countdownInterval);
+                console.log('Approval detected. QR expiration timer stopped.');
+                
+                // Hide QR modal
+                if (qrModal && typeof bootstrap !== 'undefined') {
+                  var modal = bootstrap.Modal.getInstance(qrModal);
+                  if (modal) modal.hide();
+                }
+                
+                // Show session timer modal (if it exists)
+                var timeRemainingModal = document.getElementById('timeRemainingModal');
+                if (timeRemainingModal && typeof bootstrap !== 'undefined') {
+                  var durationMinutes = parseInt(document.getElementById('durationInput')?.value || 0);
+                  var endTime = new Date().getTime() + durationMinutes * 60 * 1000;
+                  
+                  var sessionModal = new bootstrap.Modal(timeRemainingModal, {
+                    backdrop: 'static',
+                    keyboard: false
+                  });
+                  sessionModal.show();
+                  
+                  // Start session countdown
+                  var sessionCountdown = setInterval(function() {
+                    var now = new Date().getTime();
+                    var diff = endTime - now;
+                    
+                    if (diff <= 0) {
+                      clearInterval(sessionCountdown);
+                      var timeRemainingEl = document.getElementById('timeRemaining');
+                      if (timeRemainingEl) timeRemainingEl.textContent = 'Expired';
+                      return;
+                    }
+                    
+                    var minutes = Math.floor(diff / (1000 * 60));
+                    var seconds = Math.floor((diff % (1000 * 60)) / 1000);
+                    var timeRemainingEl = document.getElementById('timeRemaining');
+                    if (timeRemainingEl) {
+                      timeRemainingEl.textContent = minutes + 'm ' + seconds + 's';
+                    }
+                  }, 1000);
+                }
+              } else if (approvalData.status === 'cancelled') {
+                clearInterval(approvalChecker);
+                clearInterval(countdownInterval);
+                console.log('Reservation cancelled. QR expiration timer stopped.');
+                
+                // Hide QR modal
+                if (qrModal && typeof bootstrap !== 'undefined') {
+                  var modal = bootstrap.Modal.getInstance(qrModal);
+                  if (modal) modal.hide();
+                }
+                
+                alert('Your reservation has been declined!');
+                window.location.href = '/pc-reservation/';
+              }
+            })
+            .catch(function(error) {
+              console.error('Error checking approval:', error);
+            });
+        }, 1000);
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        console.error('Full error details:', error);
+        
+        // Try to get more details about the error
+        fetch(reserveUrl, {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+          },
+          body: formData
+        })
+        .then(response => response.text())
+        .then(html => {
+          console.error('Server response (HTML):', html.substring(0, 500));
+          alert('Error generating QR code. Please check console for details.');
+        })
+        .catch(err => {
+          console.error('Fetch error:', err);
+          alert('Error generating QR code: ' + error.message);
+        });
+      })
+      .finally(() => {
+        generateQRBtn.disabled = false;
+        generateQRBtn.textContent = 'Generate QR Code';
+      });
+    });
+  }
+});
+
+// Function to check and display student's active session
+function checkMyActiveSession() {
+  fetch('/ajax/get-my-active-booking/')
+    .then(response => response.json())
+    .then(data => {
+      if (data.has_booking) {
+        console.log('Active booking found:', data);
+        
+        // Update modal content
+        document.getElementById('session-pc-name').textContent = data.pc_name;
+        document.getElementById('session-status').textContent = data.status === 'in_use' ? 'Active' : 'Waiting Approval';
+        document.getElementById('session-status').className = data.status === 'in_use' ? 'badge bg-success' : 'badge bg-warning';
+        
+        if (data.status === 'in_use' && data.time_remaining) {
+          // Show time info
+          document.getElementById('session-time-info').style.display = 'block';
+          document.getElementById('session-waiting').style.display = 'none';
+          document.getElementById('session-time-left').textContent = data.time_remaining;
+          document.getElementById('end-session-btn').style.display = 'block';
+        } else {
+          // Show waiting message
+          document.getElementById('session-time-info').style.display = 'none';
+          document.getElementById('session-waiting').style.display = 'block';
+          document.getElementById('end-session-btn').style.display = 'none';
+        }
+        
+        // Show modal
+        var modal = new bootstrap.Modal(document.getElementById('mySessionModal'));
+        modal.show();
+      }
+    })
+    .catch(error => {
+      console.error('Error checking session:', error);
+    });
+}
+
+// Add session check button and polling
+document.addEventListener('DOMContentLoaded', function() {
+  // Add a "My Session" button
+  var legendDiv = document.getElementById('legend');
+  if (legendDiv) {
+    var sessionButton = document.createElement('button');
+    sessionButton.className = 'btn btn-success btn-sm mt-3';
+    sessionButton.innerHTML = '<i class="fa-solid fa-user-clock"></i> Check My Session';
+    sessionButton.onclick = checkMyActiveSession;
+    legendDiv.appendChild(sessionButton);
+  }
+  
+  // Poll for session status every 10 seconds
+  setInterval(checkMyActiveSession, 10000);
+  
+  // Handle end session button
+  var endSessionBtn = document.getElementById('end-session-btn');
+  if (endSessionBtn) {
+    endSessionBtn.addEventListener('click', function() {
+      if (confirm('Are you sure you want to end your session early?')) {
+        fetch('/ajax/end-session/', {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+          }
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            alert(data.message);
+            location.reload();
+          } else {
+            alert('Error: ' + data.message);
+          }
+        });
+      }
+    });
+  }
+});
+</script>
 <script src="{% static 'js/reserve_pc.js' %}"></script>
 {% endblock %}

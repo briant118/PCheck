@@ -20,22 +20,34 @@
         <p>We have sent the verification code to {{ email }}</p>
         <div class="row">
           <div class="col">
-            <input type="text" id="code1" maxlength="1" class="form-control otp" required>
+            <input type="text" id="code1" maxlength="1" class="form-control otp" required oninput="if(this.value.length==1)document.getElementById('code2').focus(); updateCode();">
           </div>
           <div class="col">
-            <input type="text" id="code2" maxlength="1" class="form-control otp" required>
+            <input type="text" id="code2" maxlength="1" class="form-control otp" required oninput="if(this.value.length==1)document.getElementById('code3').focus(); updateCode();">
           </div>
           <div class="col">
-            <input type="text" id="code3" maxlength="1" class="form-control otp" required>
+            <input type="text" id="code3" maxlength="1" class="form-control otp" required oninput="if(this.value.length==1)document.getElementById('code4').focus(); updateCode();">
           </div>
           <div class="col">
-            <input type="text" id="code4" maxlength="1" class="form-control otp" required>
+            <input type="text" id="code4" maxlength="1" class="form-control otp" required oninput="updateCode();">
           </div>
           <input type="text" name="code" id="code" hidden>
           <div class="col text-center">
-            <button type="submit" class="btn btn-warning" id="verify-btn">Verify</button>
+            <button type="submit" class="btn btn-warning" id="verify-btn" onclick="updateCode(); return true;">Verify</button>
           </div>
         </div>
+        
+        <script>
+        function updateCode() {
+          var code1 = document.getElementById('code1').value || '';
+          var code2 = document.getElementById('code2').value || '';
+          var code3 = document.getElementById('code3').value || '';
+          var code4 = document.getElementById('code4').value || '';
+          var fullCode = code1 + code2 + code3 + code4;
+          document.getElementById('code').value = fullCode;
+          console.log('Full code:', fullCode);
+        }
+        </script>
       </form>
     </div>
   </div>
@@ -43,6 +55,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{% static 'js/jquery-3.7.1.min.js' %}"></script>
 <script src="{% static 'js/myscript.js' %}"></script>
 {% endblock %}

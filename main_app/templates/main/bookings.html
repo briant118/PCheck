@@ -5,7 +5,7 @@
 {% block title %}Bookings{% endblock %}
 
 {% block content %}
-<div class="container mt-5 pt-5">
+<div class="container">
 
   <!-- ===== TOP-LEVEL TABS ===== -->
   <div class="nav nav-tabs tabs">
@@ -22,6 +22,13 @@
   
   <!-- ===== STUDENT BOOKINGS CONTENT ===== -->
   <div id="student-bookings">
+    <!-- DEBUG INFO -->
+    <div class="alert alert-info">
+      <strong>DEBUG:</strong> Total bookings: {{ student_bookings|length }}, 
+      Pending: {{ student_pending_count }}, 
+      Pending list: {{ student_pending_approvals|length }}
+    </div>
+    
     <div class="nav nav-tabs subtabs">
       <button id="tab-student-all" class="nav-link active subtab">All</button>
       <button id="tab-student-pending" class="nav-link subtab position-relative">
@@ -226,43 +233,46 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{% static 'js/jquery-3.7.1.min.js' %}"></script>
 <script>
-  $(document).ready(function () {
-    // === Generic Tab Switcher ===
-    function initTabGroup($tabs, $contents) {
-      $tabs.on("click", function (e) {
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('Bookings page loaded');
+  
+  // === Generic Tab Switcher (Vanilla JS) ===
+  function initTabGroup(tabSelectors, contentSelectors) {
+    const tabs = document.querySelectorAll(tabSelectors);
+    const contents = document.querySelectorAll(contentSelectors);
+    
+    tabs.forEach(function(tab, index) {
+      tab.addEventListener('click', function(e) {
         e.preventDefault();
-        const index = $tabs.index(this);
-
+        console.log('Tab clicked:', tab.id, 'index:', index);
+        
         // Switch active tab
-        $tabs.removeClass("active");
-        $(this).addClass("active");
-
+        tabs.forEach(function(t) {
+          t.classList.remove('active');
+        });
+        tab.classList.add('active');
+        
         // Switch content
-        $contents.prop("hidden", true);
-        $contents.eq(index).prop("hidden", false);
+        contents.forEach(function(c) {
+          c.hidden = true;
+        });
+        if (contents[index]) {
+          contents[index].hidden = false;
+          console.log('Showing content:', contents[index].id);
+        }
       });
+    });
+  }
 
-      // Set initial visible tab
-      $tabs.first().addClass("active");
-      $contents.prop("hidden", true).first().prop("hidden", false);
-    }
+  // === Main Tabs ===
+  initTabGroup("#tab-student-bookings, #tab-faculty-bookings", "#student-bookings, #faculty-bookings");
 
-    // === Main Tabs ===
-    const $mainTabs = $("#tab-student-bookings, #tab-faculty-bookings");
-    const $mainContents = $("#student-bookings, #faculty-bookings");
-    initTabGroup($mainTabs, $mainContents);
+  // === Subtabs: Student Bookings ===
+  initTabGroup("#tab-student-all, #tab-student-pending, #tab-student-approved", "#student-all, #student-pending, #student-approved");
 
-    // === Subtabs: Student Bookings ===
-    const $studentSubTabs = $("#tab-student-all, #tab-student-pending, #tab-student-approved");
-    const $studentSubContents = $("#student-all, #student-pending, #student-approved");
-    initTabGroup($studentSubTabs, $studentSubContents);
-
-    // === Subtabs: Faculty Bookings ===
-    const $facultySubTabs = $("#tab-faculty-all, #tab-faculty-pending, #tab-faculty-approved");
-    const $facultySubContents = $("#faculty-all, #faculty-pending, #faculty-approved");
-    initTabGroup($facultySubTabs, $facultySubContents);
-  });
+  // === Subtabs: Faculty Bookings ===
+  initTabGroup("#tab-faculty-all, #tab-faculty-pending, #tab-faculty-approved", "#faculty-all, #faculty-pending, #faculty-approved");
+});
 </script>
 {% endblock %}

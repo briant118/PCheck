@@ -38,6 +38,33 @@ class EmailPrefixBackend(ModelBackend):
         if user.check_password(password) and self.user_can_authenticate(user):
             return user
         return None
+
+
+class StaffAdminBackend(ModelBackend):
+    """
+    Custom authentication backend for staff/admin users.
+    Allows login with username or email.
+    """
+    def authenticate(self, request, username=None, password=None, **kwargs):
+        if username is None or password is None:
+            return None
+        
+        try:
+            # Try to get user by username
+            user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            try:
+                # Try to get user by email
+                user = User.objects.get(email=username)
+            except User.DoesNotExist:
+                return None
+        
+        # Check if user is staff/admin and can authenticate
+        if user.check_password(password) and self.user_can_authenticate(user):
+            # Only authenticate if user has staff status or has a profile with staff role
+            if user.is_staff or (hasattr(user, 'profile') and user.profile.role == 'staff'):
+                return user
+        return None
     
     
 class PrefixLoginView(LoginView):
@@ -48,11 +75,15 @@ class PrefixLoginView(LoginView):
 class CustomLoginView(LoginView):
     def get_success_url(self):
         user = self.request.user
-        if user.profile.role == 'student' or user.profile.role == 'faculty':
-            return '/'
-        elif user.profile.role == 'staff':
-            return '/dashboard/'
-        return '/dashboard/'
+        # Check if user has a profile
+        if hasattr(user, 'profile'):
+            role = user.profile.role
+            if role == 'student' or role == 'faculty':
+                return '/'
+            elif role == 'staff':
+                return '/dashboard/'
+        # Default to home page for non-staff users or users without profile
+        return '/'
 
 
 class ProfileDetailView(LoginRequiredMixin, TemplateView):
@@ -73,7 +104,7 @@ class ProfileUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
     template_name = 'account/edit_profile.html'
 
     def get_success_url(self):
-        return reverse_lazy('profile')
+        return reverse_lazy('account:profile')
 
     def get_queryset(self, **kwargs):
         return models.Profile.objects.filter(pk=self.kwargs['pk'])
@@ -82,7 +113,102 @@ class ProfileUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
 @login_required
 @permission_required('account.view_dashboard', raise_exception=True)
 def dashboard(request):
-    return render(request, 'account/dashboard.html')
+    from main_app.models import Booking, PC, College
+    from django.contrib.auth.models import User
+    from datetime import datetime, timedelta
+    from django.db.models import Count, Avg, Sum
+    import calendar
+    
+    # Total sessions and average duration
+    total_bookings = Booking.objects.filter(status='confirmed').count()
+    avg_duration = Booking.objects.filter(
+        status='confirmed', 
+        duration__isnull=False
+    ).aggregate(Avg('duration'))['duration__avg']
+    
+    # Convert timedelta to minutes for display
+    avg_duration_minutes = 0
+    if avg_duration:
+        avg_duration_minutes = int(avg_duration.total_seconds() / 60)
+    
+    # Peak usage hours (analyze by hour of the day)
+    peak_hours = {}
+    bookings = Booking.objects.filter(status='confirmed', start_time__isnull=False)
+    for booking in bookings:
+        hour = booking.start_time.hour
+        peak_hours[hour] = peak_hours.get(hour, 0) + 1
+    
+    sorted_hours = sorted(peak_hours.items(), key=lambda x: x[1], reverse=True)[:5]
+    
+    # College breakdown
+    college_data = {}
+    for college in College.objects.all():
+        count = Booking.objects.filter(
+            user__profile__college=college,
+            status='confirmed'
+        ).count()
+        college_data[college.name] = count
+    
+    # Successful vs canceled bookings
+    successful = Booking.objects.filter(status='confirmed').count()
+    canceled = Booking.objects.filter(status='cancelled').count()
+    pending = Booking.objects.filter(status__isnull=True).count()
+    
+    # Time-based statistics (last 30 days)
+    thirty_days_ago = datetime.now() - timedelta(days=30)
+    recent_bookings = Booking.objects.filter(
+        created_at__gte=thirty_days_ago
+    )
+    
+    daily_stats = {}
+    for i in range(30):
+        date = datetime.now() - timedelta(days=i)
+        count = Booking.objects.filter(
+            created_at__date=date.date()
+        ).count()
+        daily_stats[date.strftime('%Y-%m-%d')] = count
+    
+    # Get all PCs for display
+    pc_list = PC.objects.all().order_by('name')
+    
+    # Get active bookings (in_queue and confirmed)
+    from django.utils import timezone as tz
+    active_bookings = Booking.objects.filter(
+        status__in=['confirmed', None]
+    ).exclude(
+        status='cancelled'
+    ).select_related('user', 'pc', 'user__profile').order_by('-created_at')
+    
+    # Calculate time remaining for each active booking
+    now = tz.now()
+    for booking in active_bookings:
+        if booking.end_time and booking.status == 'confirmed':
+            remaining = booking.end_time - now
+            if remaining.total_seconds() > 0:
+                booking.time_remaining_minutes = int(remaining.total_seconds() / 60)
+            else:
+                booking.time_remaining_minutes = 0
+        else:
+            booking.time_remaining_minutes = None
+    
+    # Get stats for the template
+    context = {
+        'total_bookings': total_bookings,
+        'avg_duration_minutes': avg_duration_minutes,
+        'peak_hours': sorted_hours,
+        'college_data': college_data,
+        'successful_bookings': successful,
+        'canceled_bookings': canceled,
+        'pending_bookings': pending,
+        'daily_stats': daily_stats,
+        'total_users': User.objects.count(),
+        'total_pcs': PC.objects.count(),
+        'available_pcs': PC.objects.filter(booking_status='available').count(),
+        'pc_list': pc_list,
+        'active_bookings': active_bookings,
+    }
+    
+    return render(request, 'account/dashboard.html', context)
 
 
 @login_required
@@ -96,7 +222,7 @@ def about(request):
 
 def custom_logout_view(request):
     logout(request)
-    return redirect('login')
+    return redirect('account:login')
 
 
 def register(request):
@@ -109,15 +235,22 @@ def register(request):
         last_name = last_name.capitalize()
         college_id = request.POST['college']
         college = models.College.objects.get(id=college_id)
-        course = request.POST['course']
-        year = request.POST['year']
-        block = request.POST['block']
+        # Only require course, year, block for students
+        course = request.POST.get('course', '')
+        year = request.POST.get('year', '')
+        block = request.POST.get('block', '')
         email = request.POST['email_prefix']
-        # email = email + "@psu.palawan.edu.ph"
-        email = email + "@gmail.com"
+        email = email + "@psu.palawan.edu.ph"
         print("email address:", email)
         username = email
         password = request.POST['password']
+        
+        # Check if PendingUser with this email already exists and delete it
+        try:
+            existing_pending = models.PendingUser.objects.get(email=email)
+            existing_pending.delete()
+        except models.PendingUser.DoesNotExist:
+            pass
         
         # create pending user
         pending = models.PendingUser.objects.create(
@@ -144,7 +277,7 @@ def register(request):
         )
 
         messages.success(request, "We sent a verification code to your email.")
-        return redirect("verify", email=email)
+        return redirect("account:verify", email=email)
 
     return render(request, "account/register.html", {"colleges": colleges})
 
@@ -156,7 +289,7 @@ def verify(request, email):
             pending = models.PendingUser.objects.get(email=email)
         except models.PendingUser.DoesNotExist:
             messages.error(request, "Invalid request.")
-            return redirect("register")
+            return redirect("account:register")
 
         if pending.verification_code == code:
             # create actual user
@@ -177,7 +310,7 @@ def verify(request, email):
             profile.save()
             pending.delete()
             messages.success(request, "Account verified! You can log in now.")
-            return redirect("login")
+            return redirect("account:login")
         else:
             messages.error(request, "Invalid verification code.")
 

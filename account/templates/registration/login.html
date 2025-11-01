@@ -1,9 +1,28 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Log-in{% endblock %}
 
+{% block links %}
+<style>
+  /* Adjust layout for login page without sidebar */
+  .main-content {
+    margin-left: 0 !important;
+    width: 100% !important;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+  }
+  #content {
+    padding: 0 !important;
+    width: 100%;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container mt-5 pt-5 rounded">
+<div class="container">
   <div class="card col-md-6 offset-md-3 border rounded shadow-lg mb-5 bg-body">
     <div class="text-center card-body bg-warning mb-3">
       <h1>Hello, <br>Login to your account</h1>
@@ -15,7 +34,7 @@
         Please try again.
       </p>
       {% endif %}
-      <form action="{% url 'login' %}" method="post">
+      <form action="{% url 'account:login' %}" method="post">
         <p><b>Email</b></p>
         <div class="d-flex" style="max-width: 500px;">
           <div class="form-group mb-2">
@@ -29,7 +48,7 @@
         <div class="form-group mb-2">
           <label for="password">Password</label>
           <input type="password" name="password" class="form-control" required>
-          <a class="btn btn-link" href="{% url 'password_reset' %}">
+          <a class="btn btn-link" href="{% url 'account:password_reset' %}">
             forgot password?
           </a>
         </div>
@@ -40,7 +59,7 @@
         </div>
         <div>
           <p><span class="text-muted">Don't have an account? </span>
-            <a href="{% url 'register' %}" class="btn btn-link">
+            <a href="{% url 'account:register' %}" class="btn btn-link">
               Create an account
             </a>
           </p>

@@ -48,20 +48,51 @@ Thumbs.db
 *.mov
 *.wmv
 
-# SQL and backup
-*.backup
-*.sqlite3
-
-# project folder
-*project/
+# Python Virtual Environment
 venv/
-pcheck_env/
-manage.py
-static/fontawesome/
-static/js/bootstrap.*
-static/js/jquery*.*
-staticfiles/
+env/
+ENV/
+.venv
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Django specific
+*.log
+*.pot
+*.pyc
+db.sqlite3
+db.sqlite3-journal
+/media
+/staticfiles
+/static_collected
+
+# Environment variables
 .env
-main_app/migrations/
-account/migrations/
-bookings_attachments/
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Desktop.ini
+
+# Backup files
+*.bak
+*.backup
+*~
+

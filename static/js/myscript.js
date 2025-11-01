@@ -175,33 +175,6 @@ $(document).ready(function () {
     window.location.href = currentUrl.toString();
   });
 
-  // Registration script
-  // Handle next button clicks
-  $(".next").click(function(){
-    var nextStep = $(this).data("next");
-
-    // if role button clicked, set role value
-    if($(this).data("role")){
-      $("#role").val($(this).data("role"));
-    }
-
-    $(this).closest(".step").removeClass("active");
-    $("#" + nextStep).addClass("active");
-  });
-
-  // Handle form submit
-  $("#registrationForm").on("submit", function(e) {
-    // Combine prefix + domain into hidden field
-    var prefix = $("#email_prefix").val().trim();
-    var domain = "@psu.palawan.edu.ph";
-
-    if (!regex.test(prefix)) {
-      alert("Email prefix must only contain letters and numbers (no @ or .).");
-      e.preventDefault();
-      return false;
-    }
-  });
-
   $("#code4").on("input", function() {
     var codes = [];
     var code_str = ""

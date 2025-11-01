@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Chat{% endblock %}
+{% block links %}
+<link rel="stylesheet" href="{% static 'css/booking.css' %}">
+<style>
+#chatContainer {
+  height: 400px;
+  overflow-y: auto;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  padding: 10px;
+  background: #f9f9f9;
+  margin-bottom: 3px;
+}
+.message { margin: 5px 0; padding: 8px 12px; border-radius: 12px; max-width: 70%; }
+.sender { background: #DCF8C6; align-self: flex-start; }
+.receiver { background: #E5E5EA; align-self: flex-end; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container pt-5 mt-2">
+  <div class="row">
+    <div class="col">
+      <h2>Direct Chat</h2>
+      <div id="chat" style="display:block;">
+        <div class="col-md-2 mt-2 mb-2 d-flex">
+          <input type="text" id="find_user" name="find_user" placeholder="search user" class="form-control me-1" style="width: auto;">
+          <button type="button" class="btn btn-sm btn-primary me-1" onclick="findUser()">Search</button>
+          <button type="button" class="btn btn-sm btn-secondary" onclick="resetTable()">Clear</button>
+        </div>
+        <table class="table table-stripped table-sm" id="resultUserTable" hidden>
+          <thead>
+            <tr>
+              <th>Name</th><th>College</th><th>Course</th><th>Email</th><th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <table class="table table-stripped table-sm" id="messagesTable">
+          <thead><tr><th>Name</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <!-- Send Initial Message Modal -->
+        <div class="modal fade" id="initMessageModal" tabindex="-1">
+          <div class="modal-dialog"><div class="modal-content rounded-3 shadow">
+            <div class="modal-header"><h5 class="modal-title">Send message</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body"><div class="justify-content-center">
+              <div class="form-group mt-3"><label>Recipient:</label><input type="email" id="recipient" class="form-control"></div>
+              <div class="form-group mt-3"><label>Message:</label><textarea id="initMessage" class="form-control"></textarea></div>
+            </div></div>
+            <div class="modal-footer"><button type="button" id="send_init_message" class="btn btn-primary" data-send-init-message-url="{% url 'main_app:send-init-message' %}">Send</button></div>
+          </div></div>
+        </div>
+        <!-- Conversation Modal -->
+        <div class="modal fade" id="conversationModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content rounded-3 shadow">
+          <div class="modal-header"><h5 class="modal-title">Conversation with <span id="convoWith"></span></h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body"><div class="justify-content-center">
+            <input type="text" id="roomId" hidden>
+            <input type="email" id="receiverEmail" hidden>
+            <div id="chatContainer"></div>
+            <textarea id="new_message" rows="3" class="form-control"></textarea>
+          </div></div>
+          <div class="modal-footer"><button type="button" id="send_new_message_btn" class="btn btn-primary" data-send-new-message-url="main_app:send-new-message">Send</button></div>
+        </div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+// --- JS copied/trimmed from user_activity.html ---
+const currentUserId = "{{ request.user.id }}";
+function findUser() {
+  const query = $("#find_user").val();
+  if (query !== "") {
+    $("#messagesTable").prop("hidden",true);
+    $.ajax({ url: "/ajax/find-user", method: "GET", data: { find_user: query }, success: function(data) {
+      const tableBody = $("#resultUserTable tbody");
+      tableBody.empty();
+      $("#resultUserTable").prop("hidden",false);
+      $.each(data.result, function(index, user) {
+        let row = `<tr>
+          <td>${user.first_name} ${user.last_name}</td>
+          <td>${user.profile__college__name}</td>
+          <td>${user.profile__course}</td>
+          <td id="email_address">${user.email}</td>
+          <td><button type="button" id="send_chat" onclick="sendInitMessage()" class="btn btn-sm btn-outline-info">Send a message</button></td>
+        </tr>`;
+        tableBody.append(row);
+        email = user.email;
+      });
+    }});
+  }
+}
+function resetTable() {
+  $("#find_user").val("");
+  const tableBody = $("#resultUserTable tbody");
+  tableBody.empty();
+  $("#resultUserTable").prop("hidden",true);
+  $("#messagesTable").prop("hidden",false);
+}
+function resetInitMessageForm() { $("#recipient").val(""); $("#initMessage").val(""); }
+function sendInitMessage() { $("#initMessageModal").modal("show"); $("#recipient").val(email).prop("disabled",true); }
+let email = null;
+function loadMessages() {
+  const messagesBody = $("#messagesTable tbody");
+  $.ajax({ url: "/ajax/load-messages", method: "GET", success: function (data) {
+    messagesBody.empty();
+    let seenRecipients = new Set();
+    $.each(data.result, function (index, room) {
+      if (!seenRecipients.has(room.receiver.id)) {
+        seenRecipients.add(room.receiver.id);
+        if (currentUserId == room.receiver.id) {
+          let row = `<tr class="messagesItem" data-receiver-id="${room.receiver.id}" data-sender-id=${room.initiator.id} data-room-id=${room.id} data-receiver-email=${room.receiver.email} data-receiver-fname=${room.receiver.first_name} data-receiver-lname=${room.receiver.last_name} data-initiator-fname=${room.initiator.first_name} data-initiator-lname=${room.initiator.last_name}><td>${room.initiator.first_name} ${room.initiator.last_name}</td></tr>`;
+          messagesBody.append(row);
+        } else if (currentUserId == room.initiator.id) {
+          let row = `<tr class="messagesItem" data-receiver-id="${room.initiator.id}" data-sender-id=${room.receiver.id} data-room-id=${room.id} data-receiver-email=${room.receiver.email} data-receiver-fname=${room.receiver.first_name} data-receiver-lname=${room.receiver.last_name} data-initiator-fname=${room.initiator.first_name} data-initiator-lname=${room.initiator.last_name}><td>${room.receiver.first_name} ${room.receiver.last_name}</td></tr>`;
+          messagesBody.append(row);
+        }
+      }
+    });
+  }});
+}
+function loadConversation(roomId) {
+  const chatContainer = $("#chatContainer");
+  $.ajax({ url: `/ajax/load-conversation/${roomId}`, method: "GET", success: function(data) {
+    chatContainer.empty();
+    $.each(data.result, function(index, msg) {
+      if (currentUserId == msg.sender__id || currentUserId == msg.recipient__id) {
+        if (currentUserId == msg.sender__id) {
+          chatContainer.append(`<div class="message sender"><span style="font-size: small;">You</span><br>${msg.message}</div>`);
+        } else {
+          chatContainer.append(`<div class="message receiver"><span style="font-size: small;">${msg.sender__first_name}</span><br>${msg.message}</div>`);
+        }
+      } 
+    });
+    chatContainer.scrollTop(chatContainer.prop("scrollHeight"));
+  }});
+}
+$(document).ready(function () {
+  loadMessages();
+  $(document).on("click", ".messagesItem", function () {
+    var roomId = $(this).data('room-id');
+    var receiverEmail = $(this).data('receiver-email');
+    var receiverFirstname = $(this).data("receiver-fname");
+    var receiverLastname = $(this).data("receiver-lname");
+    var initiatorFirstname = $(this).data("initiator-fname");
+    var initiatorLastname = $(this).data("initiator-lname");
+    $("#receiverEmail").val(receiverEmail);
+    $("#roomId").val(roomId);
+    if ("{{ request.user.email }}" === receiverEmail) {
+      $("#convoWith").text(initiatorFirstname+' '+initiatorLastname);
+    } else {
+      $("#convoWith").text(receiverFirstname+' '+receiverLastname);
+    }
+    $("#conversationModal").modal("show");
+    loadConversation(roomId);
+  });
+  // Send init message
+  $("#send_init_message").click(function () {
+    let recipient = $("#recipient").val();
+    let initMessage = $("#initMessage").val();
+    if (initMessage == "") { alert("Message cannot be empty."); return; }
+    $.ajax({ url: $(this).data("send-init-message-url"), type: "POST", data: { recipient, message: initMessage }, success: function () { $("#initMessageModal").modal("hide"); resetTable(); resetInitMessageForm(); loadMessages(); } });
+  });
+  // Send new message
+  $("#send_new_message_btn").click(function () {
+    let newMessage = $("#new_message").val();
+    let roomId = $("#roomId").val();
+    if (!newMessage) return;
+    let completeUrl = `/ajax/send-new-message/${roomId}/`;
+    $.ajax({ url: completeUrl, type: "POST", data: { message: newMessage }, success: function () {
+      const chatContainer = $("#chatContainer");
+      chatContainer.append(`<div class=\"message sender\"><span style=\"font-size: small;\">You</span><br>${newMessage}</div>`);
+      chatContainer.scrollTop(chatContainer.prop("scrollHeight"));
+      $("#new_message").val("");
+    }});
+  });
+});
+</script>
+{% endblock %}
+
+

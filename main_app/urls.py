@@ -9,6 +9,9 @@ app_name = 'main_app'
 urlpatterns = [
     path('', account_views.sf_home, name='home'),
     path('dashboard/', account_views.dashboard, name='dashboard'),
+    path('violation-unsuspend/<int:pk>/', views.unsuspend, name='violation-unsuspend'),
+    path('ajax/peripheral-event/', views.peripheral_event, name='peripheral-event'),
+    path('chats/', views.ChatView.as_view(), name='chats'),
     path('pc-list/', views.PCListView.as_view(), name='pc-list'),
     path('bookings/', views.BookingListView.as_view(), name='bookings'),
     path('users/', views.UserListView.as_view(), name='users'),
@@ -38,6 +41,11 @@ urlpatterns = [
     path('ajax/verify-pc-name/', views.verify_pc_name, name='verify-pc-name'),
     path('ajax/verify-pc-ip-address/', views.verify_pc_ip_address, name='verify-pc-ip-address'),
     path('ajax/get-pc-details/<int:pk>/', views.get_pc_details, name='get-pc-details'),
+    path('ajax/get-pc-booking/<int:pk>/', views.get_pc_booking, name='get-pc-booking'),
+    path('ajax/get-my-active-booking/', views.get_my_active_booking, name='get-my-active-booking'),
+    path('ajax/end-session/<int:booking_id>/', views.end_session, name='end-session'),
+    path('ajax/extend-session/<int:booking_id>/', views.extend_session, name='extend-session'),
+    path('ajax/export-report/', views.export_report, name='export-report'),
     path('ajax/reserve-pc/', views.reserve_pc, name='reserve-pc'),
     path('ajax/waiting-approval/<int:pk>/', views.waiting_approval, name='waiting-approval'),
     path('ajax/cancel-reservation/', views.submit_block_booking, name='cancel-reservation'),
@@ -51,4 +59,5 @@ urlpatterns = [
     
     # Reporting
     path('booking-data/', views.bookings_by_college, name='booking-data'),
+    path('chat/', views.ChatView.as_view(), name='chat'),
 ]

@@ -39,3 +39,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "message": event["message"],
             "sender": event["sender"]
         }))
+
+class AlertsConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        self.group = "alerts_staff"
+        await self.channel_layer.group_add(self.group, self.channel_name)
+        await self.accept()
+
+    async def disconnect(self, close_code):
+        await self.channel_layer.group_discard(self.group, self.channel_name)
+
+    async def alert_message(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "alert",
+            "title": event.get("title"),
+            "message": event.get("message"),
+            "payload": event.get("payload", {})
+        }))

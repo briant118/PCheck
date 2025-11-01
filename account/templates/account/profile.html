@@ -3,7 +3,7 @@
 {% block title %}Profile{% endblock %}
 
 {% block content %}
-<div class="container mt-5 pt-5">
+<div class="container">
   <div class="card col-md-6 offset-md-3 border rounded shadow-lg mb-5 bg-body">
     <div class="card-header text-center bg-warning">
       <h2>Profile</h2>
@@ -25,12 +25,9 @@
     </div>
     <div class="card-footer">
       <div class="row">
-        <div class="col-md-6 mb-1 text-start">
-          <a href="{% url 'edit-profile' pk=profile.pk %}" class="btn btn-sm btn-secondary mb-1 me-1">update</a>
-          <a href="{% url 'password_change' %}" class="btn btn-sm btn-secondary mb-1 me-1">change password</a>
-        </div>
-        <div class="col-md-6 mb-1 text-end">
-          <a href="{% url 'main_app:pc-reservation' %}" class="btn btn-sm btn-secondary ">Home</a>
+        <div class="col-md-12 mb-1 text-start">
+          <a href="{% url 'account:edit-profile' pk=profile.pk %}" class="btn btn-sm btn-primary mb-1 me-1">update</a>
+          <a href="{% url 'account:password_change' %}" class="btn btn-sm btn-success mb-1 me-1">change password</a>
         </div>
       </div>
     </div>

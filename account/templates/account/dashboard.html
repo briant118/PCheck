@@ -4,68 +4,954 @@
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
-<div class="col-md-10 offset-md-1 rounded shadow mt-3 p-3">
-  <div class="text-center">
-    <h1>Dashboard</h1>
-    <p>Welcome to your dashboard.</p>
-    <canvas id="collegeChart"></canvas>
+<div class="container-fluid" style="margin-top: 1.05rem; padding-top: 1.05rem;">
+  <div class="d-flex justify-content-between align-items-center" style="margin-bottom: 0.77rem;">
+    <h2 class="mb-0" style="font-size: 1.854rem;">📊 Analytics Dashboard</h2>
+    <div>
+      <button class="btn btn-sm btn-success" style="font-size: 0.92rem; padding: 0.25rem 0.5rem;" onclick="exportReport('daily')">
+        <i class="fa-solid fa-download"></i> Daily
+      </button>
+      <button class="btn btn-sm btn-success" style="font-size: 0.92rem; padding: 0.25rem 0.5rem;" onclick="exportReport('weekly')">
+        <i class="fa-solid fa-download"></i> Weekly
+      </button>
+      <button class="btn btn-sm btn-success" style="font-size: 0.92rem; padding: 0.25rem 0.5rem;" onclick="exportReport('monthly')">
+        <i class="fa-solid fa-download"></i> Monthly
+      </button>
+    </div>
+  </div>
+
+  <!-- Available PCs Section -->
+  <div class="row mb-4.5">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0" style="font-size: 1.29rem;">Available Computers</h5>
+        </div>
+        <div class="card-body" style="padding: 1.03rem;">
+          <div class="row justify-content-center text-center">
+            {% for pc in pc_list %}
+            <div class="col-3 col-md-2 col-sm-3 mb-3.5">
+              <div class="pc-container position-relative">
+                <div class="pc-list-item dashboard-pc-clickable
+                  {% if pc.booking_status == 'in_use' %}bg-success text-white
+                  {% elif pc.booking_status == 'in_queue' %}bg-warning text-dark
+                  {% elif pc.status == 'connected' %}text-success
+                  {% else %}text-danger{% endif %}" 
+                  data-pc-id="{{ pc.id }}"
+                  data-pc-name="{{ pc.name }}"
+                  data-pc-ip="{{ pc.ip_address }}"
+                  data-pc-status="{{ pc.status }}"
+                  data-pc-booking-status="{{ pc.booking_status }}"
+                  style="border: 2.06px solid {% if pc.booking_status == 'in_use' %}#28a745{% elif pc.booking_status == 'in_queue' %}#ffc107{% elif pc.status == 'connected' %}#28a745{% else %}#dc3545{% endif %};
+                         border-radius: 8.24px; padding: 15.45px 10.3px; cursor: pointer; transition: transform 0.2s;">
+                  <i class="fa-solid fa-desktop" style="font-size: 1.751em; display: inline-block;"></i><br>
+                  <span class="pc-name fw-bold" style="font-size: 1.03em;">{{ pc.name }}</span>
+                  <div class="pc-status-indicator mt-1.5">
+                    {% if pc.booking_status == 'in_use' %}
+                      <span class="badge bg-success" style="font-size: 0.721em;">In Use</span>
+                    {% elif pc.booking_status == 'in_queue' %}
+                      <span class="badge bg-warning text-dark" style="font-size: 0.721em;">Queued</span>
+                    {% elif pc.status == 'connected' %}
+                      <i class="fa-solid fa-circle text-success" style="font-size: 0.721em;"></i> <span style="font-size: 0.721em;">Available</span>
+                    {% else %}
+                      <i class="fa-solid fa-circle text-danger" style="font-size: 0.721em;"></i> <span style="font-size: 0.721em;">Offline</span>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% empty %}
+            <div class="col-12 text-center">
+              <p class="text-muted" style="font-size: 1.03rem;">No PCs found.</p>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Page 2: Analytics Charts -->
+  <div class="row mb-2.5">
+    <div class="col-md-6 mb-2.5">
+      <div class="card">
+        <div class="card-header py-2.5 d-flex justify-content-between align-items-center">
+          <h6 class="mb-0" style="font-size: 1.03rem;">Booking Status</h6>
+          <button type="button" class="btn btn-sm btn-outline-primary view-chart-btn" data-chart-id="bookingStatusChart" style="font-size: 0.82rem; padding: 0.2rem 0.5rem;">
+            <i class="fa-solid fa-eye"></i> View
+          </button>
+        </div>
+        <div class="card-body p-2.5">
+          <canvas id="bookingStatusChart" style="max-height: 206px;"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6 mb-2.5">
+      <div class="card">
+        <div class="card-header py-2.5 d-flex justify-content-between align-items-center">
+          <h6 class="mb-0" style="font-size: 1.03rem;">College Breakdown</h6>
+          <button type="button" class="btn btn-sm btn-outline-primary view-college-btn" id="viewCollegeBreakdownBtn" style="font-size: 0.82rem; padding: 0.2rem 0.5rem;">
+            <i class="fa-solid fa-eye"></i> View
+          </button>
+        </div>
+        <div class="card-body p-2.5">
+          <canvas id="collegeChart" style="max-height: 206px;"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6 mb-2.5">
+      <div class="card">
+        <div class="card-header py-2.5 d-flex justify-content-between align-items-center">
+          <h6 class="mb-0" style="font-size: 1.03rem;">Peak Usage Hours</h6>
+          <button type="button" class="btn btn-sm btn-outline-primary view-chart-btn" data-chart-id="peakHoursChart" style="font-size: 0.82rem; padding: 0.2rem 0.5rem;">
+            <i class="fa-solid fa-eye"></i> View
+          </button>
+        </div>
+        <div class="card-body p-2.5">
+          <canvas id="peakHoursChart" style="max-height: 206px;"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6 mb-2.5">
+      <div class="card">
+        <div class="card-header py-2.5 d-flex justify-content-between align-items-center">
+          <h6 class="mb-0" style="font-size: 1.03rem;">Daily Bookings (Last 30 Days)</h6>
+          <button type="button" class="btn btn-sm btn-outline-primary view-chart-btn" data-chart-id="dailyBookingsChart" style="font-size: 0.82rem; padding: 0.2rem 0.5rem;">
+            <i class="fa-solid fa-eye"></i> View
+          </button>
+        </div>
+        <div class="card-body p-2.5">
+          <canvas id="dailyBookingsChart" style="max-height: 206px;"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+</div>
+
+<!-- Chart View Modals -->
+<!-- Booking Status Chart Modal -->
+<div class="modal fade" id="bookingStatusChartModal" tabindex="-1" aria-labelledby="bookingStatusChartModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="bookingStatusChartModalLabel">
+          <i class="fa-solid fa-chart-pie"></i> Booking Status - Full View
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" style="min-height: 500px;">
+        <canvas id="bookingStatusChartFull" style="max-height: 500px;"></canvas>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
   </div>
 </div>
+
+<!-- College Breakdown Modal -->
+<div class="modal fade" id="collegeBreakdownModal" tabindex="-1" aria-labelledby="collegeBreakdownModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="collegeBreakdownModalLabel">
+          <i class="fa-solid fa-building"></i> College Breakdown - Full View
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <canvas id="collegeChartFull" style="max-height: 400px;"></canvas>
+          </div>
+          <div class="col-md-6">
+            <div class="table-responsive">
+              <table class="table table-striped table-hover table-bordered">
+                <thead class="table-dark">
+                  <tr>
+                    <th style="width: 5%;">#</th>
+                    <th style="width: 60%;">College Name</th>
+                    <th style="width: 15%;" class="text-center">Total Bookings</th>
+                    <th style="width: 20%;" class="text-center">Percentage</th>
+                  </tr>
+                </thead>
+                <tbody id="collegeBreakdownTableBody">
+                  {% for name, count in college_data.items %}
+                  <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td><strong>{{ name }}</strong></td>
+                    <td class="text-center"><span class="badge bg-primary">{{ count }}</span></td>
+                    <td class="text-center">
+                      {% if successful_bookings > 0 %}
+                        {% widthratio count successful_bookings 100 as percentage %}
+                        <span class="text-muted">{{ percentage }}%</span>
+                      {% else %}
+                        <span class="text-muted">0%</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% empty %}
+                  <tr>
+                    <td colspan="4" class="text-center text-muted">No college data available</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+                <tfoot class="table-secondary">
+                  <tr>
+                    <td colspan="2" class="text-end"><strong>Total:</strong></td>
+                    <td class="text-center"><strong><span class="badge bg-success">{{ successful_bookings }}</span></strong></td>
+                    <td class="text-center"><strong>100%</strong></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Peak Usage Hours Chart Modal -->
+<div class="modal fade" id="peakHoursChartModal" tabindex="-1" aria-labelledby="peakHoursChartModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="peakHoursChartModalLabel">
+          <i class="fa-solid fa-clock"></i> Peak Usage Hours - Full View
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" style="min-height: 500px;">
+        <canvas id="peakHoursChartFull" style="max-height: 500px;"></canvas>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Daily Bookings Chart Modal -->
+<div class="modal fade" id="dailyBookingsChartModal" tabindex="-1" aria-labelledby="dailyBookingsChartModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="dailyBookingsChartModalLabel">
+          <i class="fa-solid fa-chart-line"></i> Daily Bookings (Last 30 Days) - Full View
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" style="min-height: 500px;">
+        <canvas id="dailyBookingsChartFull" style="max-height: 500px;"></canvas>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Extend Session Minutes Modal -->
+<div class="modal fade" id="extendSessionMinutesModal" tabindex="-1" aria-labelledby="extendSessionMinutesModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="extendSessionMinutesModalLabel">
+          <i class="fa-solid fa-clock"></i> Extend Session
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="extendSessionForm">
+          <div class="mb-3">
+            <label for="extendMinutesInput" class="form-label">How many minutes would you like to add?</label>
+            <input type="number" class="form-control" id="extendMinutesInput" min="1" max="480" value="30" required>
+            <div class="form-text">Enter the number of minutes (1-480 minutes / 1-8 hours)</div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="confirmExtendBtn">Extend</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PC Information Modal -->
+<div class="modal fade" id="dashboardPCInfoModal" tabindex="-1" aria-labelledby="dashboardPCInfoModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="dashboardPCInfoModalLabel">
+          <i class="fa-solid fa-desktop"></i> PC Information
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="pc-info-loading" class="text-center">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+        </div>
+        <div id="pc-info-content" style="display: none;">
+          <table class="table table-bordered">
+            <tbody>
+              <tr>
+                <td class="bg-light fw-bold" style="width: 40%;">PC Name:</td>
+                <td id="modal-pc-name-dash">-</td>
+              </tr>
+              <tr>
+                <td class="bg-light fw-bold">IP Address:</td>
+                <td id="modal-pc-ip-dash">-</td>
+              </tr>
+              <tr>
+                <td class="bg-light fw-bold">Network Status:</td>
+                <td id="modal-pc-status-dash">
+                  <span id="modal-status-badge-dash" class="badge">-</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="bg-light fw-bold">Booking Status:</td>
+                <td id="modal-pc-booking-status-dash">
+                  <span id="modal-booking-badge-dash" class="badge">-</span>
+                </td>
+              </tr>
+              <tr id="booking-info-row" style="display: none;">
+                <td class="bg-light fw-bold">User:</td>
+                <td id="modal-booking-user-dash">-</td>
+              </tr>
+              <tr id="time-remaining-row" style="display: none;">
+                <td class="bg-light fw-bold">Time Remaining:</td>
+                <td id="modal-time-remaining-dash">-</td>
+              </tr>
+              <tr id="booking-created-row" style="display: none;">
+                <td class="bg-light fw-bold">Booking Created:</td>
+                <td id="modal-booking-created-dash">-</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" id="modal-extend-btn-dash" style="display: none;" data-booking-id="">Extend Time</button>
+        <button type="button" class="btn btn-danger" id="modal-end-btn-dash" style="display: none;" data-booking-id="">End Session</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
-<script src="{% static 'js/jquery-3.7.1.min.js' %}"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-fetch("{% url 'main_app:booking-data' %}")
-  .then(res => res.json())
+// Booking Status Chart
+new Chart(document.getElementById("bookingStatusChart"), {
+  type: 'doughnut',
+  data: {
+    labels: ['Successful', 'Canceled', 'Pending'],
+    datasets: [{
+      data: [{{ successful_bookings }}, {{ canceled_bookings }}, {{ pending_bookings }}],
+      backgroundColor: ['#28a745', '#dc3545', '#ffc107'],
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: true, labels: { font: { size: 10.3 } } }
+    }
+  }
+});
+
+// College Breakdown Chart
+const collegeLabels = [{% for name, count in college_data.items %}'{{ name }}'{% if not forloop.last %},{% endif %}{% endfor %}];
+const collegeValues = [{% for name, count in college_data.items %}{{ count }}{% if not forloop.last %},{% endif %}{% endfor %}];
+new Chart(document.getElementById("collegeChart"), {
+  type: 'pie',
+  data: {
+    labels: collegeLabels,
+    datasets: [{
+      data: collegeValues,
+      backgroundColor: ['#ff6384', '#36a2eb', '#cc65fe', '#ffce56', '#4bc0c0']
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: true, labels: { font: { size: 10.3 } } }
+    }
+  }
+});
+
+// Peak Hours Chart
+const peakHourLabels = [{% for hour, count in peak_hours %}'{{ hour }}:00'{% if not forloop.last %},{% endif %}{% endfor %}];
+const peakHourValues = [{% for hour, count in peak_hours %}{{ count }}{% if not forloop.last %},{% endif %}{% endfor %}];
+new Chart(document.getElementById("peakHoursChart"), {
+  type: 'bar',
+  data: {
+    labels: peakHourLabels,
+    datasets: [{
+      label: 'Number of Bookings',
+      data: peakHourValues,
+      backgroundColor: 'rgba(54, 162, 235, 0.6)',
+      borderColor: 'rgba(54, 162, 235, 1)',
+      borderWidth: 1
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false }
+    },
+    scales: {
+      y: { beginAtZero: true, ticks: { font: { size: 10.3 } } },
+      x: { ticks: { font: { size: 10.3 } } }
+    }
+  }
+});
+
+// Daily Bookings Chart
+const dailyLabels = [{% for date, count in daily_stats.items %}'{{ date }}'{% if not forloop.last %},{% endif %}{% endfor %}];
+const dailyValues = [{% for date, count in daily_stats.items %}{{ count }}{% if not forloop.last %},{% endif %}{% endfor %}];
+new Chart(document.getElementById("dailyBookingsChart"), {
+  type: 'line',
+  data: {
+    labels: dailyLabels.reverse(),
+    datasets: [{
+      label: 'Daily Bookings',
+      data: dailyValues.reverse(),
+      borderColor: 'rgba(75, 192, 192, 1)',
+      backgroundColor: 'rgba(75, 192, 192, 0.2)',
+      tension: 0.1
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: true, labels: { font: { size: 10.3 } } }
+    },
+    scales: {
+      y: { beginAtZero: true, ticks: { font: { size: 10.3 } } },
+      x: { ticks: { font: { size: 10.3 } } }
+    }
+  }
+});
+
+// Export report function
+function exportReport(period) {
+  window.location.href = `/ajax/export-report/?period=${period}`;
+}
+
+  // End session function
+function endSession(bookingId) {
+  if (!confirm('Are you sure you want to end this session?')) {
+    return;
+  }
+  
+  // Get CSRF token
+  var csrftoken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                  document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+  
+  fetch(`/ajax/end-session/${bookingId}/`, {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': csrftoken,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({})
+  })
+  .then(response => response.json())
   .then(data => {
-    new Chart(document.getElementById("collegeChart"), {
-      type: 'pie',
-      data: {
-        labels: data.labels,
-        datasets: [{
-          label: 'Bookings by College',
-          data: data.values,
-          backgroundColor: 'rgba(54, 162, 235, 0.6)',
-          borderColor: 'rgba(54, 162, 235, 1)',
-          borderWidth: 1
-        }]
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: { display: true },
-          title: {
-            display: true,
-            text: "Analytics",
-            font: {
-              size: 30
-            },
-            position: "top",
-            align: 'start'
+    if (data.success) {
+      alert('Session ended successfully');
+      location.reload();
+    } else {
+      alert('Error: ' + (data.error || 'Failed to end session'));
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('Failed to end session');
+  });
+}
+
+// Extend session function with custom minutes
+function extendSession(bookingId, minutes) {
+  // If minutes not provided, show modal to get user input
+  if (!minutes) {
+    var modalElement = document.getElementById('extendSessionMinutesModal');
+    if (window.bootstrap && modalElement) {
+      // Reset input value
+      document.getElementById('extendMinutesInput').value = '30';
+      
+      var modal = new bootstrap.Modal(modalElement);
+      modal.show();
+      
+      // Store booking ID for confirmation
+      document.getElementById('confirmExtendBtn').setAttribute('data-booking-id', bookingId);
+    }
+    return;
+  }
+  
+  // Get CSRF token
+  var csrftoken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                  document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+  
+  fetch(`/ajax/extend-session/${bookingId}/`, {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': csrftoken,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ minutes: minutes })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      // Build message with user information
+      var message = 'Session extended by ' + minutes + ' minutes';
+      if (data.user_name) {
+        message += '\n\nUser: ' + data.user_name;
+        if (data.user_college) {
+          message += ' (' + data.user_college + ')';
+        }
+      }
+      if (data.pc_name) {
+        message += '\nPC: ' + data.pc_name;
+      }
+      if (data.new_end_time) {
+        var endTime = new Date(data.new_end_time);
+        var timeStr = endTime.toLocaleString();
+        message += '\nNew end time: ' + timeStr;
+      }
+      alert(message);
+      location.reload();
+    } else {
+      alert('Error: ' + (data.error || 'Failed to extend session'));
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('Failed to extend session');
+  });
+}
+</script>
+<script>
+// Use vanilla JS instead of jQuery to avoid $ dependency
+document.addEventListener('DOMContentLoaded', function() {
+  fetch('{% url "main_app:clearup_pcs" %}', { method: 'GET', cache: 'no-store' })
+    .then(function(r){ return r.ok ? r.json().catch(function(){ return {}; }) : {}; })
+    .then(function(data){ if (data && data.message) { console.log('Django response:', data.message); } })
+    .catch(function(err){ console.warn('Cleanup call failed', err); });
+  
+  // Attach event handlers for end/extend buttons
+  document.querySelectorAll('.btn-end-session').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var bookingId = this.getAttribute('data-booking-id');
+      endSession(bookingId);
+    });
+  });
+  
+  document.querySelectorAll('.btn-extend-time').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var bookingId = this.getAttribute('data-booking-id');
+      extendSession(bookingId); // Will show modal to get minutes
+    });
+  });
+  
+  // Auto-refresh time remaining every minute
+  setInterval(function() {
+    document.querySelectorAll('[id^="time-remaining-"]').forEach(function(el) {
+      var bookingId = el.id.replace('time-remaining-', '');
+      var currentText = el.textContent;
+      var minutes = parseInt(currentText.replace('m', ''));
+      if (!isNaN(minutes) && minutes > 0) {
+        minutes--;
+        el.textContent = minutes + 'm';
+        if (minutes <= 0) {
+          el.className = 'text-danger';
+          el.textContent = 'Expired';
+        }
+      }
+    });
+  }, 60000);
+  
+  // Handle PC card clicks to show info modal
+  document.querySelectorAll('.dashboard-pc-clickable').forEach(function(pcCard) {
+    pcCard.addEventListener('click', function() {
+      var pcId = this.getAttribute('data-pc-id');
+      var pcName = this.getAttribute('data-pc-name');
+      var pcIp = this.getAttribute('data-pc-ip');
+      var pcStatus = this.getAttribute('data-pc-status');
+      var bookingStatus = this.getAttribute('data-pc-booking-status');
+      
+      // Show modal with basic info first
+      document.getElementById('modal-pc-name-dash').textContent = pcName || '-';
+      document.getElementById('modal-pc-ip-dash').textContent = pcIp || '-';
+      
+      // Set network status
+      var statusBadge = document.getElementById('modal-status-badge-dash');
+      statusBadge.className = 'badge';
+      if (pcStatus === 'connected') {
+        statusBadge.textContent = 'Connected';
+        statusBadge.classList.add('bg-success');
+      } else {
+        statusBadge.textContent = 'Disconnected';
+        statusBadge.classList.add('bg-danger');
+      }
+      
+      // Set booking status
+      var bookingBadge = document.getElementById('modal-booking-badge-dash');
+      bookingBadge.className = 'badge';
+      if (bookingStatus === 'in_use') {
+        bookingBadge.textContent = 'In Use';
+        bookingBadge.classList.add('bg-success');
+      } else if (bookingStatus === 'in_queue') {
+        bookingBadge.textContent = 'Queued';
+        bookingBadge.classList.add('bg-warning');
+      } else {
+        bookingBadge.textContent = 'Available';
+        bookingBadge.classList.add('bg-secondary');
+      }
+      
+      // Show loading and fetch booking details
+      document.getElementById('pc-info-loading').style.display = 'block';
+      document.getElementById('pc-info-content').style.display = 'none';
+      document.getElementById('booking-info-row').style.display = 'none';
+      document.getElementById('time-remaining-row').style.display = 'none';
+      document.getElementById('booking-created-row').style.display = 'none';
+      document.getElementById('modal-extend-btn-dash').style.display = 'none';
+      document.getElementById('modal-end-btn-dash').style.display = 'none';
+      
+          // Fetch booking information
+          fetch('/ajax/get-pc-booking/' + pcId + '/')
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+              document.getElementById('pc-info-loading').style.display = 'none';
+              document.getElementById('pc-info-content').style.display = 'block';
+              
+              // Hide booking rows initially
+              document.getElementById('booking-info-row').style.display = 'none';
+              document.getElementById('time-remaining-row').style.display = 'none';
+              document.getElementById('booking-created-row').style.display = 'none';
+              document.getElementById('modal-booking-user-dash').textContent = '';
+              document.getElementById('modal-time-remaining-dash').textContent = '';
+              document.getElementById('modal-booking-created-dash').textContent = '';
+              
+              // Only show booking info if PC is in use or in queue
+              if (bookingStatus === 'in_use' || bookingStatus === 'in_queue') {
+                if (data.user && data.user !== 'Unknown') {
+                  var userText = data.user;
+                  if (data.college && data.college !== 'Unknown') {
+                    userText = data.user + ' (' + data.college + ')';
+                  }
+                  document.getElementById('modal-booking-user-dash').textContent = userText;
+                  document.getElementById('booking-info-row').style.display = 'table-row';
+                }
+                
+                if (data.time_remaining && data.time_remaining !== 'Unknown') {
+                  document.getElementById('modal-time-remaining-dash').textContent = data.time_remaining;
+                  document.getElementById('time-remaining-row').style.display = 'table-row';
+                }
+                
+                if (data.created_time && data.created_time !== 'Unknown') {
+                  document.getElementById('modal-booking-created-dash').textContent = data.created_time;
+                  document.getElementById('booking-created-row').style.display = 'table-row';
+                }
+              }
+              
+              // Get booking ID from the API response
+              var bookingId = data.booking_id;
+              
+              // Show extend/end buttons if PC has an active booking
+              if (bookingStatus === 'in_use' && bookingId) {
+                document.getElementById('modal-extend-btn-dash').setAttribute('data-booking-id', bookingId);
+                document.getElementById('modal-extend-btn-dash').style.display = 'inline-block';
+                document.getElementById('modal-end-btn-dash').setAttribute('data-booking-id', bookingId);
+                document.getElementById('modal-end-btn-dash').style.display = 'inline-block';
+              } else if (bookingStatus === 'in_queue' && bookingId) {
+                document.getElementById('modal-end-btn-dash').setAttribute('data-booking-id', bookingId);
+                document.getElementById('modal-end-btn-dash').style.display = 'inline-block';
+              } else {
+                // Hide buttons if PC is available
+                document.getElementById('modal-extend-btn-dash').style.display = 'none';
+                document.getElementById('modal-end-btn-dash').style.display = 'none';
+              }
+          
+          // Show modal
+          var modalElement = document.getElementById('dashboardPCInfoModal');
+          if (window.bootstrap && modalElement) {
+            var modal = new bootstrap.Modal(modalElement);
+            modal.show();
           }
-        },
-        scales: {
-          y: { beginAtZero: true }
+        })
+        .catch(function(error) {
+          console.error('Error fetching PC booking:', error);
+          document.getElementById('pc-info-loading').style.display = 'none';
+          document.getElementById('pc-info-content').style.display = 'block';
+          
+          // Show modal anyway with basic info
+          var modalElement = document.getElementById('dashboardPCInfoModal');
+          if (window.bootstrap && modalElement) {
+            var modal = new bootstrap.Modal(modalElement);
+            modal.show();
+          }
+        });
+    });
+    
+    // Add hover effect
+    pcCard.addEventListener('mouseenter', function() {
+      this.style.transform = 'scale(1.05)';
+    });
+    pcCard.addEventListener('mouseleave', function() {
+      this.style.transform = 'scale(1)';
+    });
+  });
+  
+  // Handle extend button in PC info modal
+  document.getElementById('modal-extend-btn-dash').addEventListener('click', function() {
+    var bookingId = this.getAttribute('data-booking-id');
+    if (bookingId) {
+      // Hide PC info modal first
+      var pcModalElement = document.getElementById('dashboardPCInfoModal');
+      if (window.bootstrap && pcModalElement) {
+        var pcModal = bootstrap.Modal.getInstance(pcModalElement);
+        if (pcModal) pcModal.hide();
+      }
+      // Show extend minutes modal
+      extendSession(bookingId);
+    }
+  });
+  
+  // Handle confirm extend button in minutes modal
+  document.getElementById('confirmExtendBtn').addEventListener('click', function() {
+    var bookingId = this.getAttribute('data-booking-id');
+    var minutesInput = document.getElementById('extendMinutesInput');
+    var minutes = parseInt(minutesInput.value);
+    
+    if (!bookingId) {
+      alert('Error: Booking ID not found');
+      return;
+    }
+    
+    if (isNaN(minutes) || minutes < 1 || minutes > 480) {
+      alert('Please enter a valid number of minutes between 1 and 480');
+      minutesInput.focus();
+      return;
+    }
+    
+    // Close the minutes modal
+    var minutesModalElement = document.getElementById('extendSessionMinutesModal');
+    if (window.bootstrap && minutesModalElement) {
+      var minutesModal = bootstrap.Modal.getInstance(minutesModalElement);
+      if (minutesModal) minutesModal.hide();
+    }
+    
+    // Extend session with specified minutes
+    extendSession(bookingId, minutes);
+  });
+  
+  // Handle enter key in minutes input
+  document.getElementById('extendMinutesInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      document.getElementById('confirmExtendBtn').click();
+    }
+  });
+  
+  document.getElementById('modal-end-btn-dash').addEventListener('click', function() {
+    var bookingId = this.getAttribute('data-booking-id');
+    if (bookingId) {
+      endSession(bookingId);
+      var modalElement = document.getElementById('dashboardPCInfoModal');
+      if (window.bootstrap && modalElement) {
+        var modal = bootstrap.Modal.getInstance(modalElement);
+        if (modal) modal.hide();
+      }
+    }
+  });
+  
+  // Store chart instances for reuse in modals
+  var chartInstances = {};
+  
+  // Handle Chart View Buttons - Create full-size charts in modals
+  document.querySelectorAll('.view-chart-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var chartId = this.getAttribute('data-chart-id');
+      var modalId = '';
+      var fullChartId = '';
+      var chartType = '';
+      var chartData = null;
+      
+      // Map chart IDs to modal and full chart IDs
+      switch(chartId) {
+        case 'bookingStatusChart':
+          modalId = 'bookingStatusChartModal';
+          fullChartId = 'bookingStatusChartFull';
+          chartType = 'doughnut';
+          chartData = {
+            labels: ['Successful', 'Canceled', 'Pending'],
+            datasets: [{
+              data: [{{ successful_bookings }}, {{ canceled_bookings }}, {{ pending_bookings }}],
+              backgroundColor: ['#28a745', '#dc3545', '#ffc107'],
+            }]
+          };
+          break;
+        case 'peakHoursChart':
+          modalId = 'peakHoursChartModal';
+          fullChartId = 'peakHoursChartFull';
+          chartType = 'bar';
+          chartData = {
+            labels: [{% for hour, count in peak_hours %}'{{ hour }}:00'{% if not forloop.last %},{% endif %}{% endfor %}],
+            datasets: [{
+              label: 'Bookings',
+              data: [{% for hour, count in peak_hours %}{{ count }}{% if not forloop.last %},{% endif %}{% endfor %}],
+              backgroundColor: '#36a2eb',
+            }]
+          };
+          break;
+        case 'dailyBookingsChart':
+          modalId = 'dailyBookingsChartModal';
+          fullChartId = 'dailyBookingsChartFull';
+          chartType = 'line';
+          var dailyLabels = [{% for date, count in daily_stats.items %}'{{ date }}'{% if not forloop.last %},{% endif %}{% endfor %}];
+          var dailyValues = [{% for date, count in daily_stats.items %}{{ count }}{% if not forloop.last %},{% endif %}{% endfor %}];
+          chartData = {
+            labels: dailyLabels.reverse(),
+            datasets: [{
+              label: 'Daily Bookings',
+              data: dailyValues.reverse(),
+              borderColor: '#cc65fe',
+              backgroundColor: 'rgba(204, 101, 254, 0.1)',
+              tension: 0.4
+            }]
+          };
+          break;
+      }
+      
+      // Open modal and create full-size chart
+      if (modalId && fullChartId && chartData) {
+        var modalElement = document.getElementById(modalId);
+        if (window.bootstrap && modalElement) {
+          var modal = new bootstrap.Modal(modalElement);
+          modal.show();
+          
+          // Wait for modal to be shown before creating chart
+          modalElement.addEventListener('shown.bs.modal', function() {
+            // Destroy existing chart if it exists
+            if (chartInstances[fullChartId]) {
+              chartInstances[fullChartId].destroy();
+            }
+            
+            // Create new full-size chart
+            var ctx = document.getElementById(fullChartId);
+            if (ctx) {
+              chartInstances[fullChartId] = new Chart(ctx, {
+                type: chartType,
+                data: chartData,
+                options: {
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: { 
+                      display: true, 
+                      labels: { font: { size: 14 } },
+                      position: 'top'
+                    },
+                    title: {
+                      display: false
+                    }
+                  },
+                  scales: chartType === 'bar' || chartType === 'line' ? {
+                    y: { 
+                      beginAtZero: true, 
+                      ticks: { font: { size: 12 } }
+                    },
+                    x: {
+                      ticks: { font: { size: 12 } }
+                    }
+                  } : {}
+                }
+              });
+            }
+          }, { once: true });
+          
+          // Clean up when modal is hidden
+          modalElement.addEventListener('hidden.bs.modal', function() {
+            if (chartInstances[fullChartId]) {
+              chartInstances[fullChartId].destroy();
+              delete chartInstances[fullChartId];
+            }
+          });
         }
       }
     });
   });
-</script>
-<script>
-$(document).ready(function() {
-    // Automatically call Django function on page load
-    $.ajax({
-        url: "{% url 'main_app:clearup_pcs' %}",
-        method: "GET",
-        success: function(response) {
-            console.log("Django response:", response.message);
-        },
-        error: function(xhr, status, error) {
-            console.error("Error calling Django function:", error);
+  
+  // Handle College Breakdown View Button
+  document.getElementById('viewCollegeBreakdownBtn').addEventListener('click', function() {
+    var modalElement = document.getElementById('collegeBreakdownModal');
+    if (window.bootstrap && modalElement) {
+      var modal = new bootstrap.Modal(modalElement);
+      modal.show();
+      
+      // Wait for modal to be shown before creating chart
+      modalElement.addEventListener('shown.bs.modal', function() {
+        // Destroy existing chart if it exists
+        if (chartInstances['collegeChartFull']) {
+          chartInstances['collegeChartFull'].destroy();
         }
-    });
+        
+        // Create full-size college chart
+        var ctx = document.getElementById('collegeChartFull');
+        if (ctx) {
+          var collegeLabels = [{% for name, count in college_data.items %}'{{ name }}'{% if not forloop.last %},{% endif %}{% endfor %}];
+          var collegeValues = [{% for name, count in college_data.items %}{{ count }}{% if not forloop.last %},{% endif %}{% endfor %}];
+          
+          chartInstances['collegeChartFull'] = new Chart(ctx, {
+            type: 'pie',
+            data: {
+              labels: collegeLabels,
+              datasets: [{
+                data: collegeValues,
+                backgroundColor: ['#ff6384', '#36a2eb', '#cc65fe', '#ffce56', '#4bc0c0', '#ff9f40', '#ff6384', '#c9cbcf']
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { 
+                  display: true, 
+                  labels: { font: { size: 14 } },
+                  position: 'right'
+                }
+              }
+            }
+          });
+        }
+      }, { once: true });
+      
+      // Clean up when modal is hidden
+      modalElement.addEventListener('hidden.bs.modal', function() {
+        if (chartInstances['collegeChartFull']) {
+          chartInstances['collegeChartFull'].destroy();
+          delete chartInstances['collegeChartFull'];
+        }
+      });
+    }
+  });
 });
 </script>
 {% endblock %}
