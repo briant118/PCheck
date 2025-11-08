@@ -336,7 +336,17 @@
       </thead>
       <tbody>
         {% for violation in violations %}
-        <tr data-violation-id="{{ violation.id }}" data-user-name="{{ violation.user.get_full_name }}" data-level="{{ violation.level }}" data-reason="{{ violation.reason }}" data-time="{{ violation.timestamp }}">
+        <tr data-violation-id="{{ violation.id }}" 
+            data-user-name="{{ violation.user.get_full_name }}" 
+            data-user-email="{{ violation.user.email }}"
+            data-user-college="{% if violation.user.profile.college %}{{ violation.user.profile.college.name }}{% endif %}"
+            data-user-course="{% if violation.user.profile.course %}{{ violation.user.profile.course }}{% endif %}"
+            data-user-year="{% if violation.user.profile.year %}{{ violation.user.profile.year }}{% endif %}"
+            data-user-block="{% if violation.user.profile.block %}{{ violation.user.profile.block }}{% endif %}"
+            data-user-school-id="{% if violation.user.profile.school_id %}{{ violation.user.profile.school_id }}{% endif %}"
+            data-level="{{ violation.level }}" 
+            data-reason="{{ violation.reason }}" 
+            data-time="{{ violation.timestamp }}">
           <td>{{ violation.user.get_full_name }}</td>
           <td class="text-center">
             <i class="fa-solid fa-circle shadow
@@ -351,7 +361,18 @@
               </button>
               <ul class="dropdown-menu">
                 <li>
-                  <button type="button" class="dropdown-item view-violation" data-violation-id="{{ violation.id }}" data-user-name="{{ violation.user.get_full_name }}" data-level="{{ violation.level }}" data-reason="{{ violation.reason }}" data-time="{{ violation.timestamp }}">
+                  <button type="button" class="dropdown-item view-violation" 
+                    data-violation-id="{{ violation.id }}" 
+                    data-user-name="{{ violation.user.get_full_name }}"
+                    data-user-email="{{ violation.user.email }}"
+                    data-user-college="{% if violation.user.profile.college %}{{ violation.user.profile.college.name }}{% endif %}"
+                    data-user-course="{% if violation.user.profile.course %}{{ violation.user.profile.course }}{% endif %}"
+                    data-user-year="{% if violation.user.profile.year %}{{ violation.user.profile.year }}{% endif %}"
+                    data-user-block="{% if violation.user.profile.block %}{{ violation.user.profile.block }}{% endif %}"
+                    data-user-school-id="{% if violation.user.profile.school_id %}{{ violation.user.profile.school_id }}{% endif %}"
+                    data-level="{{ violation.level }}" 
+                    data-reason="{{ violation.reason }}" 
+                    data-time="{{ violation.timestamp }}">
                     <i class="fa-solid fa-eye me-2"></i>View
                   </button>
                 </li>
@@ -396,19 +417,118 @@
 
   <div class="modal fade" id="violationViewModal" tabindex="-1" aria-labelledby="violationViewModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content rounded-3 shadow">
-        <div class="modal-header">
-          <h5 class="modal-title" id="violationViewModalLabel">Violation Details</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      <div class="modal-content violation-modal-content">
+        <div class="modal-header violation-modal-header">
+          <h2 class="modal-title" id="violationViewModalLabel">Violation Details</h2>
         </div>
-        <div class="modal-body">
-          <div><strong>Name:</strong> <span id="v_user"></span></div>
-          <div><strong>Level:</strong> <span id="v_level"></span></div>
-          <div><strong>Description:</strong> <span id="v_reason"></span></div>
-          <div><strong>Date/Time:</strong> <span id="v_time"></span></div>
+        <div class="modal-body violation-modal-body">
+          <div class="violation-details-container">
+            <div class="violation-detail-item">
+              <div class="violation-detail-icon">
+                <i class="fa-solid fa-user"></i>
+              </div>
+              <div class="violation-detail-content">
+                <span class="violation-detail-label">Name</span>
+                <span class="violation-detail-value" id="v_user"></span>
+              </div>
+            </div>
+            
+            <div class="violation-detail-item" id="v_email_item" style="display: none;">
+              <div class="violation-detail-icon">
+                <i class="fa-solid fa-envelope"></i>
+              </div>
+              <div class="violation-detail-content">
+                <span class="violation-detail-label">Email</span>
+                <span class="violation-detail-value" id="v_email"></span>
+              </div>
+            </div>
+            
+            <div class="violation-detail-item" id="v_school_id_item" style="display: none;">
+              <div class="violation-detail-icon">
+                <i class="fa-solid fa-id-card"></i>
+              </div>
+              <div class="violation-detail-content">
+                <span class="violation-detail-label">School ID</span>
+                <span class="violation-detail-value" id="v_school_id"></span>
+              </div>
+            </div>
+            
+            <div class="violation-detail-item" id="v_college_item" style="display: none;">
+              <div class="violation-detail-icon">
+                <i class="fa-solid fa-building"></i>
+              </div>
+              <div class="violation-detail-content">
+                <span class="violation-detail-label">College</span>
+                <span class="violation-detail-value" id="v_college"></span>
+              </div>
+            </div>
+            
+            <div class="violation-detail-item" id="v_course_item" style="display: none;">
+              <div class="violation-detail-icon">
+                <i class="fa-solid fa-graduation-cap"></i>
+              </div>
+              <div class="violation-detail-content">
+                <span class="violation-detail-label">Course</span>
+                <span class="violation-detail-value" id="v_course"></span>
+              </div>
+            </div>
+            
+            <div class="violation-detail-item" id="v_year_item" style="display: none;">
+              <div class="violation-detail-icon">
+                <i class="fa-solid fa-calendar"></i>
+              </div>
+              <div class="violation-detail-content">
+                <span class="violation-detail-label">Year</span>
+                <span class="violation-detail-value" id="v_year"></span>
+              </div>
+            </div>
+            
+            <div class="violation-detail-item" id="v_block_item" style="display: none;">
+              <div class="violation-detail-icon">
+                <i class="fa-solid fa-users"></i>
+              </div>
+              <div class="violation-detail-content">
+                <span class="violation-detail-label">Block</span>
+                <span class="violation-detail-value" id="v_block"></span>
+              </div>
+            </div>
+            
+            <div class="violation-detail-item">
+              <div class="violation-detail-icon violation-level-icon" id="v_level_icon">
+                <i class="fa-solid fa-exclamation-triangle"></i>
+              </div>
+              <div class="violation-detail-content">
+                <span class="violation-detail-label">Level</span>
+                <span class="violation-detail-value violation-level-badge" id="v_level"></span>
+              </div>
+            </div>
+            
+            <div class="violation-detail-item">
+              <div class="violation-detail-icon">
+                <i class="fa-solid fa-file-lines"></i>
+              </div>
+              <div class="violation-detail-content">
+                <span class="violation-detail-label">Description</span>
+                <span class="violation-detail-value" id="v_reason"></span>
+              </div>
+            </div>
+            
+            <div class="violation-detail-item">
+              <div class="violation-detail-icon">
+                <i class="fa-solid fa-clock"></i>
+              </div>
+              <div class="violation-detail-content">
+                <span class="violation-detail-label">Date/Time</span>
+                <span class="violation-detail-value" id="v_time"></span>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <div class="modal-footer violation-modal-footer">
+          <button type="button" class="violation-close-btn" data-bs-dismiss="modal">
+            <i class="fa-solid fa-xmark me-2"></i>
+            Close
+          </button>
         </div>
       </div>
     </div>
@@ -1125,31 +1245,95 @@
     console.log('View violation button clicked', btn.data());
     
     // Get data from button attributes (preferred) or fallback to row
-    var userName = btn.attr('data-user-name') || btnEl.getAttribute('data-user-name') || '';
-    var level = btn.attr('data-level') || btnEl.getAttribute('data-level') || '';
-    var reason = btn.attr('data-reason') || btnEl.getAttribute('data-reason') || '';
-    var time = btn.attr('data-time') || btnEl.getAttribute('data-time') || '';
+    var row = btn.closest('tr');
+    var userName = btn.attr('data-user-name') || btnEl.getAttribute('data-user-name') || row.attr('data-user-name') || '';
+    var userEmail = btn.attr('data-user-email') || btnEl.getAttribute('data-user-email') || row.attr('data-user-email') || '';
+    var userCollege = btn.attr('data-user-college') || btnEl.getAttribute('data-user-college') || row.attr('data-user-college') || '';
+    var userCourse = btn.attr('data-user-course') || btnEl.getAttribute('data-user-course') || row.attr('data-user-course') || '';
+    var userYear = btn.attr('data-user-year') || btnEl.getAttribute('data-user-year') || row.attr('data-user-year') || '';
+    var userBlock = btn.attr('data-user-block') || btnEl.getAttribute('data-user-block') || row.attr('data-user-block') || '';
+    var userSchoolId = btn.attr('data-user-school-id') || btnEl.getAttribute('data-user-school-id') || row.attr('data-user-school-id') || '';
+    var level = btn.attr('data-level') || btnEl.getAttribute('data-level') || row.attr('data-level') || '';
+    var reason = btn.attr('data-reason') || btnEl.getAttribute('data-reason') || row.attr('data-reason') || '';
+    var time = btn.attr('data-time') || btnEl.getAttribute('data-time') || row.attr('data-time') || '';
     
-    // Fallback to row data if button doesn't have attributes
-    if (!userName || !level || !reason || !time) {
-      var row = btn.closest('tr');
-      userName = userName || row.attr('data-user-name') || '';
-      level = level || row.attr('data-level') || '';
-      reason = reason || row.attr('data-reason') || '';
-      time = time || row.attr('data-time') || '';
-    }
+    console.log('Violation data:', {userName, userEmail, userCollege, userCourse, userYear, userBlock, userSchoolId, level, reason, time});
     
-    console.log('Violation data:', {userName, level, reason, time});
-    
+    // Update basic violation info
     var vUserEl = document.getElementById('v_user');
     var vLevelEl = document.getElementById('v_level');
     var vReasonEl = document.getElementById('v_reason');
     var vTimeEl = document.getElementById('v_time');
     
     if (vUserEl) vUserEl.textContent = userName;
-    if (vLevelEl) vLevelEl.textContent = level;
+    if (vLevelEl) {
+      vLevelEl.textContent = level;
+      // Add class for level badge styling
+      vLevelEl.className = 'violation-detail-value violation-level-badge ' + level.toLowerCase();
+    }
     if (vReasonEl) vReasonEl.textContent = reason;
     if (vTimeEl) vTimeEl.textContent = time;
+    
+    // Update level icon color based on violation level
+    var vLevelIconEl = document.getElementById('v_level_icon');
+    if (vLevelIconEl && level) {
+      vLevelIconEl.className = 'violation-detail-icon violation-level-icon ' + level.toLowerCase();
+    }
+    
+    // Update profile information
+    var vEmailEl = document.getElementById('v_email');
+    var vEmailItem = document.getElementById('v_email_item');
+    if (vEmailEl && userEmail) {
+      vEmailEl.textContent = userEmail;
+      if (vEmailItem) vEmailItem.style.display = 'flex';
+    } else if (vEmailItem) {
+      vEmailItem.style.display = 'none';
+    }
+    
+    var vSchoolIdEl = document.getElementById('v_school_id');
+    var vSchoolIdItem = document.getElementById('v_school_id_item');
+    if (vSchoolIdEl && userSchoolId) {
+      vSchoolIdEl.textContent = userSchoolId;
+      if (vSchoolIdItem) vSchoolIdItem.style.display = 'flex';
+    } else if (vSchoolIdItem) {
+      vSchoolIdItem.style.display = 'none';
+    }
+    
+    var vCollegeEl = document.getElementById('v_college');
+    var vCollegeItem = document.getElementById('v_college_item');
+    if (vCollegeEl && userCollege) {
+      vCollegeEl.textContent = userCollege;
+      if (vCollegeItem) vCollegeItem.style.display = 'flex';
+    } else if (vCollegeItem) {
+      vCollegeItem.style.display = 'none';
+    }
+    
+    var vCourseEl = document.getElementById('v_course');
+    var vCourseItem = document.getElementById('v_course_item');
+    if (vCourseEl && userCourse) {
+      vCourseEl.textContent = userCourse;
+      if (vCourseItem) vCourseItem.style.display = 'flex';
+    } else if (vCourseItem) {
+      vCourseItem.style.display = 'none';
+    }
+    
+    var vYearEl = document.getElementById('v_year');
+    var vYearItem = document.getElementById('v_year_item');
+    if (vYearEl && userYear) {
+      vYearEl.textContent = userYear;
+      if (vYearItem) vYearItem.style.display = 'flex';
+    } else if (vYearItem) {
+      vYearItem.style.display = 'none';
+    }
+    
+    var vBlockEl = document.getElementById('v_block');
+    var vBlockItem = document.getElementById('v_block_item');
+    if (vBlockEl && userBlock) {
+      vBlockEl.textContent = userBlock;
+      if (vBlockItem) vBlockItem.style.display = 'flex';
+    } else if (vBlockItem) {
+      vBlockItem.style.display = 'none';
+    }
     
     // Close dropdown first
     var dropdownToggle = btn.closest('.dropdown-menu').prev('.dropdown-toggle');

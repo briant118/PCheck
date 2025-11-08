@@ -9,13 +9,88 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <style>
+  /* Force remove overflow clipping - allow dropdown to overflow all containers */
+  .table-responsive {
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    overflow: visible !important;
+    padding-bottom: 200px !important; /* Extra space for dropdown to show */
+    margin-bottom: 0 !important;
+  }
+  
+  /* Ensure parent containers also allow overflow */
+  .table-responsive .table {
+    margin-bottom: 0;
+    overflow: visible !important;
+  }
+  
+  /* Force all parent containers to allow overflow */
+  .row .col-md-12,
+  .row,
+  .container {
+    overflow: visible !important;
+  }
+  
+  /* Force dropdown to be visible - no clipping */
   .table-responsive .dropdown-menu {
     position: absolute !important;
-    z-index: 1050;
+    max-height: none !important;
+    overflow: visible !important;
+    clip: unset !important;
+    clip-path: none !important;
   }
   
   .table-responsive .btn-group {
     position: relative;
+    overflow: visible !important;
+  }
+  
+  /* Ensure only the active dropdown is visible */
+  .table-responsive .btn-group.show {
+    overflow: visible !important;
+  }
+  
+  .table-responsive .btn-group.show .dropdown-menu {
+    overflow: visible !important;
+    clip: unset !important;
+    clip-path: none !important;
+  }
+  
+  /* Hide other action buttons when a dropdown is open */
+  .table-responsive:has(.btn-group.show) .btn-group:not(.show) {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    visibility: hidden !important;
+  }
+  
+  /* Ensure table cells don't clip */
+  .table-responsive tbody td {
+    overflow: visible !important;
+  }
+  
+  .table-responsive .dropdown-item::after,
+  .table-responsive .dropdown-item::before {
+    display: none !important;
+    content: none !important;
+  }
+  
+  .table-responsive .dropdown-item {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+  }
+  
+  .table-responsive .dropdown-item i {
+    margin-right: 0.5rem !important;
+  }
+  
+  .table-responsive .dropdown-menu {
+    top: 100% !important;
+    bottom: auto !important;
+    left: auto !important;
+    right: 0 !important;
+    margin-top: 0.5rem !important;
+    transform: none !important;
   }
   
   /* Left align Name, Email, College columns - header */
@@ -70,6 +145,119 @@
   }
 </style>
 <script>
+  // Force dropdown to be visible - prevent clipping and z-index conflicts
+  (function() {
+    // Ensure dropdowns are never clipped
+    function ensureDropdownVisible() {
+      // Close all other dropdowns when one opens
+      var allDropdowns = document.querySelectorAll('.table-responsive .btn-group');
+      var openDropdown = null;
+      
+      // Find the currently open dropdown
+      allDropdowns.forEach(function(btnGroup) {
+        if (btnGroup.classList.contains('show')) {
+          openDropdown = btnGroup;
+        }
+      });
+      
+      // Hide/show action buttons based on dropdown state
+      allDropdowns.forEach(function(btnGroup) {
+        var menu = btnGroup.querySelector('.dropdown-menu');
+        if (btnGroup === openDropdown && btnGroup.classList.contains('show')) {
+          // Active dropdown is visible
+          btnGroup.style.opacity = '1';
+          btnGroup.style.visibility = 'visible';
+          btnGroup.style.pointerEvents = 'auto';
+          if (menu) {
+            menu.style.overflow = 'visible';
+            menu.style.clip = 'unset';
+            menu.style.clipPath = 'none';
+            menu.style.maxHeight = 'none';
+          }
+        } else {
+          // Hide other action buttons when a dropdown is open
+          if (openDropdown) {
+            btnGroup.style.opacity = '0';
+            btnGroup.style.visibility = 'hidden';
+            btnGroup.style.pointerEvents = 'none';
+          } else {
+            // Show all action buttons when no dropdown is open
+            btnGroup.style.opacity = '1';
+            btnGroup.style.visibility = 'visible';
+            btnGroup.style.pointerEvents = 'auto';
+          }
+        }
+      });
+      
+      // Ensure parent containers allow overflow for open dropdown
+      if (openDropdown) {
+        var menu = openDropdown.querySelector('.dropdown-menu');
+        if (menu) {
+          var parent = menu.closest('.table-responsive');
+          if (parent) {
+            parent.style.overflowY = 'visible';
+            parent.style.overflow = 'visible';
+          }
+          
+          // Ensure all ancestor containers allow overflow
+          var current = menu.parentElement;
+          while (current && current !== document.body) {
+            if (current.style) {
+              var computed = window.getComputedStyle(current);
+              if (computed.overflow === 'hidden' || computed.overflowY === 'hidden') {
+                current.style.overflowY = 'visible';
+              }
+            }
+            current = current.parentElement;
+          }
+        }
+      }
+    }
+    
+    // Close other dropdowns when one opens
+    document.addEventListener('show.bs.dropdown', function(e) {
+      if (e.target.closest('.table-responsive')) {
+        // Close all other dropdowns
+        var allBtnGroups = document.querySelectorAll('.table-responsive .btn-group.show');
+        allBtnGroups.forEach(function(btnGroup) {
+          if (btnGroup !== e.target.closest('.btn-group')) {
+            var toggle = btnGroup.querySelector('.dropdown-toggle');
+            if (toggle && window.bootstrap && bootstrap.Dropdown) {
+              var bsDropdown = bootstrap.Dropdown.getInstance(toggle);
+              if (bsDropdown) {
+                bsDropdown.hide();
+              }
+            }
+          }
+        });
+      }
+    });
+    
+    // Run on dropdown show
+    document.addEventListener('shown.bs.dropdown', function(e) {
+      if (e.target.closest('.table-responsive')) {
+        ensureDropdownVisible();
+      }
+    });
+    
+    // Run on dropdown hide
+    document.addEventListener('hidden.bs.dropdown', function(e) {
+      if (e.target.closest('.table-responsive')) {
+        ensureDropdownVisible();
+      }
+    });
+    
+    // Also run periodically to catch any missed cases
+    setInterval(ensureDropdownVisible, 100);
+    
+    // Run on page load to set initial state
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', ensureDropdownVisible);
+    } else {
+      ensureDropdownVisible();
+    }
+  })();
+  
   // Force refresh when navigating to users page
   (function() {
     var navigation = performance.getEntriesByType('navigation')[0];
@@ -110,7 +298,7 @@
 {% block content %}
 <div class="container">
 
-  <form class="row g-2 align-items-end mb-3" method="get">
+  <form class="row g-2 align-items-end mb-3 position-relative" method="get" style="position: relative;">
     <div class="col-md-3">
       <label class="form-label">Search</label>
       <input type="text" name="search-user" value="{{ search_user }}" class="form-control" placeholder="Name or email">
@@ -131,6 +319,9 @@
         <a class="btn btn-outline-warning" href="{% url 'main_app:user-activities' %}?tab=violation{% if selected_college %}&college={{ selected_college }}{% endif %}" style="border-color: #ff9800; color: #ff9800;">Violations</a>
       </div>
     </div>
+    <button type="button" class="btn btn-outline-primary position-absolute" id="refreshUsersBtn" title="Refresh" onclick="refreshUsersPage(); return false;" style="width: 38px; height: 38px; border-radius: 50%; padding: 0; display: flex; align-items: center; justify-content: center; top: 0; right: 0; cursor: pointer; pointer-events: auto;">
+      <i class="fa-solid fa-rotate-right"></i>
+    </button>
   </form>
 
   <div class="row">
@@ -163,19 +354,25 @@
                 <div class="btn-group btn-group-sm" role="group" style="display: inline-flex; justify-content: center; margin: 0 auto;">
                   <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
                   </button>
-                  <ul class="dropdown-menu">
-                    <li>
-                      <a class="dropdown-item" href="{% url 'main_app:bookings' %}?user={{ user.id }}">
-                        <i class="fa-solid fa-clock-rotate-left me-2"></i>View Bookings
-                      </a>
-                    </li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li>
-                      <button type="button" class="dropdown-item text-danger violation-user-btn" data-user-id="{{ user.id }}">
-                        <i class="fa-solid fa-triangle-exclamation me-2"></i>Set Violation
-                  </button>
-                    </li>
-                  </ul>
+                  <div class="dropdown-menu">
+                    <button type="button" class="dropdown-item view-user-btn" 
+                      data-user-id="{{ user.id }}"
+                      data-user-name="{{ user.get_full_name|default:user.username }}"
+                      data-user-email="{{ user.email }}"
+                      data-user-school-id="{% if user.profile.school_id %}{{ user.profile.school_id }}{% endif %}"
+                      data-user-college="{% if user.profile.college %}{{ user.profile.college.name }}{% endif %}"
+                      data-user-course="{% if user.profile.course %}{{ user.profile.course }}{% endif %}"
+                      data-user-year="{% if user.profile.year %}{{ user.profile.year }}{% endif %}"
+                      data-user-block="{% if user.profile.block %}{{ user.profile.block }}{% endif %}">
+                      <i class="fa-solid fa-eye me-2"></i>View
+                    </button>
+                    <a class="dropdown-item" href="{% url 'main_app:bookings' %}?user={{ user.id }}">
+                      <i class="fa-solid fa-clock-rotate-left me-2"></i>View Bookings
+                    </a>
+                    <button type="button" class="dropdown-item text-danger violation-user-btn" data-user-id="{{ user.id }}">
+                      <i class="fa-solid fa-triangle-exclamation me-2"></i>Set Violation
+                    </button>
+                  </div>
                 </div>
               </td>
             </tr>
@@ -242,6 +439,96 @@
     </div>
   </div>
 
+  <!-- User Profile View Modal -->
+  <div class="modal fade" id="userViewModal" tabindex="-1" aria-labelledby="userViewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content violation-modal-content">
+        <div class="modal-header violation-modal-header">
+          <h2 class="modal-title" id="userViewModalLabel">User Details</h2>
+        </div>
+        <div class="modal-body violation-modal-body">
+          <div class="violation-details-container">
+            <div class="violation-detail-item">
+              <div class="violation-detail-icon">
+                <i class="fa-solid fa-user"></i>
+              </div>
+              <div class="violation-detail-content">
+                <span class="violation-detail-label">Name</span>
+                <span class="violation-detail-value" id="uv_name"></span>
+              </div>
+            </div>
+            
+            <div class="violation-detail-item" id="uv_email_item">
+              <div class="violation-detail-icon">
+                <i class="fa-solid fa-envelope"></i>
+              </div>
+              <div class="violation-detail-content">
+                <span class="violation-detail-label">Email</span>
+                <span class="violation-detail-value" id="uv_email"></span>
+              </div>
+            </div>
+            
+            <div class="violation-detail-item" id="uv_school_id_item" style="display: none;">
+              <div class="violation-detail-icon">
+                <i class="fa-solid fa-id-card"></i>
+              </div>
+              <div class="violation-detail-content">
+                <span class="violation-detail-label">School ID</span>
+                <span class="violation-detail-value" id="uv_school_id"></span>
+              </div>
+            </div>
+            
+            <div class="violation-detail-item" id="uv_college_item" style="display: none;">
+              <div class="violation-detail-icon">
+                <i class="fa-solid fa-building"></i>
+              </div>
+              <div class="violation-detail-content">
+                <span class="violation-detail-label">College</span>
+                <span class="violation-detail-value" id="uv_college"></span>
+              </div>
+            </div>
+            
+            <div class="violation-detail-item" id="uv_course_item" style="display: none;">
+              <div class="violation-detail-icon">
+                <i class="fa-solid fa-graduation-cap"></i>
+              </div>
+              <div class="violation-detail-content">
+                <span class="violation-detail-label">Course</span>
+                <span class="violation-detail-value" id="uv_course"></span>
+              </div>
+            </div>
+            
+            <div class="violation-detail-item" id="uv_year_item" style="display: none;">
+              <div class="violation-detail-icon">
+                <i class="fa-solid fa-calendar"></i>
+              </div>
+              <div class="violation-detail-content">
+                <span class="violation-detail-label">Year</span>
+                <span class="violation-detail-value" id="uv_year"></span>
+              </div>
+            </div>
+            
+            <div class="violation-detail-item" id="uv_block_item" style="display: none;">
+              <div class="violation-detail-icon">
+                <i class="fa-solid fa-users"></i>
+              </div>
+              <div class="violation-detail-content">
+                <span class="violation-detail-label">Block</span>
+                <span class="violation-detail-value" id="uv_block"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer violation-modal-footer">
+          <button type="button" class="violation-close-btn" data-bs-dismiss="modal">
+            <i class="fa-solid fa-xmark me-2"></i>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Violation Modal (Set Violation for User) -->
   <div class="modal fade" id="userViolationModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
@@ -283,6 +570,105 @@
 
 {% block scripts %}
 <script>
+  // View User Button Handler
+  $(document).on('click', '.view-user-btn', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    var btn = $(this);
+    var userName = btn.data('user-name') || btn.attr('data-user-name') || '';
+    var userEmail = btn.data('user-email') || btn.attr('data-user-email') || '';
+    var userSchoolId = btn.data('user-school-id') || btn.attr('data-user-school-id') || '';
+    var userCollege = btn.data('user-college') || btn.attr('data-user-college') || '';
+    var userCourse = btn.data('user-course') || btn.attr('data-user-course') || '';
+    var userYear = btn.data('user-year') || btn.attr('data-user-year') || '';
+    var userBlock = btn.data('user-block') || btn.attr('data-user-block') || '';
+    
+    // Populate modal fields
+    var uvNameEl = document.getElementById('uv_name');
+    var uvEmailEl = document.getElementById('uv_email');
+    var uvEmailItem = document.getElementById('uv_email_item');
+    var uvSchoolIdEl = document.getElementById('uv_school_id');
+    var uvSchoolIdItem = document.getElementById('uv_school_id_item');
+    var uvCollegeEl = document.getElementById('uv_college');
+    var uvCollegeItem = document.getElementById('uv_college_item');
+    var uvCourseEl = document.getElementById('uv_course');
+    var uvCourseItem = document.getElementById('uv_course_item');
+    var uvYearEl = document.getElementById('uv_year');
+    var uvYearItem = document.getElementById('uv_year_item');
+    var uvBlockEl = document.getElementById('uv_block');
+    var uvBlockItem = document.getElementById('uv_block_item');
+    
+    if (uvNameEl) uvNameEl.textContent = userName || '-';
+    
+    if (uvEmailEl && userEmail) {
+      uvEmailEl.textContent = userEmail;
+      if (uvEmailItem) uvEmailItem.style.display = 'flex';
+    } else if (uvEmailItem) {
+      uvEmailItem.style.display = 'none';
+    }
+    
+    if (uvSchoolIdEl && userSchoolId) {
+      uvSchoolIdEl.textContent = userSchoolId;
+      if (uvSchoolIdItem) uvSchoolIdItem.style.display = 'flex';
+    } else if (uvSchoolIdItem) {
+      uvSchoolIdItem.style.display = 'none';
+    }
+    
+    if (uvCollegeEl && userCollege) {
+      uvCollegeEl.textContent = userCollege;
+      if (uvCollegeItem) uvCollegeItem.style.display = 'flex';
+    } else if (uvCollegeItem) {
+      uvCollegeItem.style.display = 'none';
+    }
+    
+    if (uvCourseEl && userCourse) {
+      uvCourseEl.textContent = userCourse;
+      if (uvCourseItem) uvCourseItem.style.display = 'flex';
+    } else if (uvCourseItem) {
+      uvCourseItem.style.display = 'none';
+    }
+    
+    if (uvYearEl && userYear) {
+      uvYearEl.textContent = userYear;
+      if (uvYearItem) uvYearItem.style.display = 'flex';
+    } else if (uvYearItem) {
+      uvYearItem.style.display = 'none';
+    }
+    
+    if (uvBlockEl && userBlock) {
+      uvBlockEl.textContent = userBlock;
+      if (uvBlockItem) uvBlockItem.style.display = 'flex';
+    } else if (uvBlockItem) {
+      uvBlockItem.style.display = 'none';
+    }
+    
+    // Close dropdown
+    var dropdownMenu = btn.closest('.dropdown-menu');
+    if (dropdownMenu && dropdownMenu.length) {
+      var btnGroup = dropdownMenu.closest('.btn-group');
+      if (btnGroup && btnGroup.length) {
+        var dropdownToggle = btnGroup.find('.dropdown-toggle');
+        if (dropdownToggle && dropdownToggle.length) {
+          try {
+            if (window.bootstrap && bootstrap.Dropdown) {
+              var bsDropdown = bootstrap.Dropdown.getInstance(dropdownToggle[0]);
+              if (bsDropdown) {
+                bsDropdown.hide();
+              }
+            }
+          } catch (err) {
+            console.log('Could not close dropdown:', err);
+          }
+        }
+      }
+    }
+    
+    // Show modal
+    var userViewModal = new bootstrap.Modal(document.getElementById('userViewModal'));
+    userViewModal.show();
+  });
+
   const currentUserId = "{{ request.user.id }}";
   let email = null;
   let chatSocket = null;
@@ -919,5 +1305,53 @@ $("#send_new_message_btn").click(function () {
         }
       });
     });
+    
+  // Refresh button handler - global function for inline onclick
+  function refreshUsersPage() {
+    // Clear session storage to force fresh load
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem('users_page_refreshed');
+    }
+    // Reload the page
+    window.location.reload();
+    return false;
+  }
+  
+  // Also attach event handler programmatically as backup
+  function handleRefreshClick(e) {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    refreshUsersPage();
+    return false;
+  }
+  
+  // Attach handler using jQuery if available
+  if (typeof $ !== 'undefined' && $.fn.on) {
+    $(document).on('click', '#refreshUsersBtn', handleRefreshClick);
+  }
+  
+  // Also attach using vanilla JavaScript as fallback
+  function attachRefreshHandler() {
+    var refreshBtn = document.getElementById('refreshUsersBtn');
+    if (refreshBtn) {
+      // Remove any existing listeners
+      var newBtn = refreshBtn.cloneNode(true);
+      refreshBtn.parentNode.replaceChild(newBtn, refreshBtn);
+      // Add new listener
+      newBtn.addEventListener('click', handleRefreshClick);
+    }
+  }
+  
+  // Try to attach immediately if DOM is already loaded
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', attachRefreshHandler);
+  } else {
+    attachRefreshHandler();
+  }
+  
+  // Also try after a short delay to ensure everything is loaded
+  setTimeout(attachRefreshHandler, 100);
 </script>
 {% endblock %}

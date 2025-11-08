@@ -277,7 +277,7 @@
                     {% if request.user.profile and request.user.profile.profile_picture %}
                       <img src="{{ request.user.profile.profile_picture.url }}" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block;">
                     {% else %}
-                      <i class="fa-solid fa-user"></i>
+                    <i class="fa-solid fa-user"></i>
                     {% endif %}
                     <span>{{ request.user.first_name|default:request.user.username }}</span>
                   </a>
@@ -1337,14 +1337,14 @@
                     extendInput.remove();
                   }
                   formHTML = tempDiv.innerHTML;
-                  
-                  // Replace Cancel button to close modal
+                      
+                      // Replace Cancel button to close modal
                   formHTML = formHTML.replace(
-                    /<a[^>]*href="[^"]*profile[^"]*"[^>]*class="[^"]*btn[^"]*secondary[^"]*"[^>]*>Cancel<\/a>/,
-                    '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>'
-                  );
+                        /<a[^>]*href="[^"]*profile[^"]*"[^>]*class="[^"]*btn[^"]*secondary[^"]*"[^>]*>Cancel<\/a>/,
+                        '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>'
+                      );
                   
-                  content += formHTML;
+                      content += formHTML;
                   
                   // Final cleanup - remove any remaining extend session form content
                   content = content.replace(/<form[^>]*id="extendSessionForm"[^>]*>[\s\S]*?<\/form>/gi, '');
