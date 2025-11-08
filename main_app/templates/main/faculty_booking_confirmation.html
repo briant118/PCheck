@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% load template_filters %}
+{% load math_filters %}
+{% load static %}
+
+{% block title %}Faculty Booking Confirmation{% endblock %}
+
+{% block content %}
+<div class="container mt-5 pt-5">
+  <div class="card col-md-8 offset-md-2 shadow-lg mb-5 bg-body rounded-bottom rounded-5">
+    <div class="text-center card-title">
+      <div class="p-4 bg-warning rounded-bottom rounded-5"></div>
+    </div>
+    <div class="card-body p-5">
+      <div class="text-center">
+        <p class="fs-5 mb-3">Thank you! Your request has been submitted and is now pending approval.</p>
+        <div id="booking-status" class="alert alert-warning py-2 d-none" role="alert"></div>
+        <div class="mt-4">
+          <a href="{% url 'main_app:home' %}" class="btn btn-sm btn-secondary"><i class="fa-solid fa-chevron-left"></i> back to home</a>
+          <a href="{% url 'main_app:my-faculty-bookings' %}" class="btn btn-sm btn-primary ms-2">View my faculty bookings</a>
+        </div>
+      </div>
+    </div> <!-- end of card-body -->
+  </div> <!-- end of card -->
+
+</div>
+<script>
+  (function() {
+    const el = document.getElementById('booking-status');
+    function poll() {
+      fetch('{% url "main_app:check-my-faculty-booking-status" %}', {credentials: 'same-origin'})
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(data => {
+          if (!data || !data.has_update) return;
+          if (data.status === 'confirmed') {
+            el.classList.remove('d-none','alert-warning');
+            el.classList.add('alert-success');
+            el.textContent = 'Your faculty booking has been APPROVED.';
+          } else if (data.status === 'cancelled') {
+            el.classList.remove('d-none','alert-warning');
+            el.classList.add('alert-danger');
+            el.textContent = 'Your faculty booking has been DECLINED/CANCELLED.';
+          } else {
+            el.classList.remove('alert-success','alert-danger');
+            el.classList.add('alert-warning');
+            el.textContent = 'Pending approval...';
+            el.classList.remove('d-none');
+          }
+        })
+        .catch(() => {})
+        .finally(() => setTimeout(poll, 10000));
+    }
+    poll();
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}My Faculty Bookings{% endblock %}
+
+{% block content %}
+<div class="container mt-5 pt-5">
+  <div class="card shadow-lg mb-5 bg-body rounded-bottom rounded-5">
+    <div class="text-center card-title">
+      <div class="p-4 bg-warning rounded-bottom rounded-5"></div>
+    </div>
+    <div class="card-body p-4">
+      <h5 class="mb-3">My Faculty Bookings</h5>
+      {% if my_faculty_bookings %}
+      <div class="table-responsive">
+        <table class="table align-middle w-100" style="table-layout: fixed;">
+          <thead>
+            <tr>
+              <th>Created</th>
+              <th>Start</th>
+              <th>End</th>
+              <th># of PC</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for booking in my_faculty_bookings %}
+            <tr>
+              <td class="text-truncate">{{ booking.created_at|date:'Y-m-d H:i' }}</td>
+              <td class="text-truncate">{{ booking.start_datetime|date:'Y-m-d H:i' }}</td>
+              <td class="text-truncate">{{ booking.end_datetime|date:'Y-m-d H:i' }}</td>
+              <td class="text-truncate">{{ booking.num_of_devices }}</td>
+              <td class="text-center">
+                {% if booking.status == 'confirmed' %}
+                  <span class="badge bg-success">approved</span>
+                {% elif booking.status == 'pending' %}
+                  <span class="badge bg-warning text-dark">pending</span>
+                {% elif booking.status == 'cancelled' %}
+                  <span class="badge bg-secondary">cancelled</span>
+                {% else %}
+                  <span class="badge bg-light text-dark">n/a</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-muted mb-0">No faculty bookings yet.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+

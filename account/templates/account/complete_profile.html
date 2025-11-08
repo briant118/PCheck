@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Complete Your Profile{% endblock %}
+
+{% block links %}
+<style>
+  .main-content { margin-left: 0 !important; width: 100% !important; }
+  #content { padding: 0 !important; width: 100%; }
+
+  /* Page layout */
+  .profile-wrapper { min-height: 100vh; display: flex; align-items: center; }
+  .profile-card { max-width: 520px; width: 100%; border-radius: .85rem; }
+
+  /* Header */
+  .profile-header { padding: 1.5rem 1.25rem; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+  .profile-avatar { width: 80px; height: 80px; object-fit: cover; border: 3px solid #fff; }
+
+  /* Role buttons */
+  .role-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .75rem; }
+  @media (max-width: 480px) { .role-grid { grid-template-columns: 1fr; } }
+  .role-btn { padding: .9rem .5rem; border-width: 2px; }
+  .role-btn i { font-size: 1.25rem; margin-bottom: .25rem; }
+
+  /* Step sections */
+  .step-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; }
+  .form-section .form-control { padding: .65rem .85rem; }
+  .form-actions { display: flex; justify-content: space-between; gap: .75rem; margin-top: 1rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container profile-wrapper rounded">
+  <div class="card mx-auto border shadow-lg bg-body profile-card">
+    <div class="text-center card-body bg-success text-white profile-header">
+      <div class="mb-3">
+        {% if user.profile.profile_picture %}
+          <img src="{{ user.profile.profile_picture.url }}" class="rounded-circle profile-avatar" alt="Profile Picture">
+        {% else %}
+          <div class="bg-white rounded-circle d-inline-flex align-items-center justify-content-center profile-avatar" style="border: 3px solid white;">
+            <i class="fa-solid fa-user fa-2x text-success"></i>
+          </div>
+        {% endif %}
+      </div>
+      <h2 class="h3 mb-1">Welcome, {{ user.first_name|default:user.email }}!</h2>
+      <p class="mb-0 opacity-75">Please complete your profile to continue</p>
+    </div>
+    <div class="form-section card-body p-4">
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+      
+      <form method="post" id="profileForm">
+        {% csrf_token %}
+        
+        <!-- Step 1: Role Selection -->
+        <div class="step active" id="step1">
+          <div class="step-title">Select your role</div>
+          <div class="role-grid">
+            <button type="button" class="btn btn-outline-primary role-btn" onclick="selectRole('student')" id="btn-student">
+              <i class="fa-solid fa-user-graduate"></i><br>Student
+            </button>
+            <button type="button" class="btn btn-outline-primary role-btn" onclick="selectRole('faculty')" id="btn-faculty">
+              <i class="fa-solid fa-chalkboard-user"></i><br>Faculty
+            </button>
+            <button type="button" class="btn btn-outline-primary role-btn" onclick="selectRole('staff')" id="btn-staff">
+              <i class="fa-solid fa-user-tie"></i><br>Staff
+            </button>
+          </div>
+          <input type="hidden" name="role" id="role" required>
+        </div>
+
+        <!-- Step 2: College Selection -->
+        <div class="step" id="step2" style="display: none;">
+          <div class="step-title">Select your college</div>
+          <select name="college" id="college" required class="form-control mb-3">
+            <option value="">-- Select College --</option>
+            {% for college in colleges %}
+            <option value="{{ college.id }}">{{ college.name }}</option>
+            {% endfor %}
+          </select>
+          
+          <!-- Student-specific fields -->
+          <div id="student-fields" style="display: none;">
+            <input type="text" name="course" placeholder="Course Name (e.g., BSIT)" 
+                   class="form-control mb-2">
+            <input type="text" name="year" placeholder="Year (e.g., 3rd Year)" 
+                   class="form-control mb-2">
+            <input type="text" name="block" placeholder="Block (e.g., 2A)" 
+                   class="form-control mb-2">
+          </div>
+          
+          <!-- School ID (if not PSU email) -->
+          {% if not user.email|slice:":-22" %}
+          <div class="mb-3">
+            <label for="school_id" class="form-label">School ID (Optional)</label>
+            <input type="text" name="school_id" id="school_id" 
+                   placeholder="Your school ID" class="form-control">
+          </div>
+          {% endif %}
+          
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" onclick="goToStep(1)">Back</button>
+            <button type="submit" class="btn btn-success">Complete Profile</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function selectRole(role) {
+  // Update hidden input
+  document.getElementById('role').value = role;
+  
+  // Update button styles
+  document.querySelectorAll('[id^="btn-"]').forEach(btn => {
+    btn.classList.remove('btn-primary');
+    btn.classList.add('btn-outline-primary');
+  });
+  
+  const selectedBtn = document.getElementById('btn-' + role);
+  selectedBtn.classList.remove('btn-outline-primary');
+  selectedBtn.classList.add('btn-primary');
+  
+  // Show/hide student fields
+  const studentFields = document.getElementById('student-fields');
+  if (role === 'student') {
+    studentFields.style.display = 'block';
+    // Make student fields required
+    studentFields.querySelectorAll('input').forEach(input => {
+      input.setAttribute('required', 'required');
+    });
+  } else {
+    studentFields.style.display = 'none';
+    // Remove required from student fields
+    studentFields.querySelectorAll('input').forEach(input => {
+      input.removeAttribute('required');
+    });
+  }
+  
+  // Move to next step after a short delay
+  setTimeout(() => {
+    goToStep(2);
+  }, 300);
+}
+
+function goToStep(stepNum) {
+  // Hide all steps
+  document.querySelectorAll('.step').forEach(step => {
+    step.style.display = 'none';
+  });
+  
+  // Show current step
+  const currentStep = document.getElementById('step' + stepNum);
+  if (currentStep) {
+    currentStep.style.display = 'block';
+  }
+}
+
+// Form validation
+document.getElementById('profileForm').addEventListener('submit', function(e) {
+  const role = document.getElementById('role').value;
+  const college = document.getElementById('college').value;
+  
+  if (!role) {
+    e.preventDefault();
+    alert('Please select your role');
+    goToStep(1);
+    return false;
+  }
+  
+  if (!college) {
+    e.preventDefault();
+    alert('Please select your college');
+    goToStep(2);
+    return false;
+  }
+  
+  if (role === 'student') {
+    const course = document.querySelector('input[name="course"]').value;
+    const year = document.querySelector('input[name="year"]').value;
+    const block = document.querySelector('input[name="block"]').value;
+    
+    if (!course || !year || !block) {
+      e.preventDefault();
+      alert('Please fill in all student fields (Course, Year, Block)');
+      goToStep(2);
+      return false;
+    }
+  }
+  
+  return true;
+});
+</script>
+{% endblock %}
+

@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% load i18n static %}
+
+{% block title %}{% trans "Sign in with Google" %}{% endblock %}
+
+{% block content %}
+<style>
+  /* Hide global mobile header/sidebar on Google login page */
+  .mobile-header, .sidebar, #sidebar-overlay { display: none !important; }
+  .main-content { padding-top: 0 !important; }
+  @media (max-width: 576px) {
+    .google-card { padding: 1.25rem !important; }
+    .google-icon { width: 40px !important; height: 40px !important; font-size: 1rem; }
+    .google-title { font-size: 1.25rem; }
+    .psu-banner-title { font-size: 1.25rem; }
+    .psu-banner-sub { font-size: .75rem; }
+    .psu-banner-logo { width: 36px; height: 36px; }
+  }
+  .google-icon { width: 48px; height: 48px; }
+  .btn-google { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; }
+  .btn-google i { font-size: 1rem; }
+  .google-container { min-height: calc(100vh - 160px); }
+  .card { border-radius: .75rem; }
+  .card .text-muted { font-size: .95rem; }
+  .psu-banner {
+    background: linear-gradient(135deg, #f3904f 0%, #e04f5f 100%);
+    color: #fff;
+    border-radius: .5rem;
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    margin-bottom: 1rem;
+  }
+  .psu-banner-logo { width: 44px; height: 44px; object-fit: contain; }
+  .psu-banner-title { margin: 0; line-height: 1.1; font-weight: 700; font-size: 1.5rem; }
+  .psu-banner-sub { margin: 0; opacity: .9; font-size: .85rem; }
+</style>
+<div class="container py-5 google-container d-flex align-items-center">
+  <div class="row justify-content-center">
+    <div class="col-12 col-sm-10 col-md-8 col-lg-6">
+      <div class="card shadow-sm border-0">
+        <div class="card-body p-4 p-md-5 google-card">
+          <div class="psu-banner">
+            <img src="{% static 'image/PSU_logo.png' %}" alt="PSU Logo" class="psu-banner-logo">
+            <div>
+              <p class="psu-banner-title">Palawan State University</p>
+              <p class="psu-banner-sub">Management Information System Office</p>
+            </div>
+          </div>
+          <div class="d-flex align-items-center mb-3">
+            <div class="bg-danger text-white rounded-circle d-inline-flex align-items-center justify-content-center me-3 google-icon">
+              <i class="fa-brands fa-google"></i>
+            </div>
+            <div>
+              <h3 class="mb-0 google-title">{% trans "Sign In via Google" %}</h3>
+              <small class="text-muted">{% trans "Connect your PSU account securely" %}</small>
+            </div>
+          </div>
+
+          <p class="text-muted mb-4">
+            {% blocktrans %}You are about to sign in using your Google account. Please confirm to continue.{% endblocktrans %}
+          </p>
+
+          <form method="post" action="">
+            {% csrf_token %}
+            {% if process == 'connect' %}
+              <input type="hidden" name="process" value="connect">
+            {% endif %}
+            <button type="submit" class="btn btn-danger btn-lg w-100 btn-google">
+              <i class="fa-brands fa-google"></i>
+              <span>{% trans "Continue with Google" %}</span>
+            </button>
+          </form>
+
+          <div class="text-center mt-3">
+            <a href="{% url 'account_login' %}" class="small text-decoration-none">
+              <i class="fa-solid fa-arrow-left me-1"></i>{% trans "Back to sign in" %}
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+

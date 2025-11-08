@@ -1,0 +1,923 @@
+{% extends 'base.html' %}
+{% load template_filters %}
+{% load static %}
+
+{% block title %}Users{% endblock %}
+
+{% block links %}
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<style>
+  .table-responsive .dropdown-menu {
+    position: absolute !important;
+    z-index: 1050;
+  }
+  
+  .table-responsive .btn-group {
+    position: relative;
+  }
+  
+  /* Left align Name, Email, College columns - header */
+  .table thead th:nth-child(1),
+  .table thead th:nth-child(2),
+  .table thead th:nth-child(3) {
+    text-align: left !important;
+  }
+  
+  /* Left align Name, Email, College columns - body */
+  .table tbody td:nth-child(1),
+  .table tbody td:nth-child(2),
+  .table tbody td:nth-child(3) {
+    text-align: left !important;
+    vertical-align: middle !important;
+  }
+  
+  /* Center align Status and Actions columns - header */
+  .table thead th:nth-child(4),
+  .table thead th:nth-child(5) {
+    text-align: center !important;
+  }
+  
+  /* Center align Status and Actions columns - body */
+  .table tbody td:nth-child(4),
+  .table tbody td:nth-child(5) {
+    text-align: center !important;
+    vertical-align: middle !important;
+  }
+  
+  /* Center the action button group */
+  .table tbody td:nth-child(5) {
+    text-align: center !important;
+  }
+  
+  .table tbody td:nth-child(5) .btn-group {
+    display: inline-flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    margin: 0 auto !important;
+    width: auto !important;
+  }
+  
+  /* Center the status badge */
+  .table tbody td:nth-child(4) {
+    text-align: center !important;
+  }
+  
+  .table tbody td:nth-child(4) .badge {
+    display: inline-block !important;
+    margin: 0 auto !important;
+  }
+</style>
+<script>
+  // Force refresh when navigating to users page
+  (function() {
+    var navigation = performance.getEntriesByType('navigation')[0];
+    var isReload = navigation && navigation.type === 'reload';
+    var isBackForward = navigation && navigation.type === 'back_forward';
+    
+    // Only refresh if it's a normal navigation (not a reload or back/forward)
+    if (!isReload && !isBackForward) {
+      var refreshKey = 'users_page_refreshed';
+      var hasRefreshed = sessionStorage.getItem(refreshKey);
+      
+      if (!hasRefreshed) {
+        sessionStorage.setItem(refreshKey, 'true');
+        window.location.reload();
+        return;
+      }
+    }
+    
+    // Clear the flag when leaving the page to ensure fresh load next time
+    window.addEventListener('beforeunload', function() {
+      sessionStorage.removeItem('users_page_refreshed');
+    });
+    
+    // Also clear on visibility change to ensure handlers are re-initialized
+    document.addEventListener('visibilitychange', function() {
+      if (document.visibilityState === 'visible') {
+        // Page is visible again, ensure handlers are set up
+        if (window.jQuery && typeof $(document).ready === 'function') {
+          // Trigger ready handlers if jQuery is available
+          $(document).trigger('ready');
+        }
+      }
+    });
+  })();
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+
+  <form class="row g-2 align-items-end mb-3" method="get">
+    <div class="col-md-3">
+      <label class="form-label">Search</label>
+      <input type="text" name="search-user" value="{{ search_user }}" class="form-control" placeholder="Name or email">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">College</label>
+      <select name="college" class="form-select">
+        <option value="">All colleges</option>
+        {% for college in colleges %}
+          <option value="{{ college.id }}" {% if selected_college|default:'' == college.id|stringformat:'s' %}selected{% endif %}>{{ college.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3 d-flex align-items-end">
+      <button type="submit" class="btn btn-primary me-2">Apply</button>
+      <div class="btn-group" role="group">
+        <a class="btn btn-outline-warning active" aria-disabled="true" style="border-color: #ff9800; color: #ff9800; background-color: #fff3cd;">Users</a>
+        <a class="btn btn-outline-warning" href="{% url 'main_app:user-activities' %}?tab=violation{% if selected_college %}&college={{ selected_college }}{% endif %}" style="border-color: #ff9800; color: #ff9800;">Violations</a>
+      </div>
+    </div>
+  </form>
+
+  <div class="row">
+    <div class="col-md-12">
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>College</th>
+              <th class="text-center">Status</th>
+              <th class="text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for user in users %}
+            <tr>
+              <td>{{ user.get_full_name|default:user.username }}</td>
+              <td>{{ user.email }}</td>
+              <td>{{ user.profile.college.name|default:'-' }}</td>
+              <td class="text-center">
+                {% if user.has_suspended_violation %}
+                  <span class="badge text-bg-danger">Suspended</span>
+                {% else %}
+                  <span class="badge text-bg-success">Active</span>
+                {% endif %}
+              </td>
+              <td class="text-center">
+                <div class="btn-group btn-group-sm" role="group" style="display: inline-flex; justify-content: center; margin: 0 auto;">
+                  <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                  </button>
+                  <ul class="dropdown-menu">
+                    <li>
+                      <a class="dropdown-item" href="{% url 'main_app:bookings' %}?user={{ user.id }}">
+                        <i class="fa-solid fa-clock-rotate-left me-2"></i>View Bookings
+                      </a>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                      <button type="button" class="dropdown-item text-danger violation-user-btn" data-user-id="{{ user.id }}">
+                        <i class="fa-solid fa-triangle-exclamation me-2"></i>Set Violation
+                  </button>
+                    </li>
+                  </ul>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Send Initial Message Modal -->
+  <div class="modal fade" id="initMessageModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content rounded-3 shadow">
+        <div class="modal-header">
+          <h5 class="modal-title">Send message</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="d-flex justify-content-center">
+            <div style="max-width: 400px; width: 100%;">
+          <div class="form-group mt-2">
+            <label for="recipient" class="form-label">Recipient</label>
+            <input type="email" id="recipient" class="form-control">
+          </div>
+          <div class="form-group mt-3">
+            <label for="initMessage" class="form-label">Message</label>
+            <textarea id="initMessage" rows="6" class="form-control"></textarea>
+          </div>
+        </div>
+          </div>
+        </div>
+        <div class="modal-footer justify-content-center">
+          <button type="button" id="send_init_message" class="btn btn-primary"
+                  data-send-init-message-url="{% url 'main_app:send-init-message' %}">
+            Send
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Conversation Modal -->
+  <div class="modal fade" id="conversationModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content rounded-3 shadow">
+        <div class="modal-header">
+          <h5 class="modal-title">Conversation with <span id="convoWith"></span></h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="text" id="roomId" hidden>
+          <input type="email" id="receiverEmail" hidden>
+          <div id="chatContainer" style="height: 350px; overflow-y: auto; border: 1px solid #ccc; border-radius: 5px; padding: 10px; background: #f9f9f9;"></div>
+          <textarea id="new_message" rows="3" class="form-control mt-2" placeholder="Type a message..."></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" id="send_new_message_btn" class="btn btn-primary"
+                  data-send-new-message-url="main_app:send-new-message">
+            Send
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Violation Modal (Set Violation for User) -->
+  <div class="modal fade" id="userViolationModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content rounded-3 shadow">
+        <div class="modal-header">
+          <h5 class="modal-title">Set Violation</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          {% csrf_token %}
+          <input type="hidden" id="vio_user_id">
+          <div class="d-flex justify-content-center">
+            <div style="max-width: 300px; width: 100%;">
+          <div class="form-group mt-2">
+            <label for="vio_level" class="form-label">Level</label>
+            <select id="vio_level" class="form-select">
+              <option value="minor">Minor</option>
+              <option value="moderate">Moderate</option>
+              <option value="major">Major</option>
+            </select>
+          </div>
+          
+          <div class="form-group mt-3">
+            <label for="vio_reason" class="form-label">Reason</label>
+            <input type="text" id="vio_reason" class="form-control" placeholder="Description">
+          </div>
+        </div>
+          </div>
+        </div>
+        <div class="modal-footer justify-content-center">
+          <button type="button" id="vio_submit_btn" class="btn btn-danger">Suspend</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const currentUserId = "{{ request.user.id }}";
+  let email = null;
+  let chatSocket = null;
+  let currentRoomId = null;
+
+  // CSRF helper (fallback to cookie if no hidden input is present)
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+
+  function resetInitMessageForm() {
+    $("#recipient").val("");
+    $("#initMessage").val("");
+  }
+
+  function connectChatSocket(roomId) {
+    // Close existing connection if any
+    if (chatSocket && chatSocket.readyState !== WebSocket.CLOSED) {
+      chatSocket.close();
+    }
+    
+    currentRoomId = roomId;
+    
+    // Determine WebSocket protocol (ws:// or wss://)
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsPath = `${wsProtocol}//${window.location.host}/ws/chat/${roomId}/`;
+    
+    console.log("Connecting to WebSocket:", wsPath, "for room:", roomId);
+    
+    try {
+      chatSocket = new WebSocket(wsPath);
+      
+      chatSocket.onopen = function(e) {
+        console.log("✅ WebSocket connection established for room:", roomId);
+      };
+      
+      chatSocket.onmessage = function(e) {
+        try {
+          const data = JSON.parse(e.data);
+          console.log("📨 WebSocket message received:", data);
+          
+          // Verify message is for the current room
+          if (data.room_id && String(data.room_id) !== String(roomId)) {
+            console.warn(`⚠️ Message room_id (${data.room_id}) doesn't match current room (${roomId}), ignoring`);
+            return;
+          }
+          
+          if (data.type === "new_message") {
+            console.log("Processing new_message type");
+            handleNewMessage(data);
+          } else if (data.type === "message_read") {
+            console.log("Message read notification:", data);
+          } else {
+            console.log("Unknown message type:", data.type);
+          }
+        } catch (error) {
+          console.error("❌ Error parsing WebSocket message:", error, "Raw data:", e.data);
+        }
+      };
+      
+      chatSocket.onerror = function(e) {
+        console.error("❌ WebSocket error:", e);
+        console.error("WebSocket readyState:", chatSocket.readyState);
+      };
+      
+      chatSocket.onclose = function(e) {
+        console.log("🔌 WebSocket connection closed for room:", roomId, "Code:", e.code, "Reason:", e.reason);
+        // Attempt to reconnect after 3 seconds if it wasn't a manual close
+        if (currentRoomId === roomId && e.code !== 1000) {
+          setTimeout(function() {
+            if (currentRoomId === roomId && (chatSocket === null || chatSocket.readyState === WebSocket.CLOSED)) {
+              console.log("🔄 Attempting to reconnect WebSocket...");
+              connectChatSocket(roomId);
+            }
+          }, 3000);
+        }
+      };
+    } catch (error) {
+      console.error("❌ Error creating WebSocket:", error);
+    }
+  }
+
+  function disconnectChatSocket() {
+    console.log("Disconnecting WebSocket");
+    if (chatSocket) {
+      chatSocket.close();
+      chatSocket = null;
+      currentRoomId = null;
+    }
+    window.currentOpenRoomId = null;
+  }
+
+  function handleNewMessage(data) {
+    console.log("=== handleNewMessage START ===");
+    console.log("Message data:", data);
+    console.log("Current user ID:", currentUserId);
+    console.log("Current open room ID:", window.currentOpenRoomId);
+    
+    const chatContainer = $("#chatContainer");
+    const modal = $("#conversationModal");
+    console.log("chatContainer found:", chatContainer.length > 0);
+    console.log("Modal element found:", modal.length > 0);
+    console.log("Modal has 'show' class:", modal.hasClass('show'));
+    console.log("Modal visible:", modal.is(':visible'));
+    
+    // Verify room ID matches
+    if (data.room_id && window.currentOpenRoomId && String(data.room_id) !== String(window.currentOpenRoomId)) {
+      console.warn(`⚠️ Message room_id (${data.room_id}) doesn't match current open room (${window.currentOpenRoomId}), ignoring`);
+      return;
+    }
+    
+    const isSender = String(currentUserId) == String(data.sender_id);
+    const isRecipient = String(currentUserId) == String(data.recipient_id);
+    
+    console.log(`Sender ID: ${data.sender_id}, Recipient ID: ${data.recipient_id}`);
+    console.log(`isSender: ${isSender}, isRecipient: ${isRecipient}`);
+    
+    // Only add message if it belongs to the current user
+    if (!isSender && !isRecipient) {
+      console.log("⚠️ Message doesn't belong to current user, ignoring");
+      return;
+    }
+    
+    // Only add to chat container if modal is open
+    if (chatContainer.length === 0) {
+      console.warn("⚠️ chatContainer not found - modal might be closed");
+      // Still update the conversation list
+      if (typeof loadMessages === 'function') {
+        try {
+      loadMessages();
+        } catch (error) {
+          console.error("Error calling loadMessages:", error);
+        }
+      }
+      return;
+    }
+    
+    // Verify the room ID matches what we expect
+    const currentRoomIdFromInput = $("#roomId").val();
+    if (currentRoomIdFromInput && String(currentRoomIdFromInput) !== String(window.currentOpenRoomId)) {
+      console.warn(`⚠️ Room ID mismatch - input (${currentRoomIdFromInput}) vs open room (${window.currentOpenRoomId})`);
+      // Still update the conversation list
+      if (typeof loadMessages === 'function') {
+        try {
+      loadMessages();
+        } catch (error) {
+          console.error("Error calling loadMessages:", error);
+        }
+      }
+      return;
+    }
+    
+    // Check if modal is open (use Bootstrap's modal instance check)
+    const isModalVisible = modal.length > 0 && (modal.hasClass('show') || modal.is(':visible'));
+    if (!isModalVisible) {
+      console.warn("⚠️ Modal not visible - will not display message");
+      console.log("Modal element:", modal.length > 0 ? "found" : "not found");
+      console.log("Modal has 'show' class:", modal.hasClass('show'));
+      console.log("Modal is visible:", modal.is(':visible'));
+      // Still update the conversation list
+      if (typeof loadMessages === 'function') {
+        try {
+      loadMessages();
+        } catch (error) {
+          console.error("Error calling loadMessages:", error);
+        }
+      }
+      return;
+    }
+    
+    // Check if message already exists (avoid duplicates)
+    if (data.chat_id) {
+      const existingMessages = chatContainer.find(`[data-chat-id="${data.chat_id}"]`);
+      if (existingMessages.length > 0) {
+        console.log("⚠️ Message already displayed, skipping duplicate");
+        if (typeof loadMessages === 'function') {
+          try {
+        loadMessages();
+          } catch (error) {
+            console.error("Error calling loadMessages:", error);
+          }
+        }
+        return;
+      }
+    }
+    
+    // Remove any temp message with same content
+    chatContainer.find(`[data-temp-message]`).remove();
+    
+    // Remove "No messages" placeholder if it exists
+    chatContainer.find('.text-muted').remove();
+    
+    // Add the message
+    if (isSender) {
+      const messageHtml = `<div class="message sender" data-chat-id="${data.chat_id || 'temp_' + Date.now()}" style="background:#DCF8C6; border-radius:12px; padding:8px 12px; margin:5px 0; max-width:70%; align-self:flex-start;"><span style="font-size: small;">You</span><br>${data.message}</div>`;
+      chatContainer.append(messageHtml);
+      console.log("✅ Added sender message to chat");
+    } else {
+      const senderName = data.sender_first_name || data.sender_last_name || 'Staff';
+      const messageHtml = `<div class="message receiver" data-chat-id="${data.chat_id || 'temp_' + Date.now()}" style="background:#E5E5EA; border-radius:12px; padding:8px 12px; margin:5px 0; max-width:70%; align-self:flex-end;"><span style="font-size: small;">${senderName}</span><br>${data.message}</div>`;
+      chatContainer.append(messageHtml);
+      console.log("✅ Added receiver message to chat");
+    }
+    
+    chatContainer.scrollTop(chatContainer.prop("scrollHeight"));
+    console.log("=== handleNewMessage END ===");
+    
+    // Update unread indicators if needed
+    if (typeof loadMessages === 'function') {
+      try {
+    loadMessages();
+      } catch (error) {
+        console.error("Error calling loadMessages:", error);
+      }
+    }
+  }
+
+  function loadMessages() {
+    try {
+      // Check if jQuery is available
+      if (typeof $ === 'undefined' || !$.ajax) {
+        console.error("jQuery is not available, cannot load messages");
+        return;
+      }
+      
+      // Check if messages table exists
+    const messagesBody = $("#messagesTable tbody");
+      if (!messagesBody || !messagesBody.length) {
+        console.warn("Messages table not found, skipping loadMessages");
+        return;
+      }
+      
+      // All checks passed, safe to proceed
+    $.ajax({
+      url: "/ajax/load-messages",
+      method: "GET",
+      success: function (data) {
+          try {
+            if (!data || !data.result) {
+              console.warn("Invalid data received from load-messages");
+              return;
+            }
+            
+            // Double-check that table still exists
+            if (!messagesBody.length) {
+              console.log("Messages table no longer exists, aborting");
+              return;
+            }
+            
+        messagesBody.empty();
+        let seen = new Set();
+        $.each(data.result, function (index, room) {
+          const other = (currentUserId == room.receiver.id) ? room.initiator : room.receiver;
+          const otherKey = `${other.id}-${room.id}`;
+          if (seen.has(otherKey)) return;
+          seen.add(otherKey);
+          let row = `<tr class="messagesItem"
+                        data-room-id=${room.id}
+                        data-receiver-email=${other.email}
+                        data-receiver-fname=${other.first_name}
+                        data-receiver-lname=${other.last_name}>
+                        <td>${other.first_name} ${other.last_name}</td>
+                    </tr>`;
+          if (room.chats && room.chats.some(chat => chat.status === "sent" && chat.sender != currentUserId && chat.recipient == currentUserId)) {
+            row = $(row).addClass("text-primary");
+          }
+          messagesBody.append(row);
+        });
+          } catch (error) {
+            console.error("Error processing messages data:", error);
+          }
+        },
+        error: function(xhr) {
+          console.error("Error loading messages:", xhr);
+          if (xhr.responseJSON && xhr.responseJSON.error) {
+            console.error("Error details:", xhr.responseJSON.error);
+          }
+        }
+      });
+    } catch (error) {
+      console.error("Error in loadMessages function:", error);
+    }
+  }
+
+  function loadConversation(roomId) {
+    const chatContainer = $("#chatContainer");
+    console.log("Loading conversation for room:", roomId);
+    console.log("chatContainer found:", chatContainer.length > 0);
+    console.log("Current user ID:", currentUserId);
+    
+    // Store the room ID globally so handleNewMessage can verify
+    window.currentOpenRoomId = roomId;
+    
+    // Connect to WebSocket for real-time updates FIRST
+    // This ensures we receive messages even during AJAX loading
+    connectChatSocket(roomId);
+    
+    // Load existing messages via AJAX
+    $.ajax({ url: `/ajax/load-conversation/${roomId}/`, method: "GET", success: function(data) {
+      console.log("loadConversation response:", data);
+      
+      // Check if container still exists (modal might have been closed)
+      if (chatContainer.length === 0) {
+        console.warn("chatContainer no longer exists, aborting");
+        return;
+      }
+      
+      chatContainer.empty();
+      if (data.result && data.result.length > 0) {
+        $.each(data.result, function(index, msg) {
+          // Ensure the message belongs to the current user (as sender or recipient)
+          if (String(currentUserId) == String(msg.sender__id) || String(currentUserId) == String(msg.recipient__id)) {
+            // Use chat ID if available, otherwise use index
+            const chatId = msg.id || `msg_${index}`;
+            if (String(currentUserId) == String(msg.sender__id)) {
+              chatContainer.append(`<div class="message sender" data-chat-id="${chatId}" style="background:#DCF8C6; border-radius:12px; padding:8px 12px; margin:5px 0; max-width:70%; align-self:flex-start;"><span style="font-size: small;">You</span><br>${msg.message}</div>`);
+            } else {
+              chatContainer.append(`<div class="message receiver" data-chat-id="${chatId}" style="background:#E5E5EA; border-radius:12px; padding:8px 12px; margin:5px 0; max-width:70%; align-self:flex-end;"><span style="font-size: small;">${msg.sender__first_name || 'Staff'}</span><br>${msg.message}</div>`);
+            }
+          }
+        });
+        chatContainer.scrollTop(chatContainer.prop("scrollHeight"));
+      } else {
+        chatContainer.append('<div class="text-muted">No messages in this conversation yet.</div>');
+      }
+    }, error: function(xhr) {
+      console.error("Error loading conversation:", xhr);
+      if (chatContainer.length > 0) {
+        chatContainer.append('<div class="text-danger">Error loading conversation. Please refresh the page.</div>');
+      }
+      if (xhr.responseJSON && xhr.responseJSON.error) {
+        alert("Error: " + xhr.responseJSON.error);
+      }
+    }});
+  }
+
+  // ============================================
+// VIOLATION FUNCTIONALITY
+// ============================================
+
+// Violation button click handler
+    document.addEventListener('click', function(e) {
+      var target = e.target.closest('.violation-user-btn');
+      if (!target) return;
+      
+      e.preventDefault();
+      e.stopPropagation();
+      
+      var userId = target.getAttribute('data-user-id') || '';
+      
+      if (!userId) {
+        alert('Error: User ID is missing. Please try again.');
+        return false;
+      }
+      
+      var vioModalEl = document.getElementById('userViolationModal');
+      if (!vioModalEl) {
+        alert('Error: Violation modal not found.');
+        return false;
+      }
+      
+      // Set user ID in hidden input
+      var userIdInput = document.getElementById('vio_user_id');
+      if (userIdInput) {
+        userIdInput.value = userId;
+      }
+      
+      // Reset form fields
+      var levelSelect = document.getElementById('vio_level');
+      if (levelSelect) levelSelect.value = 'minor';
+      var pcSelect = document.getElementById('vio_pc_id');
+      if (pcSelect) pcSelect.value = '';
+      var reasonInput = document.getElementById('vio_reason');
+      if (reasonInput) reasonInput.value = '';
+      
+      // Close dropdown
+      var dropdownMenu = target.closest('.dropdown-menu');
+      if (dropdownMenu) {
+        var btnGroup = dropdownMenu.closest('.btn-group');
+        if (btnGroup) {
+          var dropdownToggle = btnGroup.querySelector('.dropdown-toggle');
+          if (dropdownToggle) {
+            try {
+              if (window.bootstrap && bootstrap.Dropdown) {
+                var bsDropdown = bootstrap.Dropdown.getInstance(dropdownToggle);
+                if (bsDropdown) {
+                  bsDropdown.hide();
+                }
+              }
+            } catch (err) {}
+          }
+        }
+      }
+      
+      // Show modal
+      try {
+        if (window.bootstrap && bootstrap.Modal) {
+          var modal = bootstrap.Modal.getOrCreateInstance(vioModalEl);
+          modal.show();
+        } else if (window.jQuery && $.fn.modal) {
+          $(vioModalEl).modal('show');
+        }
+      } catch (err) {
+        console.error('Error showing violation modal:', err);
+      }
+      
+      return false;
+    });
+    
+    // Modal accessibility handlers
+    (function() {
+      var vioModalEl = document.getElementById('userViolationModal');
+      if (vioModalEl) {
+        vioModalEl.addEventListener('shown.bs.modal', function() {
+          this.setAttribute('aria-hidden', 'false');
+        });
+        vioModalEl.addEventListener('hidden.bs.modal', function() {
+          this.setAttribute('aria-hidden', 'true');
+        });
+      }
+    })();
+
+// Unified submit function (used by both jQuery and vanilla handlers)
+function submitViolation() {
+      var btn = document.getElementById('vio_submit_btn');
+      if (!btn) return;
+      if (btn.getAttribute('data-busy') === '1') return; // prevent double submits
+      var userId = (window.jQuery ? $('#vio_user_id').val() : document.getElementById('vio_user_id')?.value) || '';
+      var level = (window.jQuery ? $('#vio_level').val() : document.getElementById('vio_level')?.value) || 'minor';
+      var pcId = '';
+      var reason = (window.jQuery ? $('#vio_reason').val() : document.getElementById('vio_reason')?.value) || '';
+      if (!userId) { alert('Error: User ID is missing. Please try again.'); return; }
+      if (!reason) { alert('Please enter a reason.'); return; }
+      var urlTemplate = "{% url 'main_app:violation-create-user' user_id=0 %}";
+      var postUrl = urlTemplate.replace('/0/', '/' + encodeURIComponent(userId) + '/');
+      var csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
+      var csrf = (csrfInput && csrfInput.value) || getCookie('csrftoken') || '';
+      // lock button
+      btn.setAttribute('data-busy', '1');
+      btn.setAttribute('disabled', 'disabled');
+      var onDone = function() { btn.removeAttribute('disabled'); btn.removeAttribute('data-busy'); };
+      if (window.jQuery && typeof $.ajax === 'function') {
+        $.ajax({
+          url: postUrl,
+          type: 'POST',
+          data: { level: level, reason: reason },
+          beforeSend: function(xhr) { xhr.setRequestHeader('X-CSRFToken', csrf); },
+          success: function () {
+            try { bootstrap.Modal.getInstance(document.getElementById('userViolationModal')).hide(); } catch(e) {}
+            window.location.href = "{% url 'main_app:user-activities' %}?tab=violation&user=" + encodeURIComponent(userId);
+          },
+          error: function (xhr) {
+            let msg = 'Failed to save violation';
+            if (xhr.responseJSON && xhr.responseJSON.error) { msg = xhr.responseJSON.error; }
+            alert('Error: ' + msg);
+          },
+          complete: onDone
+        });
+      } else {
+        fetch(postUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8', 'X-CSRFToken': csrf },
+          body: new URLSearchParams({ level: level, reason: reason }).toString()
+        }).then(function (res) {
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          try { window.bootstrap && window.bootstrap.Modal.getInstance(document.getElementById('userViolationModal'))?.hide(); } catch(e) {}
+          window.location.href = "{% url 'main_app:user-activities' %}?tab=violation&user=" + encodeURIComponent(userId);
+        }).catch(function () {
+          alert('Error: Failed to save violation');
+        }).finally(onDone);
+      }
+    }
+
+// Submit violation handler - use event delegation (works even if button is recreated)
+document.addEventListener('click', function(e) {
+      var target = e.target;
+      // Check if clicked element is the button or inside the button
+      var submitBtn = target.id === 'vio_submit_btn' ? target : target.closest('#vio_submit_btn');
+      if (!submitBtn) return;
+      
+      e.preventDefault();
+      e.stopPropagation();
+      submitViolation();
+      return false;
+    });
+    
+// ============================================
+// CHAT FUNCTIONALITY
+// ============================================
+
+// Close WebSocket when modal is closed
+$(document).on('hidden.bs.modal', '#conversationModal', function () {
+      disconnectChatSocket();
+    });
+
+// Open init chat modal from Users table
+$(document).on('click', '.start-chat-btn', function () {
+      const recipientEmail = $(this).data('recipient-email');
+      $("#recipient").val(recipientEmail).prop("disabled", true);
+      $("#initMessageModal").modal("show");
+    });
+
+// Send initial message
+$("#send_init_message").click(function () {
+      let recipient = $("#recipient").val();
+      let initMessage = $("#initMessage").val();
+      if (!initMessage) { alert("Message cannot be empty."); return; }
+      $.ajax({
+        url: $(this).data("send-init-message-url"),
+        type: "POST",
+        data: { recipient: recipient, message: initMessage },
+        beforeSend: function(xhr) {
+          xhr.setRequestHeader("X-CSRFToken", $('[name=csrfmiddlewaretoken]').val() || document.querySelector('[name=csrfmiddlewaretoken]')?.value || '');
+        },
+        success: function () {
+          $("#initMessageModal").modal("hide");
+          resetInitMessageForm();
+          // Only call loadMessages if messages table exists
+          if (typeof loadMessages === 'function') {
+            try {
+          loadMessages();
+            } catch (error) {
+              console.error("Error calling loadMessages:", error);
+            }
+          } else {
+            console.warn("loadMessages function not available");
+          }
+        },
+        error: function (xhr) {
+          let errorMsg = "Failed to send message.";
+          if (xhr.responseJSON && xhr.responseJSON.error) {
+            errorMsg = xhr.responseJSON.error;
+          } else if (xhr.responseText) {
+            try {
+              const errorData = JSON.parse(xhr.responseText);
+              errorMsg = errorData.error || errorMsg;
+            } catch(e) {
+              errorMsg = xhr.responseText.substring(0, 100);
+            }
+          }
+          alert("Error: " + errorMsg);
+        }
+      });
+    });
+
+// Open conversation modal from list
+$(document).on("click", ".messagesItem", function () {
+      var roomId = $(this).data('room-id');
+      var receiverEmail = $(this).data('receiver-email');
+      var receiverFirstname = $(this).data("receiver-fname");
+      var receiverLastname = $(this).data("receiver-lname");
+      $("#receiverEmail").val(receiverEmail);
+      $("#roomId").val(roomId);
+      $("#convoWith").text(receiverFirstname + ' ' + receiverLastname);
+      
+      // Show modal first
+      var modalEl = document.getElementById('conversationModal');
+      if (modalEl) {
+        var convModal = new bootstrap.Modal(modalEl);
+        convModal.show();
+        
+        // Wait for modal to be fully shown before loading conversation and connecting WebSocket
+        modalEl.addEventListener('shown.bs.modal', function onShown() {
+          console.log("Modal shown, loading conversation for room:", roomId);
+          loadConversation(roomId);
+          // Remove listener after first use
+          modalEl.removeEventListener('shown.bs.modal', onShown);
+        }, { once: true });
+      } else {
+        // Fallback to jQuery if Bootstrap 5 not available
+        $("#conversationModal").modal("show");
+        $("#conversationModal").one('shown.bs.modal', function() {
+          loadConversation(roomId);
+        });
+      }
+    });
+
+// Send new message
+$("#send_new_message_btn").click(function () {
+      let newMessage = $("#new_message").val();
+      let roomId = $("#roomId").val();
+      if (!newMessage) return;
+      let completeUrl = `/ajax/send-new-message/${roomId}/`;
+      $.ajax({ 
+        url: completeUrl, 
+        type: "POST", 
+        data: { message: newMessage },
+        beforeSend: function(xhr) {
+          xhr.setRequestHeader("X-CSRFToken", $('[name=csrfmiddlewaretoken]').val() || document.querySelector('[name=csrfmiddlewaretoken]')?.value || '');
+        },
+        success: function (response) {
+          // Message will be added via WebSocket, but we add it optimistically
+          // The WebSocket handler will prevent duplicates
+          const chatContainer = $("#chatContainer");
+          // Only add if not already added by WebSocket
+          if (!chatContainer.find(`[data-temp-message="${newMessage}"]`).length) {
+            chatContainer.append(`<div class="message sender" data-temp-message="${newMessage}" style="background:#DCF8C6; border-radius:12px; padding:8px 12px; margin:5px 0; max-width:70%; align-self:flex-start;"><span style="font-size: small;">You</span><br>${newMessage}</div>`);
+            chatContainer.scrollTop(chatContainer.prop("scrollHeight"));
+          }
+          $("#new_message").val("");
+          // Refresh conversation list for unread indicators
+          if (typeof loadMessages === 'function') {
+            try {
+              loadMessages();
+            } catch (error) {
+              console.error("Error calling loadMessages:", error);
+            }
+          }
+        },
+        error: function (xhr) {
+          let errorMsg = "Failed to send message.";
+          if (xhr.responseJSON && xhr.responseJSON.error) {
+            errorMsg = xhr.responseJSON.error;
+          } else if (xhr.responseText) {
+            try {
+              const errorData = JSON.parse(xhr.responseText);
+              errorMsg = errorData.error || errorMsg;
+            } catch(e) {
+              errorMsg = xhr.responseText.substring(0, 100);
+            }
+          }
+          alert("Error: " + errorMsg);
+        }
+      });
+    });
+</script>
+{% endblock %}

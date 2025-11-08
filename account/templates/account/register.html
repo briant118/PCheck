@@ -1,0 +1,355 @@
+{% extends "base.html" %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block title %}Create an account{% endblock %}
+
+{% block links %}
+<link rel="stylesheet" href="{% static 'css/mystyle.css' %}">
+<style>
+body {
+    background: linear-gradient(135deg, #ff6b35 0%, #f7931e 50%, #ffa500 100%);
+    min-height: 100vh;
+}
+
+.container.mt-5.pt-5.rounded {
+    padding: 2rem 1rem;
+}
+
+.loader {
+    border: 6px solid #f3f3f3;
+    border-top: 6px solid #3498db;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.card {
+    border: none !important;
+    border-radius: 20px !important;
+    overflow: hidden;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2) !important;
+}
+
+.card-body.bg-warning {
+    background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%) !important;
+    padding: 2.5rem 2rem !important;
+    border: none;
+}
+
+.card-body.bg-warning h1 {
+    color: #2c3e50;
+    font-weight: 700;
+    font-size: 2rem;
+    margin: 0;
+    line-height: 1.4;
+}
+
+.form-section {
+    background: white;
+    padding: 2.5rem !important;
+}
+
+.step h3 {
+    color: #2c3e50;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    font-size: 1.5rem;
+}
+
+.user-class-button {
+    border: 3px solid #ff6b35;
+    border-radius: 15px;
+    background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+    cursor: pointer;
+    margin: 0.5rem;
+    color: white;
+    width: 150px;
+    height: 150px;
+    font-size: 1.2rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    box-shadow: 0 4px 15px rgba(255, 107, 53, 0.3);
+}
+
+.user-class-button i {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.user-class-button:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(255, 107, 53, 0.5);
+    background: linear-gradient(135deg, #f7931e 0%, #ff6b35 100%);
+    border-color: #ff8c42;
+}
+
+.user-class-button:active {
+    transform: translateY(-2px);
+}
+
+.role-buttons-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 2rem;
+    flex-wrap: wrap;
+    margin: 2rem 0;
+}
+
+.next-button {
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+    cursor: pointer;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    color: white;
+    width: 80%;
+    padding: 0.875rem 2rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(255, 107, 53, 0.3);
+}
+
+.next-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255, 107, 53, 0.5);
+    background: linear-gradient(135deg, #f7931e 0%, #ff6b35 100%);
+    color: white;
+}
+
+.next-button:active {
+    transform: translateY(0);
+}
+
+.form-control {
+    border-radius: 10px;
+    border: 2px solid #e0e0e0;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus {
+    border-color: #ff6b35;
+    box-shadow: 0 0 0 0.2rem rgba(255, 107, 53, 0.25);
+    outline: none;
+}
+
+.step {
+    display: none;
+    margin-bottom: 20px;
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.active {
+    display: block;
+}
+
+.otp {
+    margin-right: 0.5em;
+    margin-bottom: 1em;
+    width: 3em;
+    text-align: center;
+}
+
+@media (max-width: 768px) {
+    .user-class-button {
+        width: 120px;
+        height: 120px;
+        font-size: 1rem;
+    }
+    
+    .user-class-button i {
+        font-size: 2rem;
+    }
+    
+    .role-buttons-container {
+        gap: 1rem;
+    }
+    
+    .card-body.bg-warning h1 {
+        font-size: 1.5rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-5 pt-5 rounded">
+  <div class="card col-md-6 offset-md-3 border rounded shadow-lg mb-5 bg-body">
+    <div class="text-center card-body bg-warning mb-3">
+      <h1>Hello, <br>Create your account</h1>
+    </div>
+    <div class="form-section card-body p-4">
+      <form id="registrationForm" method="post">
+        {% csrf_token %}
+        <!-- Step 1: Role -->
+        <div class="step active" id="step1">
+          <h3 class="text-center mb-4">Select your role</h3>
+          <div class="role-buttons-container">
+            <button type="button" class="next user-class-button" data-next="step2" data-role="student" onclick="document.getElementById('role').value='student'; document.getElementById('step1').classList.remove('active'); document.getElementById('step2').classList.add('active'); document.getElementById('student-fields').style.display='block'; console.log('Student selected');">
+              <i class="fa-solid fa-user-graduate"></i>
+              <span>Student</span>
+            </button>
+            <button type="button" class="next user-class-button" data-next="step2" data-role="faculty" onclick="document.getElementById('role').value='faculty'; document.getElementById('step1').classList.remove('active'); document.getElementById('step2').classList.add('active'); document.getElementById('student-fields').style.display='none'; console.log('Faculty selected');">
+              <i class="fa-solid fa-chalkboard-user"></i>
+              <span>Faculty</span>
+            </button>
+          </div>
+          <input type="hidden" name="role" id="role">
+        </div>
+
+        <!-- Step 2: Name -->
+        <div class="step" id="step2">
+          <h3>Enter your name</h3>
+          <div class="d-flex mb-2" style="max-width: auto;">
+            <input type="text" name="first_name" placeholder="First Name" required class="form-control" style="margin-right: 1em;">
+            <input type="text" name="last_name" placeholder="Last Name" required class="form-control">
+          </div>
+          <div class="text-center">
+            <button type="button" class="next next-button" data-next="step3" onclick="console.log('Next to step3'); document.getElementById('step2').classList.remove('active'); document.getElementById('step3').classList.add('active');">Next</button>
+          </div>
+        </div>
+
+        <!-- Step 3: College Info -->
+        <div class="step" id="step3">
+          <h3>Select your college</h3>
+          <select name="college" required class="form-control select mb-2">
+            <option value="">-- Select College --</option>
+            {% for college in colleges %}
+            <option value="{{ college.id }}">{{ college.name }}</option>
+            {% endfor %}
+          </select>
+          
+          <!-- Student only fields -->
+          <div id="student-fields">
+            <input type="text" name="course" placeholder="Course Name" class="form-control mb-2">
+            <input type="text" name="year" placeholder="Year" class="form-control mb-2">
+            <input type="text" name="block" placeholder="Block (e.g., 2A)" class="form-control mb-2">
+          </div>
+          
+          <div class="text-center">
+            <button type="button" class="next next-button" data-next="step4" onclick="console.log('Next to step4'); document.getElementById('step3').classList.remove('active'); document.getElementById('step4').classList.add('active');">Next</button>
+          </div>
+        </div>
+
+        <!-- Step 4: Email -->
+        <div class="step" id="step4">
+          <h3>Enter your email</h3>
+          <div class="d-flex" style="max-width: 500px;">
+            <input type="text" id="email_prefix" name="email_prefix"
+              placeholder="Email Address Prefix" required class="form-control me-2"
+              pattern="[A-Za-z0-9]+" title="Only letters and numbers are allowed">
+            <input type="text" id="email_domain" value="@psu.palawan.edu.ph" disabled class="form-control" style="max-width: 220px;">
+          </div>
+          <input type="hidden" name="email" id="email_full">
+          <div class="mt-2" style="max-width: auto;">
+            <input type="password" name="password" placeholder="Create a strong password" required class="form-control mb-2"
+              pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
+              title="Use at least 8 characters with uppercase, lowercase, and a number." autocomplete="new-password">
+            <input type="password" name="password2" placeholder="Re-enter the same password" required class="form-control mb-2"
+              pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
+              title="Repeat the password. It must match and meet all strength rules." autocomplete="new-password">
+            <small class="form-text text-muted d-block">
+              Passwords must be 8 or more characters and include uppercase, lowercase, and at least one number.
+            </small>
+          </div>
+          <div class="text-center mt-1">
+            <button type="submit" class="next-button">Submit</button>
+          </div>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Load registration script after jQuery
+$(document).ready(function () {
+  console.log("Registration.js loaded");
+  
+  // Email validation regex
+  var regex = /^[a-zA-Z0-9]+$/;
+  
+  // Registration script
+  // Handle next button clicks
+  $(".next").click(function(){
+    console.log("Next button clicked");
+    var nextStep = $(this).data("next");
+    console.log("Next step:", nextStep);
+
+    // if role button clicked, set role value
+    if($(this).data("role")){
+      var role = $(this).data("role");
+      console.log("Role selected:", role);
+      $("#role").val(role);
+    }
+
+    $(this).closest(".step").removeClass("active");
+    $("#" + nextStep).addClass("active");
+    console.log("Step changed to:", nextStep);
+  });
+
+  // Handle form submit
+  $("#registrationForm").on("submit", function(e) {
+    // Temporarily disable required on hidden steps to avoid browser blocking
+    $(".step:not(.active)").find("input, select, textarea").each(function(){
+      var el = $(this);
+      if (el.prop('required')) {
+        el.data('was-required', true);
+        el.prop('required', false);
+      }
+    });
+
+    // Validate email prefix
+    var prefix = $("#email_prefix").val().trim();
+    var domain = "@psu.palawan.edu.ph";
+
+    if (!regex.test(prefix)) {
+      alert("Email prefix must only contain letters and numbers (no @ or .).");
+      e.preventDefault();
+      return false;
+    }
+
+    // Validate password match
+    var password = $('input[name="password"]').val();
+    var password2 = $('input[name="password2"]').val();
+    
+    if (password !== password2) {
+      alert("Passwords do not match. Please re-enter your password.");
+      e.preventDefault();
+      return false;
+    }
+  });
+});
+</script>
+{% endblock %}

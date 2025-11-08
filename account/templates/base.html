@@ -1,0 +1,1614 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}{% endblock %}</title>
+    <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet" 
+      integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous">
+    <script src="https://kit.fontawesome.com/6e865f5ab0.js" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="{% static 'css/mystyle.css' %}?v=19">
+    <!-- Make jQuery/Bootstrap available to any inline scripts rendered in content -->
+    <script src="{% static 'js/jquery-3.7.1.min.js' %}"></script>
+    <script>
+      if (!window.jQuery) {
+        var jq = document.createElement('script');
+        jq.src = 'https://code.jquery.com/jquery-3.6.0.min.js';
+        jq.crossOrigin = 'anonymous';
+        document.head.appendChild(jq);
+      }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js" integrity="sha384-oBqDVmMz9ATKxIep9tiCxS/Z9fNfEXiDAYTujMAeBAsjFuCZSmKbSSUnQlmh/jp3" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.min.js" integrity="sha384-cuYeSxntonz0PPNlHhBs68uyIAVpIIOZZ5JqeqvYYIcEL727kskC66kF92t6Xl2V" crossorigin="anonymous"></script>
+
+    {% block links %}
+    {% endblock %}
+  
+  </head>
+  <body>
+    <div class="wrapper">
+      <!-- Vertical Sidebar Navbar - Staff Only -->
+      {% if request.resolver_match.app_name != 'account' and request.resolver_match.app_name != 'socialaccount' or request.resolver_match.url_name != 'login' %}
+      {% if request.user.is_authenticated and request.user.is_staff or request.user.is_authenticated and request.user.profile.role|default:'' == 'staff' %}
+      <div class="sidebar-overlay" id="sidebar-overlay"></div>
+      <nav class="sidebar" id="sidebar">
+        <div class="sidebar-content">
+          <div class="sidebar-header">
+            <a class="sidebar-brand" href="{% if request.user.is_staff or request.user.profile.role|default:'' == 'staff' %}{% url 'main_app:dashboard' %}{% else %}{% url 'main_app:home' %}{% endif %}">
+              PCheck
+            </a>
+          </div>
+          
+          <div class="sidebar-menu">
+            {% if request.user.is_staff or request.user.profile.role|default:'' == "staff" %}
+            <ul class="sidebar-nav">
+              <li>
+                <a class="sidebar-link {% if request.resolver_match.app_name == 'main_app' and request.resolver_match.url_name == 'dashboard' %}active{% endif %}" 
+                  href="{% url 'main_app:dashboard' %}">
+                  <i class="fa-solid fa-house-chimney"></i> <span>Home</span>
+                </a>
+              </li>
+              <li>
+                <a class="sidebar-link {% if section == 'user' %}active{% endif %}" 
+                  href="{% url 'main_app:users' %}">
+                  <i class="fa-solid fa-users"></i> <span>Users</span>
+                </a>
+              </li>
+              <li>
+                <a class="sidebar-link {% if section == 'pc_list' %}active{% endif %}" 
+                  href="{% url 'main_app:pc-list' %}">
+                  <i class="fa-solid fa-desktop"></i> <span>PCs</span>
+                </a>
+              </li>
+              <li>
+                <a class="sidebar-link {% if section == 'bookings' %}active{% endif %}" 
+                  href="{% url 'main_app:bookings' %}">
+                  <i class="fa-solid fa-calendar-check"></i> <span>Bookings</span>
+                </a>
+              </li>
+              <li>
+                <a class="sidebar-link {% if request.resolver_match.app_name == 'main_app' and request.resolver_match.url_name == 'chats' %}active{% endif %}"
+                  href="{% url 'main_app:chats' %}">
+                  <i class="fa-solid fa-comments"></i> <span>Chat</span>
+                </a>
+              </li>
+            </ul>
+            {% else %}
+            <ul class="sidebar-nav">
+              <li>
+                <a class="sidebar-link {% if request.resolver_match.app_name == 'main_app' and request.resolver_match.url_name == 'pc-reservation' %}active{% endif %}" 
+                  href="{% url 'main_app:pc-reservation' %}">
+                  <i class="fa-solid fa-house-chimney"></i> <span>Home</span>
+                </a>
+              </li>
+            </ul>
+            {% endif %}
+
+            {% if request.user.is_authenticated %}
+            {% if not request.user.is_staff and request.user.profile.role|default:'' != "staff" %}
+              <ul class="sidebar-nav sidebar-bottom">
+                <li class="sidebar-dropdown">
+                  <a class="sidebar-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    {% if request.user.profile.profile_picture %}
+                      <img src="{{ request.user.profile.profile_picture.url }}" class="rounded-circle me-2" alt="Profile" style="width: 24px; height: 24px; object-fit: cover;">
+                    {% else %}
+                      <i class="fa-solid fa-user"></i>
+                    {% endif %}
+                    <span>{{ request.user.first_name|default:request.user.username }}</span>
+                  </a>
+                  <ul class="dropdown-menu sidebar-dropdown-menu">
+                    <li><a class="dropdown-item sidebar-dropdown-item" href="{% url 'account:profile' %}"><i class="fa-solid fa-id-card"></i> Profile</a></li>
+                    <li><a class="dropdown-item sidebar-dropdown-item" href="{% url 'main_app:chats' %}"><i class="fa-solid fa-comments"></i> Chat</a></li>
+                    <li><a class="dropdown-item sidebar-dropdown-item" href="{% url 'account:about' %}"><i class="fa-solid fa-info-circle"></i> About</a></li>
+                    <li><hr class="dropdown-divider sidebar-divider"></li>
+                    <li><a class="dropdown-item sidebar-dropdown-item" href="{% url 'account:logout' %}"><i class="fa-solid fa-right-from-bracket"></i> Logout</a></li>
+                  </ul>
+                </li>
+              </ul>
+              {% endif %}
+            {% else %}
+            <ul class="sidebar-nav sidebar-bottom">
+              <li>
+                {% if request.resolver_match.app_name != 'account' and request.resolver_match.url_name != 'login' and request.resolver_match.app_name != 'socialaccount' %}
+                <a class="sidebar-link" href="{% url 'account:login' %}">
+                  <i class="fa-solid fa-sign-in-alt"></i> <span>Login</span>
+                </a>
+                {% endif %}
+              </li>
+            </ul>
+            {% endif %}
+
+            {% if request.user.is_authenticated %}
+            {% if request.user.is_staff or request.user.profile.role|default:'' == "staff" %}
+            <!-- QR Code Scanner -->
+            <div class="sidebar-qr-scanner">
+              <div class="qr-scanner-screen">
+                <div id="qr-reader" class="qr-reader-container"></div>
+                <div class="qr-placeholder" id="qr-placeholder">
+                  <div class="qr-placeholder-icon">
+                    <i class="fa-solid fa-qrcode"></i>
+                  </div>
+                  <div class="qr-placeholder-text">Ready to scan</div>
+                </div>
+                <div class="qr-scanner-overlay" id="qr-overlay" style="display: none;">
+                  <div class="qr-scanner-frame"></div>
+                </div>
+              </div>
+              <div class="qr-scanner-controls">
+                <button class="qr-scanner-btn" id="qr-start-btn" title="Start Scanner">
+                  <i class="fa-solid fa-qrcode"></i> <span>Scan</span>
+                </button>
+                <button class="qr-scanner-btn" id="qr-stop-btn" title="Stop Scanner" style="display: none;">
+                  <i class="fa-solid fa-stop"></i> <span>Stop</span>
+                </button>
+              </div>
+              <div class="qr-scanner-result" id="qr-result" style="display: none;"></div>
+            </div>
+            {% endif %}
+            {% endif %}
+          </div>
+        </div>
+      </nav>
+      <!-- end of Sidebar -->
+      {% endif %}
+      {% endif %}
+
+      <!-- Main Content Area -->
+      <div class="main-content">
+        <!-- Mobile Header with Logo and Menu - Hidden for Admin/Staff -->
+        {% if request.resolver_match.app_name != 'account' and request.resolver_match.app_name != 'socialaccount' or request.resolver_match.url_name != 'login' %}
+        {% if not request.user.is_staff and request.user.profile.role|default:'' != 'staff' %}
+        <div class="mobile-header d-lg-none">
+          <div class="mobile-header-left">
+            <a class="mobile-brand" href="{% url 'main_app:pc-reservation' %}">
+              <img src="{% static 'image/PSU_logo.png' %}" alt="PSU Logo" class="mobile-header-logo">
+              <div class="mobile-brand-text-container">
+                <span class="mobile-brand-text">Palawan State University</span>
+                <span class="mobile-brand-subtitle">Management Information System Office</span>
+              </div>
+            </a>
+          </div>
+          
+          <div class="mobile-header-right">
+            {% if request.user.is_authenticated %}
+            <button class="mobile-menu-toggle" id="mobile-menu-toggle" aria-label="Toggle menu">
+              <i class="fa-solid fa-bars"></i>
+            </button>
+            {% endif %}
+          </div>
+        </div>
+        {% endif %}
+        
+        <!-- Mobile Navigation Menu -->
+        {% if request.user.is_authenticated and request.user.profile.role|default:'' != 'staff' %}
+        <div class="mobile-nav-overlay" id="mobile-nav-overlay"></div>
+        <nav class="mobile-nav" id="mobile-nav">
+          <div class="mobile-nav-header">
+            <span class="mobile-nav-title">PCheck</span>
+            <button class="mobile-nav-close" id="mobile-nav-close" aria-label="Close menu">
+              <i class="fa-solid fa-times"></i>
+            </button>
+          </div>
+          <ul class="mobile-nav-menu">
+            <li>
+              <a href="{% url 'main_app:pc-reservation' %}" class="mobile-nav-item">
+                <i class="fa-solid fa-house-chimney"></i>
+                <span>Home</span>
+              </a>
+            </li>
+            {% if request.user.profile.role|default:'' == 'faculty' %}
+            <li>
+              <a href="{% url 'main_app:my-faculty-bookings' %}" class="mobile-nav-item">
+                <i class="fa-solid fa-calendar-check"></i>
+                <span>My Faculty Bookings</span>
+              </a>
+            </li>
+            {% endif %}
+            <li>
+              <a href="{% url 'main_app:chats' %}" class="mobile-nav-item">
+                <i class="fa-solid fa-comments"></i>
+                <span>Chat</span>
+              </a>
+            </li>
+            <li>
+              <a href="{% url 'account:about' %}" class="mobile-nav-item">
+                <i class="fa-solid fa-info-circle"></i>
+                <span>About</span>
+              </a>
+            </li>
+            <li>
+              <a href="{% url 'account:profile' %}" class="mobile-nav-item">
+                <i class="fa-solid fa-id-card"></i>
+                <span>Profile</span>
+              </a>
+            </li>
+            <li>
+              <a href="{% url 'account:logout' %}" class="mobile-nav-item">
+                <i class="fa-solid fa-right-from-bracket"></i>
+                <span>Logout</span>
+              </a>
+            </li>
+          </ul>
+        </nav>
+        {% endif %}
+        {% endif %}
+        
+        <!-- Modern Desktop Header for Admin/Staff -->
+        {% if request.user.is_authenticated and request.user.is_staff or request.user.is_authenticated and request.user.profile.role|default:'' == 'staff' %}
+        <div class="admin-header d-none d-lg-block">
+          <div class="admin-header-content">
+            <div class="admin-header-left">
+              <div class="admin-logo-container">
+                <img src="{% static 'image/PSU_logo.png' %}" alt="PSU Logo" class="admin-header-logo">
+              </div>
+              <div class="admin-header-text">
+                <h1 class="admin-header-title">Palawan State University</h1>
+                <p class="admin-header-subtitle">Management Information System</p>
+              </div>
+            </div>
+            <div class="admin-header-right">
+              <div class="admin-header-warning-container dropdown">
+                <button class="admin-header-warning-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="View warnings">
+                  <i class="fa-solid fa-triangle-exclamation"></i>
+                  <span class="admin-header-warning-badge" id="warningBadge" style="display: none;">0</span>
+                </button>
+                <ul class="dropdown-menu admin-header-warning-menu" id="warningDropdown">
+                  <li class="dropdown-header">
+                    <h6 class="mb-0">Device Removal Warnings</h6>
+                  </li>
+                  <li><hr class="dropdown-divider"></li>
+                  <li id="warningListEmpty" class="px-3 py-2 text-muted text-center">
+                    <small>No warnings</small>
+                  </li>
+                  <li id="warningListItems" style="display: none;"></li>
+                  <li><hr class="dropdown-divider"></li>
+                  <li>
+                    <button class="dropdown-item text-center" type="button" id="clearWarningsBtn" style="display: none;">
+                      <small>Clear all</small>
+                    </button>
+                  </li>
+                </ul>
+              </div>
+              <div class="admin-header-dropdown">
+                <div class="admin-header-link-group">
+                  <a class="admin-header-link" href="#" data-bs-toggle="modal" data-bs-target="#profileModal">
+                    {% if request.user.profile and request.user.profile.profile_picture %}
+                      <img src="{{ request.user.profile.profile_picture.url }}" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block;">
+                    {% else %}
+                      <i class="fa-solid fa-user"></i>
+                    {% endif %}
+                    <span>{{ request.user.first_name|default:request.user.username }}</span>
+                  </a>
+                  <div class="dropdown">
+                    <button class="admin-header-dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Open menu">
+                    </button>
+                    <ul class="dropdown-menu admin-header-dropdown-menu">
+                      <li><a class="dropdown-item admin-header-dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#aboutModal"><i class="fa-solid fa-info-circle"></i> About</a></li>
+                      <li><hr class="dropdown-divider admin-header-divider"></li>
+                      <li><a class="dropdown-item admin-header-dropdown-item" href="{% url 'account:logout' %}"><i class="fa-solid fa-right-from-bracket"></i> Logout</a></li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        {% if messages %}
+        <!-- Message Container -->
+        <div id="message-container" style="margin-top: 20px; margin-bottom: 20px;">
+          {% for message in messages %}
+          <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show text-center" 
+            role="alert" style="box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        <div id="content" class="content-wrapper">
+          {% block content %}
+          {% endblock %}
+        </div>
+      </div>
+    </div>
+
+    {% block scripts %}
+    {% endblock %}
+    <script>
+      // User menu toggle functionality (for non-staff users)
+      (function initUserMenu() {
+        var userMenuToggle = document.getElementById('user-menu-toggle');
+        var userMenuDropdown = document.getElementById('user-menu-dropdown');
+        var desktopUserMenuToggle = document.getElementById('desktop-user-menu-toggle');
+        var desktopUserMenuDropdown = document.getElementById('desktop-user-menu-dropdown');
+        
+        function toggleUserMenu(dropdown) {
+          if (dropdown) {
+            dropdown.classList.toggle('active');
+          }
+        }
+        
+        function closeUserMenus() {
+          if (userMenuDropdown) userMenuDropdown.classList.remove('active');
+          if (desktopUserMenuDropdown) desktopUserMenuDropdown.classList.remove('active');
+        }
+        
+        // Mobile user menu
+        if (userMenuToggle) {
+          userMenuToggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleUserMenu(userMenuDropdown);
+          });
+        }
+        
+        // Desktop user menu
+        if (desktopUserMenuToggle) {
+          desktopUserMenuToggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleUserMenu(desktopUserMenuDropdown);
+          });
+        }
+        
+        // Close menu when clicking outside
+        document.addEventListener('click', function(e) {
+          if (userMenuToggle && userMenuDropdown && !userMenuToggle.contains(e.target) && !userMenuDropdown.contains(e.target)) {
+            closeUserMenus();
+          }
+          if (desktopUserMenuToggle && desktopUserMenuDropdown && !desktopUserMenuToggle.contains(e.target) && !desktopUserMenuDropdown.contains(e.target)) {
+            closeUserMenus();
+          }
+        });
+      })();
+      
+      // Mobile menu toggle functionality
+      (function initMobileMenu() {
+        var mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+        var mobileNav = document.getElementById('mobile-nav');
+        var mobileNavOverlay = document.getElementById('mobile-nav-overlay');
+        var mobileNavClose = document.getElementById('mobile-nav-close');
+        var sidebar = document.getElementById('sidebar');
+        var sidebarOverlay = document.getElementById('sidebar-overlay');
+        
+        function openMobileNav() {
+          if (mobileNav) mobileNav.classList.add('active');
+          if (mobileNavOverlay) mobileNavOverlay.classList.add('active');
+          document.body.style.overflow = 'hidden';
+        }
+        
+        function closeMobileNav() {
+          if (mobileNav) mobileNav.classList.remove('active');
+          if (mobileNavOverlay) mobileNavOverlay.classList.remove('active');
+          document.body.style.overflow = '';
+        }
+        
+        function openSidebar() {
+          if (sidebar) sidebar.classList.add('mobile-open');
+          if (sidebarOverlay) sidebarOverlay.classList.add('active');
+          document.body.style.overflow = 'hidden';
+        }
+        
+        function closeSidebar() {
+          if (sidebar) sidebar.classList.remove('mobile-open');
+          if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+          document.body.style.overflow = '';
+        }
+        
+        // Mobile navigation for regular users
+        if (mobileMenuToggle && mobileNav) {
+          mobileMenuToggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (mobileNav.classList.contains('active')) {
+              closeMobileNav();
+            } else {
+              openMobileNav();
+            }
+          });
+        }
+        
+        // Staff sidebar toggle
+        if (mobileMenuToggle && sidebar && !mobileNav) {
+          mobileMenuToggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (sidebar.classList.contains('mobile-open')) {
+              closeSidebar();
+            } else {
+              openSidebar();
+            }
+          });
+        }
+        
+        // Close mobile nav
+        if (mobileNavClose) {
+          mobileNavClose.addEventListener('click', function() {
+            closeMobileNav();
+          });
+        }
+        
+        if (mobileNavOverlay) {
+          mobileNavOverlay.addEventListener('click', function() {
+            closeMobileNav();
+          });
+        }
+        
+        // Close mobile nav when clicking on a link
+        if (mobileNav) {
+          var mobileNavLinks = mobileNav.querySelectorAll('.mobile-nav-item');
+          mobileNavLinks.forEach(function(link) {
+            link.addEventListener('click', function() {
+              closeMobileNav();
+            });
+          });
+        }
+        
+        // Sidebar overlay for staff
+        if (sidebarOverlay) {
+          sidebarOverlay.addEventListener('click', function() {
+            closeSidebar();
+          });
+        }
+        
+        // Close sidebar when clicking on a sidebar link (mobile)
+        if (sidebar) {
+          var sidebarLinks = sidebar.querySelectorAll('.sidebar-link');
+          sidebarLinks.forEach(function(link) {
+            link.addEventListener('click', function() {
+              if (window.innerWidth <= 991.98) {
+                closeSidebar();
+              }
+            });
+          });
+        }
+        
+        // Close menus on window resize
+        window.addEventListener('resize', function() {
+          if (window.innerWidth > 991.98) {
+            closeSidebar();
+            closeMobileNav();
+          }
+        });
+      })();
+      
+      setTimeout(function () {
+        var alerts = document.querySelectorAll('.alert');
+        alerts.forEach(function(alert) {
+          // For Bootstrap 5: fade out then remove
+          alert.classList.remove('show');
+          alert.classList.add('fade');
+          setTimeout(function () {
+            alert.remove();
+          }, 500); // wait for fade transition
+        });
+      }, 3000); // 3000 ms = 3 seconds
+    </script>
+    {% if request.user.is_authenticated %}
+    <script>
+      // Periodically clear expired PC bookings so PCs don't stay blocked (red)
+      (function schedulePcCleanup() {
+        const runCleanup = function() {
+          fetch('{% url "main_app:clearup_pcs" %}', { cache: 'no-store' })
+            .then(function() { /* ignore response */ })
+            .catch(function() { /* ignore errors */ });
+        };
+        // Run once on load and then every 60 seconds
+        runCleanup();
+        setInterval(runCleanup, 60000);
+      })();
+    </script>
+    {% endif %}
+    {% if request.user.is_authenticated and request.user.profile.role|default:'' != 'staff' %}
+    <script>
+      (function facultyBookingNotifier(){
+        var badge = document.getElementById('faculty-bell-badge');
+        if (!badge) return;
+        var lastShownKey = 'fb:lastStatusShown';
+        function showToast(message, styleClass){
+          try {
+            var div = document.createElement('div');
+            div.className = 'alert ' + styleClass + ' alert-dismissible fade show text-center';
+            div.style.position='fixed'; div.style.top='20px'; div.style.right='20px'; div.style.zIndex='2000';
+            div.innerHTML = message + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
+            document.body.appendChild(div);
+            setTimeout(function(){ try{ div.remove(); }catch(e){} }, 8000);
+          } catch(e) {}
+        }
+        function updateUI(status){
+          if (!status || status === 'pending') {
+            badge.classList.add('d-none');
+            return;
+          }
+          // For confirmed/cancelled, show badge
+          badge.classList.remove('d-none');
+        }
+        function poll(){
+          fetch('{% url "main_app:check-my-faculty-booking-status" %}', { credentials: 'same-origin', cache: 'no-store' })
+            .then(function(r){ return r.ok ? r.json() : null; })
+            .then(function(data){
+              if (!data || !data.has_update) { updateUI(null); return; }
+              var status = (data.status || '').toLowerCase();
+              updateUI(status);
+              var last = sessionStorage.getItem(lastShownKey);
+              if (status && status !== 'pending' && status !== last) {
+                if (status === 'confirmed') {
+                  showToast('Your faculty booking was APPROVED.', 'alert-success');
+                } else if (status === 'cancelled') {
+                  showToast('Your faculty booking was DECLINED/CANCELLED.', 'alert-danger');
+                }
+                sessionStorage.setItem(lastShownKey, status);
+              }
+            })
+            .catch(function(){})
+            .finally(function(){ setTimeout(poll, 10000); });
+        }
+        poll();
+      })();
+    </script>
+    {% endif %}
+    {% if request.user.is_authenticated and request.user.is_staff or request.user.is_authenticated and request.user.profile.role == 'staff' %}
+    <!-- QR Code Scanner Script -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script>
+      (function initQRScanner() {
+        // Wait for DOM to be fully loaded
+        function waitForElements() {
+          const qrReader = document.getElementById('qr-reader');
+          const startBtn = document.getElementById('qr-start-btn');
+          const stopBtn = document.getElementById('qr-stop-btn');
+          const statusEl = document.getElementById('qr-status');
+          const resultEl = document.getElementById('qr-result');
+          
+          if (!qrReader || !startBtn || !stopBtn) {
+            console.log('QR Scanner elements not found, retrying...');
+            setTimeout(waitForElements, 500);
+            return;
+          }
+          
+          console.log('QR Scanner elements found, initializing...');
+          initializeScanner(qrReader, startBtn, stopBtn, statusEl, resultEl);
+        }
+        
+        function initializeScanner(qrReader, startBtn, stopBtn, statusEl, resultEl) {
+          let html5QrCode = null;
+          let scanning = false;
+          
+          function updateStatus(message, color = '#ffffff') {
+          if (statusEl) {
+            statusEl.textContent = message;
+            statusEl.style.color = color;
+          }
+        }
+        
+        function showResult(text) {
+          if (resultEl) {
+            resultEl.textContent = 'Scanned: ' + text;
+            resultEl.style.display = 'block';
+            setTimeout(function() {
+              resultEl.style.display = 'none';
+            }, 5000);
+          }
+        }
+        
+        function startScanner() {
+          if (scanning) {
+            console.log('Scanner already running');
+            return;
+          }
+          
+          // Check if Html5Qrcode is available
+          if (typeof Html5Qrcode === 'undefined') {
+            console.error('Html5Qrcode library not loaded');
+            updateStatus('Scanner library not loaded', '#ff0000');
+            alert('QR Scanner library failed to load. Please refresh the page.');
+            return;
+          }
+          
+          try {
+            // Clear any previous scanner instance
+            if (qrReader) {
+              qrReader.innerHTML = '';
+            }
+            
+            html5QrCode = new Html5Qrcode("qr-reader");
+            scanning = true;
+            
+            updateStatus('Requesting camera...', '#ffff00');
+            
+            // Try to use environment camera (back camera on mobile), fallback to user (front camera)
+            const cameraConfig = { facingMode: "environment" };
+            
+            html5QrCode.start(
+              cameraConfig,
+              {
+                fps: 10,
+                qrbox: function(viewfinderWidth, viewfinderHeight) {
+                  // Make qrbox about 70% of the container
+                  let minEdgePercentage = 0.7;
+                  let minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
+                  let qrboxSize = Math.floor(minEdgeSize * minEdgePercentage);
+                  return {
+                    width: qrboxSize,
+                    height: qrboxSize
+                  };
+                },
+                aspectRatio: 1.0,
+                videoConstraints: {
+                  facingMode: "environment",
+                  width: { ideal: 1280 },
+                  height: { ideal: 720 }
+                }
+              },
+              function(decodedText, decodedResult) {
+                // Successfully scanned
+                console.log('QR Code scanned:', decodedText);
+                updateStatus('QR Code detected!', '#00ff00');
+                showResult(decodedText);
+                
+                // Stop scanning after successful scan
+                if (html5QrCode && scanning) {
+                  html5QrCode.stop().then(function() {
+                    html5QrCode.clear();
+                    scanning = false;
+                    startBtn.style.display = 'flex';
+                    stopBtn.style.display = 'none';
+                    
+                    // Handle the scanned QR code
+                    if (decodedText) {
+                      console.log('Processing scanned QR code:', decodedText);
+                      
+                      // Normalize the decoded text - handle mobile URLs and various formats
+                      let normalizedUrl = decodedText.trim();
+                      
+                      // Remove any trailing slashes or whitespace
+                      normalizedUrl = normalizedUrl.replace(/\/+$/, '');
+                      
+                      // If it's a reservation URL, navigate directly (auto-approves)
+                      if (normalizedUrl.includes('/reservation-approval/') || normalizedUrl.includes('reservation-approval')) {
+                        console.log('Detected reservation approval URL:', normalizedUrl);
+                        
+                        // Extract booking ID from various URL formats
+                        var bookingId = null;
+                        
+                        // Try to match booking ID from URL
+                        var bookingIdMatch = normalizedUrl.match(/reservation-approval[\/\-](\d+)/i);
+                        if (bookingIdMatch && bookingIdMatch[1]) {
+                          bookingId = bookingIdMatch[1];
+                        }
+                        
+                        // If booking ID found, navigate to approval page
+                        if (bookingId) {
+                          var path = '/reservation-approval/' + bookingId + '/';
+                          console.log('Navigating to reservation approval:', path);
+                          window.location.href = path;
+                          return;
+                        }
+                        
+                        // Try to extract path from full URL
+                        try {
+                          if (normalizedUrl.includes('://')) {
+                            var urlObj = new URL(normalizedUrl);
+                            var path = urlObj.pathname;
+                            if (!path.endsWith('/')) {
+                              path = path + '/';
+                            }
+                            console.log('Extracted path from full URL:', path);
+                            window.location.href = path;
+                            return;
+                          }
+                        } catch (e) {
+                          console.error('Error parsing URL:', e);
+                        }
+                        
+                        // If it's a relative path, ensure it starts with /
+                        if (normalizedUrl.startsWith('/')) {
+                          var path = normalizedUrl + (normalizedUrl.endsWith('/') ? '' : '/');
+                          console.log('Using relative path:', path);
+                          window.location.href = path;
+                          return;
+                        }
+                      } else if (normalizedUrl.includes('/reservation-approved/') || normalizedUrl.includes('reservation-approved')) {
+                        // If it already has approved in URL, navigate directly
+                        console.log('Detected reservation approved URL:', normalizedUrl);
+                        
+                        var bookingId = null;
+                        var bookingIdMatch = normalizedUrl.match(/reservation-approved[\/\-](\d+)/i);
+                        if (bookingIdMatch && bookingIdMatch[1]) {
+                          bookingId = bookingIdMatch[1];
+                        }
+                        
+                        if (bookingId) {
+                          var path = '/reservation-approved/' + bookingId + '/';
+                          console.log('Navigating to approved reservation:', path);
+                          window.location.href = path;
+                          return;
+                        }
+                        
+                        // Try to extract path from full URL
+                        try {
+                          if (normalizedUrl.includes('://')) {
+                            var urlObj = new URL(normalizedUrl);
+                            var path = urlObj.pathname;
+                            if (!path.endsWith('/')) {
+                              path = path + '/';
+                            }
+                            window.location.href = path;
+                            return;
+                          }
+                        } catch (e) {
+                          console.error('Error parsing URL:', e);
+                        }
+                        
+                        if (normalizedUrl.startsWith('/')) {
+                          var path = normalizedUrl + (normalizedUrl.endsWith('/') ? '' : '/');
+                          window.location.href = path;
+                          return;
+                        }
+                      } else if (normalizedUrl.startsWith('http://') || normalizedUrl.startsWith('https://')) {
+                        // Handle full URL - navigate directly
+                        console.log('Navigating to full URL:', normalizedUrl);
+                        window.location.href = normalizedUrl;
+                        return;
+                      } else if (normalizedUrl.startsWith('/')) {
+                        // Handle relative path
+                        var path = normalizedUrl + (normalizedUrl.endsWith('/') ? '' : '/');
+                        console.log('Navigating to relative path:', path);
+                        window.location.href = path;
+                        return;
+                      } else {
+                        // Display the scanned text if it's not a recognized format
+                        console.log('Unknown QR code format:', normalizedUrl);
+                        alert('Scanned QR Code: ' + normalizedUrl);
+                        updateStatus('Ready to scan', '#ffffff');
+                        
+                        // Show placeholder
+                        const placeholder = document.getElementById('qr-placeholder');
+                        if (placeholder) {
+                          placeholder.style.display = 'flex';
+                        }
+                        const overlay = document.getElementById('qr-overlay');
+                        if (overlay) {
+                          overlay.style.display = 'none';
+                        }
+                      }
+                    }
+                  }).catch(function(stopErr) {
+                    console.error('Error stopping scanner:', stopErr);
+                  });
+                }
+              },
+              function(errorMessage) {
+                // Ignore errors while scanning (this is called frequently during scanning)
+                // Only log if it's a significant error
+                if (errorMessage && !errorMessage.includes('NotFoundException')) {
+                  console.debug('Scanner error:', errorMessage);
+                }
+              }
+            ).then(function() {
+              // Scanner started successfully
+              startBtn.style.display = 'none';
+              stopBtn.style.display = 'flex';
+              updateStatus('Scanning...', '#00ff00');
+              
+              // Hide placeholder when scanning starts
+              const placeholder = document.getElementById('qr-placeholder');
+              if (placeholder) {
+                placeholder.style.display = 'none';
+              }
+              const overlay = document.getElementById('qr-overlay');
+              if (overlay) {
+                overlay.style.display = 'flex';
+              }
+            }).catch(function(err) {
+              console.error('Unable to start scanning:', err);
+              let errorMsg = 'Failed to start scanner';
+              
+              if (err && err.message) {
+                if (err.message.includes('NotReadableError') || err.message.includes('camera')) {
+                  errorMsg = 'Camera not accessible. Please check permissions.';
+                } else if (err.message.includes('NotFoundError')) {
+                  errorMsg = 'No camera found.';
+                } else {
+                  errorMsg = 'Error: ' + err.message;
+                }
+              }
+              
+              updateStatus(errorMsg, '#ff0000');
+              scanning = false;
+              html5QrCode = null;
+              startBtn.style.display = 'flex';
+              stopBtn.style.display = 'none';
+              
+              // Show placeholder on error
+              const placeholder = document.getElementById('qr-placeholder');
+              if (placeholder) {
+                placeholder.style.display = 'flex';
+              }
+              const overlay = document.getElementById('qr-overlay');
+              if (overlay) {
+                overlay.style.display = 'none';
+              }
+              
+              alert(errorMsg);
+            });
+            
+          } catch (err) {
+            console.error('QR Scanner initialization error:', err);
+            updateStatus('Scanner error: ' + err.message, '#ff0000');
+            scanning = false;
+            html5QrCode = null;
+            startBtn.style.display = 'flex';
+            stopBtn.style.display = 'none';
+            
+            // Show placeholder on error
+            const placeholder = document.getElementById('qr-placeholder');
+            if (placeholder) {
+              placeholder.style.display = 'flex';
+            }
+            const overlay = document.getElementById('qr-overlay');
+            if (overlay) {
+              overlay.style.display = 'none';
+            }
+            
+            alert('Scanner initialization failed: ' + err.message);
+          }
+        }
+        
+          function stopScanner() {
+            if (!scanning || !html5QrCode) return;
+            
+            html5QrCode.stop().then(function() {
+              html5QrCode.clear();
+              html5QrCode = null;
+              scanning = false;
+              startBtn.style.display = 'flex';
+              stopBtn.style.display = 'none';
+              updateStatus('Ready to scan', '#ffffff');
+              
+              // Clear the container
+              if (qrReader) {
+                qrReader.innerHTML = '';
+              }
+              
+              // Show placeholder when scanning stops
+              const placeholder = document.getElementById('qr-placeholder');
+              if (placeholder) {
+                placeholder.style.display = 'flex';
+              }
+              const overlay = document.getElementById('qr-overlay');
+              if (overlay) {
+                overlay.style.display = 'none';
+              }
+            }).catch(function(err) {
+              console.error('Error stopping scanner:', err);
+              scanning = false;
+              startBtn.style.display = 'flex';
+              stopBtn.style.display = 'none';
+            });
+          }
+          
+          // Attach event listeners
+          if (startBtn) {
+            startBtn.addEventListener('click', startScanner);
+          }
+          
+          if (stopBtn) {
+            stopBtn.addEventListener('click', stopScanner);
+          }
+        
+          // Clean up on page unload
+          window.addEventListener('beforeunload', function() {
+            if (scanning && html5QrCode) {
+              html5QrCode.stop().then(function() {
+                html5QrCode.clear();
+              }).catch(function() {});
+            }
+          });
+          
+          // Initialize on DOM ready
+          console.log('QR Scanner script loaded');
+        }
+        
+        // Start waiting for elements when DOM is ready
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', waitForElements);
+        } else {
+          waitForElements();
+        }
+      })();
+    </script>
+    <script>
+      (function initAlertsWS(){
+        var reconnectAttempts = 0;
+        var maxReconnectAttempts = 3;
+        var reconnectDelay = 5000;
+        var ws = null;
+        var shouldReconnect = true;
+        
+        function connect() {
+          try {
+            ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/alerts/');
+            
+            ws.onopen = function() {
+              // WebSocket connection opened successfully - reset reconnect attempts
+              reconnectAttempts = 0;
+            };
+            
+            ws.onerror = function(error) {
+              // Silently handle WebSocket connection errors (404, connection refused, etc.)
+              // Mark for no reconnect if we've hit max attempts
+              if (reconnectAttempts >= maxReconnectAttempts) {
+                shouldReconnect = false;
+              }
+            };
+            
+            ws.onclose = function() {
+              // Only attempt reconnect if we haven't exceeded max attempts
+              if (shouldReconnect && reconnectAttempts < maxReconnectAttempts) {
+                reconnectAttempts++;
+                setTimeout(function() {
+                  if (shouldReconnect) {
+                    connect();
+                  }
+                }, reconnectDelay);
+              }
+            };
+            
+            ws.onmessage = function(evt){
+              try {
+                var data = JSON.parse(evt.data);
+                
+                // Check if it's a peripheral removal event
+                if (data.type === 'alert' && data.payload && data.payload.action === 'removed') {
+                  // Add to warning list
+                  addWarningToList(data);
+                  updateWarningBadge();
+                } else {
+                  // Show regular toast/alert for other alerts
+                  var msg = (data.title || 'Alert') + ': ' + (data.message || '');
+                  var div = document.createElement('div');
+                  div.className = 'alert alert-warning alert-dismissible fade show text-center';
+                  div.style.position = 'fixed'; div.style.top='20px'; div.style.right='20px'; div.style.zIndex='2000';
+                  div.innerHTML = msg + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
+                  document.body.appendChild(div);
+                  setTimeout(function(){ try{ div.remove(); }catch(e){} }, 8000);
+                }
+              } catch(e) { 
+                // Silently handle bad payload
+              }
+            };
+            
+            // Warning management functions
+            var warnings = [];
+            
+            function addWarningToList(data) {
+              var warning = {
+                id: Date.now(),
+                pc: data.payload.pc || 'Unknown PC',
+                device: data.payload.device_name || data.payload.device_id || 'Unknown Device',
+                time: new Date().toLocaleTimeString(),
+                payload: data.payload
+              };
+              warnings.unshift(warning); // Add to beginning
+              if (warnings.length > 50) warnings = warnings.slice(0, 50); // Keep max 50
+              renderWarningList();
+            }
+            
+            function renderWarningList() {
+              var listItems = document.getElementById('warningListItems');
+              var emptyMsg = document.getElementById('warningListEmpty');
+              var clearBtn = document.getElementById('clearWarningsBtn');
+              
+              if (!listItems || !emptyMsg || !clearBtn) return;
+              
+              if (warnings.length === 0) {
+                listItems.style.display = 'none';
+                emptyMsg.style.display = 'block';
+                clearBtn.style.display = 'none';
+                return;
+              }
+              
+              emptyMsg.style.display = 'none';
+              listItems.style.display = 'block';
+              clearBtn.style.display = 'block';
+              
+              listItems.innerHTML = '';
+              warnings.forEach(function(warning) {
+                var li = document.createElement('li');
+                li.className = 'warning-item';
+                li.innerHTML = '<div class="d-flex justify-content-between align-items-start gap-2">' +
+                  '<div class="flex-grow-1">' +
+                  '<div class="fw-bold d-flex align-items-center mb-1">' +
+                  '<i class="fa-solid fa-triangle-exclamation me-2 text-warning"></i>' +
+                  '<span>' + warning.device + '</span>' +
+                  '</div>' +
+                  '<div class="d-flex flex-column gap-1">' +
+                  '<small class="text-muted"><i class="fa-solid fa-desktop me-1"></i>PC: ' + warning.pc + '</small>' +
+                  '<small class="text-muted"><i class="fa-solid fa-clock me-1"></i>' + warning.time + '</small>' +
+                  '</div>' +
+                  '</div>' +
+                  '<button type="button" class="btn-close btn-sm mt-1" onclick="removeWarning(' + warning.id + ')" style="opacity: 0.5;" onmouseover="this.style.opacity=\'1\'" onmouseout="this.style.opacity=\'0.5\'"></button>' +
+                  '</div>';
+                listItems.appendChild(li);
+              });
+            }
+            
+            function removeWarning(id) {
+              warnings = warnings.filter(function(w) { return w.id !== id; });
+              renderWarningList();
+              updateWarningBadge();
+            }
+            
+            function updateWarningBadge() {
+              var badge = document.getElementById('warningBadge');
+              if (!badge) return;
+              
+              if (warnings.length > 0) {
+                badge.textContent = warnings.length > 99 ? '99+' : warnings.length;
+                badge.style.display = 'inline-block';
+              } else {
+                badge.style.display = 'none';
+              }
+            }
+            
+            // Make removeWarning available globally
+            window.removeWarning = removeWarning;
+            
+            // Clear all warnings (only if element exists)
+            var clearBtn = document.getElementById('clearWarningsBtn');
+            if (clearBtn) {
+              clearBtn.addEventListener('click', function() {
+                warnings = [];
+                renderWarningList();
+                updateWarningBadge();
+              });
+            }
+            
+            // Initialize (only if elements exist)
+            var warningBadge = document.getElementById('warningBadge');
+            if (warningBadge) {
+              renderWarningList();
+              updateWarningBadge();
+            }
+          } catch(e) { 
+            // Silently handle WebSocket initialization errors
+            shouldReconnect = false;
+          }
+        }
+        
+        connect();
+      })();
+    </script>
+    {% endif %}
+
+    <!-- Profile Modal -->
+    {% if request.user.is_authenticated %}
+    <div class="modal fade" id="profileModal" tabindex="-1" aria-labelledby="profileModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content profile-modal-content">
+          <div class="modal-header profile-modal-header">
+            <h2 class="modal-title" id="profileModalLabel">Profile</h2>
+            <button type="button" class="profile-modal-close" data-bs-dismiss="modal" aria-label="Close">
+              <i class="fa-solid fa-times"></i>
+            </button>
+          </div>
+          <div class="modal-body profile-modal-body">
+            {% if request.user.profile %}
+              {% with profile=request.user.profile %}
+                <!-- Profile Picture -->
+                <div class="profile-picture-container">
+                  {% if profile.profile_picture %}
+                    <img src="{{ profile.profile_picture.url }}" class="profile-modal-picture" alt="profile picture">
+                  {% else %}
+                    <div class="profile-modal-picture profile-picture-placeholder">
+                      <i class="fa-solid fa-user"></i>
+                    </div>
+                  {% endif %}
+                </div>
+                
+                <!-- User Information -->
+                <div class="profile-info-container">
+                  <h3 class="profile-modal-name">
+                    {{ profile.user.get_full_name|default:profile.user.username }}
+                  </h3>
+                  <p class="profile-modal-email">{{ profile.user.email }}</p>
+                  
+                  <!-- Profile Details Grid -->
+                  <div class="profile-details-grid">
+                    {% if profile.college %}
+                    <div class="profile-detail-item">
+                      <div class="profile-detail-icon">
+                        <i class="fa-solid fa-building"></i>
+                      </div>
+                      <div class="profile-detail-content">
+                        <span class="profile-detail-label">College</span>
+                        <span class="profile-detail-value">{{ profile.college }}</span>
+                      </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if profile.course %}
+                    <div class="profile-detail-item">
+                      <div class="profile-detail-icon">
+                        <i class="fa-solid fa-graduation-cap"></i>
+                      </div>
+                      <div class="profile-detail-content">
+                        <span class="profile-detail-label">Course</span>
+                        <span class="profile-detail-value">{{ profile.course }}</span>
+                      </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if profile.year %}
+                    <div class="profile-detail-item">
+                      <div class="profile-detail-icon">
+                        <i class="fa-solid fa-calendar"></i>
+                      </div>
+                      <div class="profile-detail-content">
+                        <span class="profile-detail-label">Year</span>
+                        <span class="profile-detail-value">{{ profile.year }}</span>
+                      </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if profile.block %}
+                    <div class="profile-detail-item">
+                      <div class="profile-detail-icon">
+                        <i class="fa-solid fa-users"></i>
+                      </div>
+                      <div class="profile-detail-content">
+                        <span class="profile-detail-label">Block</span>
+                        <span class="profile-detail-value">{{ profile.block }}</span>
+                      </div>
+                    </div>
+                    {% endif %}
+                  </div>
+                </div>
+              {% endwith %}
+            {% else %}
+              <div class="text-center py-5">
+                <i class="fa-solid fa-exclamation-circle text-muted mb-3" style="font-size: 3rem;"></i>
+                <p class="text-muted">Profile not found</p>
+              </div>
+            {% endif %}
+          </div>
+          <div class="modal-footer profile-modal-footer">
+            <div class="profile-footer-buttons">
+              {% if request.user.profile %}
+                <button type="button" class="profile-update-btn" onclick="closeAndOpenModal('#profileModal', '#editProfileModal')">
+                  <i class="fa-solid fa-pen-to-square me-2"></i>
+                  Update Profile
+                </button>
+                {% if request.user.has_usable_password %}
+                <a href="{% url 'account:password_change' %}" class="profile-password-btn">
+                  <i class="fa-solid fa-key me-2"></i>
+                  Change Password
+                </a>
+                {% else %}
+                <a href="{% url 'account:password_set' %}" class="profile-password-btn">
+                  <i class="fa-solid fa-key me-2"></i>
+                  Set Password
+                </a>
+                {% endif %}
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Edit Profile Modal -->
+    {% if request.user.is_authenticated and request.user.profile %}
+    <div class="modal fade" id="editProfileModal" tabindex="-1" aria-labelledby="editProfileModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content profile-modal-content">
+          <div class="modal-header profile-modal-header">
+            <h2 class="modal-title" id="editProfileModalLabel">Update Profile</h2>
+            <button type="button" class="profile-modal-close" data-bs-dismiss="modal" aria-label="Close">
+              <i class="fa-solid fa-times"></i>
+            </button>
+          </div>
+          <div class="modal-body profile-modal-body" id="editProfileModalBody">
+            <div class="text-center">
+              <div class="spinner-border text-warning" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- JavaScript to load edit profile form -->
+    {% if request.user.is_authenticated and request.user.profile %}
+    <script>
+      (function() {
+        const editProfileModal = document.getElementById('editProfileModal');
+        if (editProfileModal) {
+          editProfileModal.addEventListener('show.bs.modal', function() {
+            const modalBody = document.getElementById('editProfileModalBody');
+            const profilePk = {{ request.user.profile.pk }};
+            
+            // Show loading spinner
+            modalBody.innerHTML = '<div class="text-center"><div class="spinner-border text-warning" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+            
+            // Load form content via AJAX
+            fetch('{% url "account:edit-profile" pk=request.user.profile.pk %}')
+              .then(response => response.text())
+              .then(html => {
+                // Parse the HTML response first
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                // Remove extend session form completely from the document
+                const extendSessionForm = doc.querySelector('form#extendSessionForm');
+                if (extendSessionForm) {
+                  extendSessionForm.remove();
+                }
+                
+                // Remove any elements with extendMinutesInput
+                const extendMinutesInput = doc.querySelector('#extendMinutesInput');
+                if (extendMinutesInput) {
+                  extendMinutesInput.closest('form')?.remove();
+                  extendMinutesInput.closest('.mb-3')?.remove();
+                  extendMinutesInput.closest('div')?.remove();
+                }
+                
+                // Find the correct profile form (not extend session form)
+                // First try to find form in card-body (from edit_profile.html template)
+                const cardBody = doc.querySelector('.card-body');
+                let profileForm = null;
+                let currentPicture = null;
+                
+                if (cardBody) {
+                  // Get picture from card-body
+                  currentPicture = cardBody.querySelector('.text-center.mb-3');
+                  
+                  // Find all forms in card-body and filter out extendSessionForm
+                  const allForms = cardBody.querySelectorAll('form');
+                  for (let f of allForms) {
+                    if (f.id !== 'extendSessionForm' && !f.querySelector('#extendMinutesInput')) {
+                      profileForm = f;
+                      break;
+                    }
+                  }
+                }
+                
+                // Fallback: find form anywhere in document
+                if (!profileForm) {
+                  const allForms = doc.querySelectorAll('form');
+                  for (let f of allForms) {
+                    // Skip extendSessionForm
+                    if (f.id === 'extendSessionForm') continue;
+                    // Skip forms containing extendMinutesInput
+                    if (f.querySelector('#extendMinutesInput')) continue;
+                    // Found a valid profile form
+                    profileForm = f;
+                    break;
+                  }
+                }
+                
+                // Last resort: find any form that has enctype="multipart/form-data" (profile form has this)
+                if (!profileForm) {
+                  const allForms = doc.querySelectorAll('form');
+                  for (let f of allForms) {
+                    if (f.id !== 'extendSessionForm' && f.hasAttribute('enctype') && f.getAttribute('enctype') === 'multipart/form-data') {
+                      profileForm = f;
+                      break;
+                    }
+                  }
+                }
+                
+                // Debug: log if form not found
+                if (!profileForm) {
+                  console.error('Profile form not found. Available forms:', doc.querySelectorAll('form').length);
+                  console.error('Card body found:', !!cardBody);
+                }
+                
+                if (profileForm) {
+                  // Build the modal body content
+                  let content = '';
+                  
+                  if (currentPicture) {
+                    content += currentPicture.outerHTML;
+                  }
+                  
+                  // Get form content
+                  let formHTML = profileForm.outerHTML;
+                  
+                  // Remove extendSessionForm content (more targeted)
+                  formHTML = formHTML.replace(/<form[^>]*id="extendSessionForm"[^>]*>[\s\S]*?<\/form>/gi, '');
+                  
+                  // Remove extendMinutesInput if it exists
+                  const tempDiv = document.createElement('div');
+                  tempDiv.innerHTML = formHTML;
+                  const extendInput = tempDiv.querySelector('#extendMinutesInput');
+                  if (extendInput) {
+                    extendInput.closest('form')?.remove();
+                    extendInput.closest('.mb-3')?.remove();
+                    extendInput.remove();
+                  }
+                  formHTML = tempDiv.innerHTML;
+                  
+                  // Replace Cancel button to close modal
+                  formHTML = formHTML.replace(
+                    /<a[^>]*href="[^"]*profile[^"]*"[^>]*class="[^"]*btn[^"]*secondary[^"]*"[^>]*>Cancel<\/a>/,
+                    '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>'
+                  );
+                  
+                  content += formHTML;
+                  
+                  // Final cleanup - remove any remaining extend session form content
+                  content = content.replace(/<form[^>]*id="extendSessionForm"[^>]*>[\s\S]*?<\/form>/gi, '');
+                  content = content.replace(/<div[^>]*>[\s\S]*?How many minutes[\s\S]*?<\/div>/gi, '');
+                  content = content.replace(/<label[^>]*>[\s\S]*?minutes[\s\S]*?<\/label>/gi, '');
+                  content = content.replace(/<input[^>]*id="extendMinutesInput"[^>]*>[\s\S]*?/gi, '');
+                  content = content.replace(/<input[^>]*minutes[^>]*>/gi, '');
+                  
+                  // Update modal body
+                  modalBody.innerHTML = content;
+                  
+                  // Final check - remove extend session form if it somehow got through
+                  const extendFormInModal = modalBody.querySelector('form#extendSessionForm');
+                  if (extendFormInModal) {
+                    extendFormInModal.remove();
+                  }
+                  
+                  const extendInputInModal = modalBody.querySelector('#extendMinutesInput');
+                  if (extendInputInModal) {
+                    extendInputInModal.closest('form')?.remove();
+                    extendInputInModal.closest('.mb-3')?.remove();
+                    extendInputInModal.closest('div')?.remove();
+                    extendInputInModal.remove();
+                  }
+                  
+                  // Additional check: if modal body only contains extendSessionForm, clear it
+                  const allForms = modalBody.querySelectorAll('form');
+                  if (allForms.length === 1 && allForms[0].id === 'extendSessionForm') {
+                    modalBody.innerHTML = '<div class="alert alert-danger">Error loading form</div>';
+                  }
+                  
+                  // Remove any remaining extendSessionForm elements
+                  modalBody.querySelectorAll('form#extendSessionForm').forEach(form => form.remove());
+                  modalBody.querySelectorAll('#extendMinutesInput').forEach(input => {
+                    input.closest('form')?.remove();
+                    input.closest('.mb-3')?.remove();
+                    input.remove();
+                  });
+                  
+                  // Remove any divs containing "How many minutes" text
+                  const allDivs = modalBody.querySelectorAll('div');
+                  allDivs.forEach(div => {
+                    if (div.textContent && div.textContent.includes('How many minutes')) {
+                      div.remove();
+                    }
+                  });
+                  
+                  // Function to attach submit handler to form
+                  function attachSubmitHandler(form) {
+                    if (!form) return;
+                    
+                    // Ensure form action is set correctly
+                    const formAction = '{% url "account:edit-profile" pk=request.user.profile.pk %}';
+                    if (!form.action || form.action === '' || form.action === window.location.href) {
+                      form.action = formAction;
+                    }
+                    
+                    // Check if handler is already attached
+                    if (form.dataset.submitHandlerAttached === 'true') {
+                      return;
+                    }
+                    form.dataset.submitHandlerAttached = 'true';
+                    
+                    form.addEventListener('submit', function handleSubmit(e) {
+                      e.preventDefault();
+                      
+                      const formData = new FormData(form);
+                      
+                      // Get CSRF token from form or cookie
+                      let csrfToken = formData.get('csrfmiddlewaretoken');
+                      if (!csrfToken) {
+                        // Try to get CSRF token from cookie
+                        const cookies = document.cookie.split(';');
+                        for (let cookie of cookies) {
+                          const [name, value] = cookie.trim().split('=');
+                          if (name === 'csrftoken') {
+                            csrfToken = value;
+                            formData.append('csrfmiddlewaretoken', value);
+                            break;
+                          }
+                        }
+                      }
+                      
+                      // Use the form action or fallback to the edit-profile URL
+                      const submitUrl = form.action || formAction;
+                      
+                      fetch(submitUrl, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                          'X-CSRFToken': csrfToken || ''
+                        },
+                        credentials: 'same-origin'
+                      })
+                      .then(response => {
+                        if (response.redirected) {
+                          // Success - reload page to show updated profile
+                          location.reload();
+                        } else if (response.ok) {
+                          // Check if response is successful
+                          return response.text();
+                        } else {
+                          throw new Error('Form submission failed');
+                        }
+                      })
+                      .then(html => {
+                        if (html) {
+                          const parser = new DOMParser();
+                          const doc = parser.parseFromString(html, 'text/html');
+                          
+                          // Remove extendSessionForm from response
+                          const extendForm = doc.querySelector('form#extendSessionForm');
+                          if (extendForm) {
+                            extendForm.remove();
+                          }
+                          const extendInput = doc.querySelector('#extendMinutesInput');
+                          if (extendInput) {
+                            extendInput.closest('form')?.remove();
+                            extendInput.closest('.mb-3')?.remove();
+                            extendInput.remove();
+                          }
+                          
+                          // Find the form in the response
+                          const cardBody = doc.querySelector('.card-body');
+                          let responseForm = null;
+                          if (cardBody) {
+                            const allForms = cardBody.querySelectorAll('form');
+                            for (let f of allForms) {
+                              if (f.id !== 'extendSessionForm' && !f.querySelector('#extendMinutesInput')) {
+                                responseForm = f;
+                                break;
+                              }
+                            }
+                          }
+                          
+                          if (!responseForm) {
+                            const allForms = doc.querySelectorAll('form');
+                            for (let f of allForms) {
+                              if (f.id !== 'extendSessionForm' && !f.querySelector('#extendMinutesInput')) {
+                                responseForm = f;
+                                break;
+                              }
+                            }
+                          }
+                          
+                          if (responseForm) {
+                            let formHTML = responseForm.outerHTML;
+                            // Remove any extendSessionForm content
+                            formHTML = formHTML.replace(/<form[^>]*id="extendSessionForm"[^>]*>[\s\S]*?<\/form>/gi, '');
+                            formHTML = formHTML.replace(/<div[^>]*>[\s\S]*?How many minutes[\s\S]*?<\/div>/gi, '');
+                            formHTML = formHTML.replace(/<input[^>]*id="extendMinutesInput"[^>]*>[\s\S]*?/gi, '');
+                            
+                            modalBody.innerHTML = formHTML;
+                            
+                            // Final cleanup after setting innerHTML
+                            modalBody.querySelectorAll('form#extendSessionForm').forEach(f => f.remove());
+                            modalBody.querySelectorAll('#extendMinutesInput').forEach(input => {
+                              input.closest('form')?.remove();
+                              input.remove();
+                            });
+                            
+                            // Re-attach event listener
+                            const updatedForm = modalBody.querySelector('form:not(#extendSessionForm)');
+                            attachSubmitHandler(updatedForm);
+                          } else {
+                            // If no form in response, might be success - reload
+                            location.reload();
+                          }
+                        } else {
+                          // No HTML response, likely success - reload
+                          location.reload();
+                        }
+                      })
+                      .catch(error => {
+                        console.error('Error:', error);
+                        modalBody.innerHTML = '<div class="alert alert-danger">Error submitting form. Please try again.</div>';
+                      });
+                    });
+                  }
+                  
+                  // Attach submit handler to the form
+                  const editForm = modalBody.querySelector('form:not(#extendSessionForm)');
+                  attachSubmitHandler(editForm);
+                } else {
+                  modalBody.innerHTML = '<div class="alert alert-danger">Error loading form</div>';
+                }
+              })
+              .catch(error => {
+                console.error('Error:', error);
+                modalBody.innerHTML = '<div class="alert alert-danger">Error loading form</div>';
+              });
+          });
+        }
+      })();
+    </script>
+    
+    <!-- Function to close one modal and open another -->
+    <script>
+      function closeAndOpenModal(closeModalId, openModalId) {
+        if (window.bootstrap) {
+          const closeModal = bootstrap.Modal.getInstance(document.querySelector(closeModalId));
+          const openModalElement = document.querySelector(openModalId);
+          
+          if (closeModal) {
+            closeModal.hide();
+            
+            // Wait for close modal to finish hiding before opening new one
+            document.querySelector(closeModalId).addEventListener('hidden.bs.modal', function() {
+              if (openModalElement) {
+                const openModal = new bootstrap.Modal(openModalElement, {
+                  backdrop: true,
+                  keyboard: true
+                });
+                openModal.show();
+              }
+            }, { once: true });
+          } else if (openModalElement) {
+            // If no modal to close, just open the new one
+            const openModal = new bootstrap.Modal(openModalElement, {
+              backdrop: true,
+              keyboard: true
+            });
+            openModal.show();
+          }
+        }
+      }
+    </script>
+    {% endif %}
+
+    <!-- About Modal -->
+    <div class="modal fade" id="aboutModal" tabindex="-1" aria-labelledby="aboutModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content profile-modal-content">
+          <div class="modal-header profile-modal-header">
+            <h2 class="modal-title" id="aboutModalLabel">About</h2>
+            <button type="button" class="profile-modal-close" data-bs-dismiss="modal" aria-label="Close">
+              <i class="fa-solid fa-times"></i>
+            </button>
+          </div>
+          <div class="modal-body profile-modal-body">
+            {% load static %}
+            <div class="about-container">
+              <div id="about-logo" class="text-center mb-4">
+                <img src="{% static 'images/about_logo.png' %}" alt="About Logo" class="img-fluid" style="max-width: 200px;" onerror="this.style.display='none';">
+              </div>
+              <div id="about-section" class="container">
+                <p class="mb-4">
+                  The Real_time PC Availability Checker is a web-based application designed to improve the
+                  efficiency and accessibility of computer resources at Palawan State University's ICT Building. 
+                  The system provides real-time information on available PCs, allows users to book computers in advance, 
+                  and ensures efficient resource allocation through QR code verification and expiration timers.
+                </p>
+                <h3 class="text-center mb-3">How to Use the System</h3>
+                <ol class="ps-3">
+                  <li class="mb-2">Check availability: Visit the homepage and view the list of available PCs.</li>
+                  <li class="mb-2">Book a PC: Select a PC and book it for your desired time. You will receive a QR code.</li>
+                  <li class="mb-2">Go to the ICT Building: Proceed to the ICT Building and Scan the QR code at desk info.</li>
+                  <li class="mb-2">Use the PC: You can now enjoy using the PC.</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
