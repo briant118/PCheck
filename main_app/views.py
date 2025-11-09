@@ -35,6 +35,29 @@ from asgiref.sync import async_to_sync
 
 today = timezone.now()
 
+def get_pcheck_support_user():
+    """Get or create the PCheck Support system account."""
+    username = 'pcheck_support'
+    user, created = User.objects.get_or_create(
+        username=username,
+        defaults={
+            'email': 'support@pcheck.psu.palawan.edu.ph',
+            'first_name': 'PCheck',
+            'last_name': 'Support',
+            'is_staff': False,  # Not a staff account, but a system account
+            'is_active': True,
+        }
+    )
+    if created:
+        # Set a random password that won't be used for login
+        user.set_unusable_password()
+        user.save()
+        # Create profile if needed
+        if not hasattr(user, 'profile'):
+            from account.models import Profile
+            Profile.objects.create(user=user, role='staff')  # Mark as staff role for chat purposes
+    return user
+
 @login_required
 def clearup_pcs(request):
     today = timezone.now()
@@ -157,7 +180,11 @@ def get_all_pc_status(request):
 
 def verify_pc_name(request):
     name = request.GET.get('name')
-    result = models.PC.objects.filter(name=name).exists()
+    exclude_id = request.GET.get('exclude_id')
+    query = models.PC.objects.filter(name=name)
+    if exclude_id:
+        query = query.exclude(id=exclude_id)
+    result = query.exists()
     data = {
         'result': result,
         'name': name
@@ -181,7 +208,11 @@ def waiting_approval(request,pk):
 
 def verify_pc_ip_address(request):
     ip_address = request.GET.get('ip_address')
-    result = models.PC.objects.filter(ip_address=ip_address).exists()
+    exclude_id = request.GET.get('exclude_id')
+    query = models.PC.objects.filter(ip_address=ip_address)
+    if exclude_id:
+        query = query.exclude(id=exclude_id)
+    result = query.exists()
     data = {
         'result': result,
         'ip_address': ip_address
@@ -248,8 +279,11 @@ def all_users_for_chat(request):
     if not (request.user.is_staff or has_profile_staff_role):
         return JsonResponse({'result': [], 'error': 'Only staff can view users.'}, status=403)
 
-    # Return faculty/students (exclude staff accounts) and exclude the requester
-    users_qs = User.objects.prefetch_related('profile').exclude(pk=request.user.pk)
+    # Get PCheck Support user to exclude it
+    pcheck_support_user = get_pcheck_support_user()
+
+    # Return faculty/students (exclude staff accounts) and exclude the requester and PCheck Support
+    users_qs = User.objects.prefetch_related('profile').exclude(pk=request.user.pk).exclude(pk=pcheck_support_user.pk)
     # Exclude users who are staff (either by is_staff flag or profile.role='staff')
     # Use a more robust filter that handles null profiles
     users_qs = users_qs.filter(
@@ -383,13 +417,16 @@ def get_pc_booking(request, pk):
             data['user'] = booking.user.get_full_name() or booking.user.username
             data['booking_id'] = booking.id  # Only include booking_id when booking exists
             data['created_time'] = booking.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            # Check if current user is the one using this PC
+            data['is_current_user'] = booking.user == request.user
             
             # Get college if available
             if hasattr(booking.user, 'profile') and booking.user.profile.college:
                 data['college'] = booking.user.profile.college.name
             
             # Calculate time remaining if booking is active
-            if pc.booking_status == 'in_use' and booking.end_time:
+            # Check booking status first, then PC status as fallback
+            if booking.status == 'confirmed' and booking.end_time:
                 now = timezone.now()
                 # Handle timezone-aware datetime
                 if booking.end_time.tzinfo:
@@ -402,9 +439,28 @@ def get_pc_booking(request, pk):
                     hours = int(remaining.total_seconds() // 3600)
                     minutes = int((remaining.total_seconds() % 3600) // 60)
                     data['time_remaining'] = f"{hours}h {minutes}m"
+                    # Also update PC booking_status if it's wrong
+                    if pc.booking_status != 'in_use':
+                        pc.booking_status = 'in_use'
+                        pc.save(update_fields=['booking_status'])
                 else:
                     data['time_remaining'] = 'Expired'
-            elif pc.booking_status == 'in_queue':
+            elif pc.booking_status == 'in_use' and booking.end_time:
+                # PC status says in_use but booking might not be confirmed - calculate anyway
+                now = timezone.now()
+                if booking.end_time.tzinfo:
+                    remaining = booking.end_time - now
+                else:
+                    from datetime import datetime
+                    remaining = booking.end_time - datetime.now()
+                    
+                if remaining.total_seconds() > 0:
+                    hours = int(remaining.total_seconds() // 3600)
+                    minutes = int((remaining.total_seconds() % 3600) // 60)
+                    data['time_remaining'] = f"{hours}h {minutes}m"
+                else:
+                    data['time_remaining'] = 'Expired'
+            elif pc.booking_status == 'in_queue' or (booking.status is None):
                 data['time_remaining'] = 'Waiting for approval'
         
         return JsonResponse(data)
@@ -421,15 +477,31 @@ def get_my_active_booking(request):
         from django.utils import timezone
         
         # Get the user's most recent booking that's either in_queue or confirmed
+        # Include both confirmed and pending (None) bookings
         booking = models.Booking.objects.filter(
-            user=request.user,
-            status__in=['confirmed', None]
+            user=request.user
         ).exclude(status='cancelled').order_by('-created_at').first()
         
         if booking:
             pc = booking.pc
+            # has_booking should be True for both confirmed and pending (None) bookings
+            # Only exclude cancelled bookings
+            # Also check if booking hasn't expired
+            has_booking = booking.status != 'cancelled'
+            
+            # Check if booking has expired (only for confirmed bookings with end_time)
+            if booking.status == 'confirmed' and booking.end_time:
+                now = timezone.now()
+                if booking.end_time.tzinfo:
+                    remaining = booking.end_time - now
+                else:
+                    from datetime import datetime
+                    remaining = booking.end_time - datetime.now()
+                if remaining.total_seconds() <= 0:
+                    has_booking = False
+            
             data = {
-                'has_booking': True,
+                'has_booking': has_booking,
                 'booking_id': booking.id,  # Include booking_id so frontend can use it for ending session
                 'pc_id': pc.id if pc else None,
                 'pc_name': pc.name if pc else 'Unknown',
@@ -690,13 +762,17 @@ def reserve_pc(request):
 @login_required
 @never_cache
 def load_messages(request):
-    """Load chat rooms. For non-staff users, only show conversations with staff."""
-    is_staff = (hasattr(request.user, 'profile') and request.user.profile.role == 'staff')
+    """Load chat rooms. For non-staff users, only show conversations with staff.
+    For staff/admin, exclude conversations with PCheck Support."""
+    is_staff = (hasattr(request.user, 'profile') and request.user.profile.role == 'staff') or request.user.is_staff
+    pcheck_support_user = get_pcheck_support_user()
     
     if is_staff:
-        # Staff can see all their conversations
+        # Staff can see all their conversations, but exclude PCheck Support conversations
         chatrooms = models.ChatRoom.objects.filter(
             Q(initiator=request.user) | Q(receiver=request.user)
+        ).exclude(
+            Q(initiator=pcheck_support_user) | Q(receiver=pcheck_support_user)
         ).prefetch_related(
             Prefetch('chats', queryset=models.Chat.objects.all().order_by('-timestamp'))
         )
@@ -712,6 +788,10 @@ def load_messages(request):
     for room in chatrooms:
         # Ensure both initiator and receiver exist
         if not room.initiator or not room.receiver:
+            continue
+        
+        # For staff/admin, skip PCheck Support conversations (double check)
+        if is_staff and (room.initiator == pcheck_support_user or room.receiver == pcheck_support_user):
             continue
             
         # Get role for initiator and receiver
@@ -747,7 +827,7 @@ def load_messages(request):
                     'status': chat.status,
                     'sender': chat.sender.id if chat.sender else None,
                     'recipient': chat.recipient.id if chat.recipient else None,
-                    'timestamp': chat.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                    'timestamp': chat.timestamp.isoformat() if timezone.is_aware(chat.timestamp) else timezone.make_aware(chat.timestamp, timezone.get_current_timezone()).isoformat(),
                 }
                 for chat in room.chats.all()
             ]
@@ -768,18 +848,52 @@ def load_conversation(request, room_id):
                 "success": False,
                 "error": "You are not part of this conversation."
             }, status=403)
+        
+        # For staff/admin, prevent access to PCheck Support conversations
+        is_staff = (hasattr(request.user, 'profile') and request.user.profile.role == 'staff') or request.user.is_staff
+        if is_staff:
+            pcheck_support_user = get_pcheck_support_user()
+            if room.initiator == pcheck_support_user or room.receiver == pcheck_support_user:
+                return JsonResponse({
+                    "success": False,
+                    "error": "PCheck Support conversations are not available for staff/admin users."
+                }, status=403)
     except models.ChatRoom.DoesNotExist:
         return JsonResponse({
             "success": False,
             "error": "Conversation not found."
         }, status=404)
     
-    result = models.Chat.objects.filter(chatroom=room_id).order_by('timestamp').values(
-            'recipient__first_name','recipient__last_name','recipient__email','recipient__id',
-            'sender__first_name','sender__last_name','sender__email','sender__id','message','timestamp',
-            'chatroom__initiator__id','chatroom__receiver__id','chatroom__id')
+    from django.utils import timezone
+    chats = models.Chat.objects.filter(chatroom=room_id).order_by('-timestamp')  # Newest first
+    result = []
+    for chat in chats:
+        # Convert timestamp to ISO format with timezone info
+        timestamp = chat.timestamp
+        if timezone.is_aware(timestamp):
+            timestamp_iso = timestamp.isoformat()
+        else:
+            # If naive, make it timezone-aware
+            timestamp_iso = timezone.make_aware(timestamp).isoformat()
+        
+        result.append({
+            'recipient__first_name': chat.recipient.first_name if chat.recipient else '',
+            'recipient__last_name': chat.recipient.last_name if chat.recipient else '',
+            'recipient__email': chat.recipient.email if chat.recipient else '',
+            'recipient__id': chat.recipient.id if chat.recipient else None,
+            'sender__first_name': chat.sender.first_name if chat.sender else '',
+            'sender__last_name': chat.sender.last_name if chat.sender else '',
+            'sender__email': chat.sender.email if chat.sender else '',
+            'sender__id': chat.sender.id if chat.sender else None,
+            'message': chat.message,
+            'timestamp': timestamp_iso,
+            'chatroom__initiator__id': chat.chatroom.initiator.id if chat.chatroom and chat.chatroom.initiator else None,
+            'chatroom__receiver__id': chat.chatroom.receiver.id if chat.chatroom and chat.chatroom.receiver else None,
+            'chatroom__id': chat.chatroom.id if chat.chatroom else None,
+            'id': chat.id,
+        })
     data = {
-        'result': list(result),
+        'result': result,
     }
     return JsonResponse(data, safe=False)
 
@@ -790,16 +904,29 @@ def send_init_message(request):
     """
     Initiate a chat. Supports a special recipient value "PCheck" which broadcasts
     the message to all staff/admin users by creating/using individual rooms.
+    Also supports PCheck Support system account messaging admin/staff.
     """
     if request.method == "POST":
         message = request.POST.get("message")
         recipient_value = request.POST.get("recipient") or ""
 
+        # Check if sender is PCheck Support system account
+        pcheck_support_user = get_pcheck_support_user()
+        is_pcheck_support = (request.user == pcheck_support_user or request.user.username == 'pcheck_support')
+
         # If recipient is the special alias, broadcast to all staff/admin
         if recipient_value.strip().lower() == "pcheck":
-            staff_users = User.objects.filter(
-                Q(profile__role='staff') | Q(is_staff=True)
-            ).exclude(pk=request.user.pk)
+            # If PCheck Support is sending, allow it to message all staff/admin
+            if is_pcheck_support:
+                staff_users = User.objects.filter(
+                    Q(profile__role='staff') | Q(is_staff=True)
+                ).exclude(pk=request.user.pk)
+            else:
+                # Regular users can message staff/admin
+                staff_users = User.objects.filter(
+                    Q(profile__role='staff') | Q(is_staff=True)
+                ).exclude(pk=request.user.pk)
+            
             broadcasted_room_ids = []
             for staff_user in staff_users:
                 room = models.ChatRoom.objects.filter(
@@ -829,7 +956,7 @@ def send_init_message(request):
                                 'sender_first_name': request.user.first_name or '',
                                 'sender_last_name': request.user.last_name or '',
                                 'recipient_id': staff_user.id,
-                                'timestamp': chat.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                                'timestamp': chat.timestamp.isoformat() if timezone.is_aware(chat.timestamp) else timezone.make_aware(chat.timestamp).isoformat(),
                                 'chat_id': chat.id
                             }
                         )
@@ -843,13 +970,25 @@ def send_init_message(request):
             })
 
         # Otherwise, normal 1:1 init: staff can message non-staff; users may also reach staff
+        # Also handle PCheck Support system account
         try:
+            # Try to find by email first
             recipient = User.objects.filter(email=recipient_value).first()
+            # If not found by email, try by username (for PCheck Support)
+            if not recipient:
+                recipient = User.objects.filter(username=recipient_value).first()
+            # Special handling for PCheck Support
+            if not recipient and recipient_value.strip().lower() in ['pcheck_support', 'pcheck support']:
+                recipient = get_pcheck_support_user()
             if not recipient:
                 return JsonResponse({"success": False, "error": "Recipient not found."}, status=404)
         except Exception:
             return JsonResponse({"success": False, "error": "Recipient not found."}, status=404)
 
+        # Check if sender is PCheck Support system account
+        pcheck_support_user = get_pcheck_support_user()
+        is_pcheck_support = (request.user == pcheck_support_user or request.user.username == 'pcheck_support')
+        
         # Check roles: staff, faculty, or student (also check is_staff flag for staff)
         is_sender_staff = (hasattr(request.user, 'profile') and request.user.profile.role == 'staff') or request.user.is_staff
         is_sender_faculty = hasattr(request.user, 'profile') and request.user.profile.role == 'faculty'
@@ -859,8 +998,14 @@ def send_init_message(request):
         is_recipient_faculty = hasattr(recipient, 'profile') and recipient.profile.role == 'faculty'
         is_recipient_student = hasattr(recipient, 'profile') and recipient.profile.role == 'student'
         
+        # Rule 0: PCheck Support can message admin/staff only
+        if is_pcheck_support:
+            if not is_recipient_staff:
+                return JsonResponse({"success": False, "error": "PCheck Support can only message staff or admin."}, status=403)
+            # PCheck Support can message staff/admin - no restriction needed
+        
         # Rule 1: Staff/Admin can message faculty and students (but not other staff)
-        if is_sender_staff:
+        elif is_sender_staff:
             if is_recipient_staff:
                 return JsonResponse({"success": False, "error": "Staff can only chat with faculty and students."}, status=403)
             # Staff can message faculty and students - no restriction needed
@@ -906,7 +1051,7 @@ def send_init_message(request):
                         'sender_first_name': request.user.first_name or '',
                         'sender_last_name': request.user.last_name or '',
                         'recipient_id': recipient.id,
-                        'timestamp': chat.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                        'timestamp': chat.timestamp.isoformat() if timezone.is_aware(chat.timestamp) else timezone.make_aware(chat.timestamp).isoformat(),
                         'chat_id': chat.id
                     }
                 )
@@ -923,7 +1068,8 @@ def send_init_message(request):
 @csrf_exempt
 @login_required
 def send_new_message(request, room_id):
-    """Allow staff to send messages, or users to reply to staff-initiated conversations."""
+    """Allow staff to send messages, or users to reply to staff-initiated conversations.
+    Also allows PCheck Support to message admin/staff."""
     if request.method == "POST":
         room = get_object_or_404(models.ChatRoom, id=room_id)
         
@@ -933,6 +1079,10 @@ def send_new_message(request, room_id):
                 "success": False,
                 "error": "You are not part of this conversation."
             }, status=403)
+        
+        # Check if sender is PCheck Support system account
+        pcheck_support_user = get_pcheck_support_user()
+        is_pcheck_support = (request.user == pcheck_support_user or request.user.username == 'pcheck_support')
         
         # Check if user is staff/admin - staff can always send (check both profile.role and is_staff flag)
         is_staff = False
@@ -951,8 +1101,25 @@ def send_new_message(request, room_id):
         if hasattr(request.user, 'profile') and hasattr(request.user.profile, 'role'):
             is_student = request.user.profile.role == 'student'
         
+        # Rule 0: PCheck Support can send in conversations with staff/admin
+        if is_pcheck_support:
+            staff_initiator = (
+                (hasattr(room.initiator, 'profile') and getattr(room.initiator.profile, 'role', None) == 'staff')
+                or getattr(room.initiator, 'is_staff', False)
+            )
+            staff_receiver = (
+                (hasattr(room.receiver, 'profile') and getattr(room.receiver.profile, 'role', None) == 'staff')
+                or getattr(room.receiver, 'is_staff', False)
+            )
+            # PCheck Support can only message staff/admin
+            if not staff_initiator and not staff_receiver:
+                return JsonResponse({
+                    "success": False,
+                    "error": "PCheck Support can only message staff or admin."
+                }, status=403)
+        
         # Rule 1: Staff/Admin can send in any conversation with faculty or students (but not other staff)
-        if is_staff:
+        elif is_staff:
             staff_initiator = (
                 (hasattr(room.initiator, 'profile') and getattr(room.initiator.profile, 'role', None) == 'staff')
                 or getattr(room.initiator, 'is_staff', False)
@@ -1046,7 +1213,7 @@ def send_new_message(request, room_id):
                         'sender_first_name': request.user.first_name or '',
                         'sender_last_name': request.user.last_name or '',
                         'recipient_id': receiver.id,
-                        'timestamp': chat.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                        'timestamp': chat.timestamp.isoformat() if timezone.is_aware(chat.timestamp) else timezone.make_aware(chat.timestamp).isoformat(),
                         'chat_id': chat.id
                     }
                 )
@@ -1294,6 +1461,7 @@ class PCListView(StaffRequiredMixin, LoginRequiredMixin, FormMixin, ListView):
             "form": self.get_form(),
             "pc_list": pc_list,
             "section": "pc_list",
+            "total_pcs": models.PC.objects.count(),
         }
         return context
 
@@ -1466,10 +1634,73 @@ class ReservePCListView(LoginRequiredMixin, ListView):
     paginate_by = 12
     
     def get_queryset(self):
+        from django.utils import timezone
         qs = super().get_queryset()
+        
+        # Sync PC booking_status with actual confirmed bookings
+        # This ensures PCs with confirmed bookings show as 'in_use' not 'in_queue'
+        # Force evaluation of queryset to get all PCs
+        all_pcs = list(qs)
+        
+        for pc in all_pcs:
+            # Check if there's a confirmed booking for this PC that hasn't expired
+            confirmed_booking = models.Booking.objects.filter(
+                pc=pc,
+                status='confirmed'
+            ).exclude(status='cancelled').order_by('-created_at').first()
+            
+            if confirmed_booking:
+                # If booking is confirmed and not expired, PC should be 'in_use'
+                if confirmed_booking.end_time:
+                    now = timezone.now()
+                    if confirmed_booking.end_time > now:
+                        # Booking is still active - PC should be in_use
+                        if pc.booking_status != 'in_use':
+                            pc.booking_status = 'in_use'
+                            pc.save(update_fields=['booking_status'])
+                    else:
+                        # Booking has expired - PC should be available
+                        if pc.booking_status != 'available':
+                            pc.booking_status = 'available'
+                            pc.save(update_fields=['booking_status'])
+                else:
+                    # No end_time set, but booking is confirmed - PC should be in_use
+                    if pc.booking_status != 'in_use':
+                        pc.booking_status = 'in_use'
+                        pc.save(update_fields=['booking_status'])
+            else:
+                # Check if there's a pending booking (in_queue)
+                pending_booking = models.Booking.objects.filter(
+                    pc=pc,
+                    status__isnull=True
+                ).exclude(status='cancelled').order_by('-created_at').first()
+                
+                if pending_booking:
+                    # Booking exists but not confirmed yet - PC should be in_queue
+                    if pc.booking_status != 'in_queue':
+                        pc.booking_status = 'in_queue'
+                        pc.save(update_fields=['booking_status'])
+                elif pc.booking_status in ['in_use', 'in_queue']:
+                    # No active booking but PC status is not available
+                    # Check if there are any expired bookings
+                    expired_booking = models.Booking.objects.filter(
+                        pc=pc,
+                        status='confirmed',
+                        end_time__lt=timezone.now()
+                    ).order_by('-created_at').first()
+                    
+                    if expired_booking or not models.Booking.objects.filter(
+                        pc=pc,
+                        status__in=['confirmed', None]
+                    ).exclude(status='cancelled').exists():
+                        # No active bookings, set to available
+                        if pc.booking_status != 'available':
+                            pc.booking_status = 'available'
+                            pc.save(update_fields=['booking_status'])
+        
         # Return all PCs, not just connected ones
-        print(f"Total PCs in database: {qs.count()}")
-        return qs.order_by('sort_number')
+        print(f"Total PCs in database: {len(all_pcs)}")
+        return models.PC.objects.all().order_by('sort_number')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

@@ -113,22 +113,47 @@ $(document).ready(function () {
     }
   });
 
-  // Add PC
+  // Function to show Add PC modal
+  function showAddPcModal() {
+    console.log("Showing Add PC Modal");
+    
+    // Clear form fields
+    $("#add-pc_id").val("");
+    $("#add-id_name").val("");
+    $("#add-id_ip_address").val("");
+    $("#add-id_status").val("connected");
+    $("#add-id_system_condition").val("active");
+    $("#add-status_indicator").text("");
+    
+    // Clear error messages
+    $("#add-name-error").text("");
+    $("#add-ip-address-error").text("");
+    
+    // Show modal using Bootstrap 5
+    var modalElement = document.getElementById("addPcModal");
+    if (modalElement) {
+      var existingModal = bootstrap.Modal.getInstance(modalElement);
+      if (existingModal) {
+        existingModal.show();
+      } else {
+        var modal = new bootstrap.Modal(modalElement, {
+          backdrop: true,
+          keyboard: true,
+          focus: true
+        });
+        modal.show();
+      }
+    } else {
+      console.error("Add PC modal element not found!");
+    }
+  }
+
+  // Add PC button handler
   console.log("Attaching Add PC button handler...");
   $addPCbutton.on("click", function (e) {
     console.log("Add PC button clicked!");
     e.preventDefault();
-    $PCformDiv.attr("hidden", false);
-    // Clear form
-    $("#pc_id").val("");
-    $("#id_name").val("");
-    $("#id_ip_address").val("");
-    $("#id_status").val("connected");
-    $("#id_system_condition").val("active");
-    $("#status_indicator").text("");
-    $("#form-title").text("Add a PC");
-    $addPCbutton.addClass("bg-warning");
-    $cancelButton.show();
+    showAddPcModal();
   });
 
   // Function to show PC information modal
@@ -159,14 +184,16 @@ $(document).ready(function () {
       healthBadge.text(health || "-");
     }
     
-    // Set edit button to fill form and show it
+    // Set edit button to show edit modal
     $("#modal-edit-btn").off("click").on("click", function() {
-      fillPCForm(id, name, ip, status, health);
+      // Close info modal
       var modalElement = document.getElementById("pcInfoModal");
       var modal = bootstrap.Modal.getInstance(modalElement);
       if (modal) {
         modal.hide();
       }
+      // Show edit modal
+      showEditPcModal(id, name, ip, status, health);
     });
     
     // Show modal using Bootstrap 5
@@ -189,46 +216,44 @@ $(document).ready(function () {
     }
   }
 
-  // Function to fill PC form
-  function fillPCForm(id, name, ip, status, health) {
-    var $formDiv = $("#PCformDiv");
-    var $statusInd = $("#status_indicator");
+  // Function to show Edit PC modal
+  function showEditPcModal(id, name, ip, status, health) {
+    console.log("Showing Edit PC Modal:", { id, name, ip, status, health });
     
-    if ($formDiv.length) {
-      $formDiv.removeAttr("hidden");
-      console.log("Form div shown");
-      // Scroll to form panel smoothly
-      setTimeout(function() {
-        $formDiv[0].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }, 100);
+    // Fill edit modal form fields
+    $("#edit-pc_id").val(id || "");
+    $("#edit-id_name").val(name || "");
+    $("#edit-id_ip_address").val(ip || "");
+    $("#edit-id_status").val(status || "connected");
+    $("#edit-id_system_condition").val(health || "active");
+    $("#edit-status_indicator").text("");
+    
+    // Clear error messages
+    $("#edit-name-error").text("");
+    $("#edit-ip-address-error").text("");
+    
+    // Show modal using Bootstrap 5
+    var modalElement = document.getElementById("editPcModal");
+    if (modalElement) {
+      var existingModal = bootstrap.Modal.getInstance(modalElement);
+      if (existingModal) {
+        existingModal.show();
+      } else {
+        var modal = new bootstrap.Modal(modalElement, {
+          backdrop: true,
+          keyboard: true,
+          focus: true
+        });
+        modal.show();
+      }
     } else {
-      console.error("Form div not found!");
+      console.error("Edit modal element not found!");
     }
-    
-    if ($statusInd.length) {
-      $statusInd.text("");
-    }
-    
-    $("#pc_id").val(id || "");
-    $("#id_name").val(name || "");
-    $("#id_ip_address").val(ip || "");
-    $("#id_status").val(status || "connected");
-    $("#id_system_condition").val(health || "active");
-    
-    // Change title & button
-    $("#form-title").text("Edit PC");
-    var $cancelBtn = $("#cancel-button");
-    if ($cancelBtn.length) {
-      $cancelBtn.show();
-    }
-    
-    var $addBtn = $("#addPCbutton");
-    if ($addBtn.length) {
-      $addBtn.attr("class", "btn btn-round btn-secondary shadow menu-button mb-2");
-      $addBtn.removeClass("bg-warning");
-    }
-    
-    console.log("Form filled with PC data:", { id, name, ip, status, health });
+  }
+
+  // Function to fill PC form - kept for backward compatibility, now shows modal
+  function fillPCForm(id, name, ip, status, health) {
+    showEditPcModal(id, name, ip, status, health);
   }
 
   // Make edit-row clickable - use event delegation to handle dynamically added rows
@@ -250,8 +275,8 @@ $(document).ready(function () {
     
     console.log("Edit row clicked:", id, name);
     
-    // Fill the form fields for editing (show info in side panel)
-    fillPCForm(id, name, ip, status, health);
+    // Show edit modal
+    showEditPcModal(id, name, ip, status, health);
   });
 
   // Handle form submission  
@@ -338,12 +363,246 @@ $(document).ready(function () {
     
     console.log("PC list button clicked:", id, name);
     
-    // Fill the form fields for editing (show info in side panel)
-    fillPCForm(id, name, ip, status, health);
+    // Show edit modal
+    showEditPcModal(id, name, ip, status, health);
     
     // Highlight selected button
     $(".pc-list-button").removeClass("selected-pc");
     $(this).addClass("selected-pc");
+  });
+
+  // Add PC modal handlers
+  // Test connection button in add modal
+  $("#add-connectButton").on("click", function(e) {
+    e.preventDefault();
+    const ipAddress = $("#add-id_ip_address").val();
+    const $statusIndicator = $("#add-status_indicator");
+    const $spinner = $("#add-spinner");
+    const $status = $("#add-id_status");
+
+    if ($spinner.length) {
+      $spinner.show();
+    }
+
+    if (ipAddress) {
+      $.getJSON(`/ajax/get-ping-data/?ip_address=${ipAddress}`)
+        .done(function (data) {
+          if ($spinner.length) {
+            $spinner.hide();
+          }
+          if (data.error) {
+            console.log(data.error);
+          } else {
+            console.log("result:", data);
+            if (data.result) {
+              $statusIndicator.text("Reachable")
+                .removeClass("text-danger")
+                .addClass("text-success");
+              $status.val("connected");
+            } else {
+              $statusIndicator.text("Unreachable")
+                .removeClass("text-success")
+                .addClass("text-danger");
+              $status.val("disconnected");
+            }
+          }
+        })
+        .fail(function (jqXHR, textStatus, errorThrown) {
+          console.error("Error fetching ping data:", errorThrown);
+          if ($spinner.length) {
+            $spinner.hide();
+          }
+        });
+    } else {
+      alert("Please enter an IP address.");
+      if ($spinner.length) {
+        $spinner.hide();
+      }
+    }
+  });
+
+  // Name validation in add modal
+  $("#add-id_name").on("change", function () {
+    const name = $(this).val();
+    if (name) {
+      $.getJSON(`/ajax/verify-pc-name/?name=${name}`)
+        .done(function (data) {
+          if (data.error) {
+            console.log(data.error);
+          } else {
+            if (data.result) {
+              $("#add-name-error").text("PC with this name already exists.");
+            } else {
+              $("#add-name-error").text("");
+            }
+          }
+        })
+        .fail(function (jqXHR, textStatus, errorThrown) {
+          console.error("Error fetching name data:", errorThrown);
+        });
+    }
+  });
+
+  // IP validation in add modal
+  $("#add-id_ip_address").on("change", function () {
+    const ip = $(this).val();
+    if (ip) {
+      $.getJSON(`/ajax/verify-pc-ip-address/?ip_address=${ip}`)
+        .done(function (data) {
+          if (data.error) {
+            console.log(data.error);
+          } else {
+            if (data.result) {
+              $("#add-ip-address-error").text("PC with this IP address already exists.");
+            } else {
+              $("#add-ip-address-error").text("");
+            }
+          }
+        })
+        .fail(function (jqXHR, textStatus, errorThrown) {
+          console.error("Error fetching IP data:", errorThrown);
+        });
+    }
+  });
+
+  // Add form submission
+  $("#add-pc-form").on("submit", function(e) {
+    console.log("Add form is being submitted");
+    
+    const name = $("#add-id_name").val();
+    const ipAddress = $("#add-id_ip_address").val();
+    
+    if (!name || name.trim() === '') {
+      alert("Please enter a PC name");
+      e.preventDefault();
+      return false;
+    }
+    if (!ipAddress || ipAddress.trim() === '') {
+      alert("Please enter an IP address");
+      e.preventDefault();
+      return false;
+    }
+    
+    console.log("Add form validation passed, submitting...");
+    return true;
+  });
+
+  // Edit modal handlers
+  // Test connection button in edit modal
+  $("#edit-connectButton").on("click", function(e) {
+    e.preventDefault();
+    const ipAddress = $("#edit-id_ip_address").val();
+    const $statusIndicator = $("#edit-status_indicator");
+    const $spinner = $("#edit-spinner");
+    const $status = $("#edit-id_status");
+
+    if ($spinner.length) {
+      $spinner.show();
+    }
+
+    if (ipAddress) {
+      $.getJSON(`/ajax/get-ping-data/?ip_address=${ipAddress}`)
+        .done(function (data) {
+          if ($spinner.length) {
+            $spinner.hide();
+          }
+          if (data.error) {
+            console.log(data.error);
+          } else {
+            console.log("result:", data);
+            if (data.result) {
+              $statusIndicator.text("Reachable")
+                .removeClass("text-danger")
+                .addClass("text-success");
+              $status.val("connected");
+            } else {
+              $statusIndicator.text("Unreachable")
+                .removeClass("text-success")
+                .addClass("text-danger");
+              $status.val("disconnected");
+            }
+          }
+        })
+        .fail(function (jqXHR, textStatus, errorThrown) {
+          console.error("Error fetching ping data:", errorThrown);
+          if ($spinner.length) {
+            $spinner.hide();
+          }
+        });
+    } else {
+      alert("Please enter an IP address.");
+      if ($spinner.length) {
+        $spinner.hide();
+      }
+    }
+  });
+
+  // Name validation in edit modal
+  $("#edit-id_name").on("change", function () {
+    const name = $(this).val();
+    const pcId = $("#edit-pc_id").val();
+    if (name) {
+      $.getJSON(`/ajax/verify-pc-name/?name=${name}&exclude_id=${pcId}`)
+        .done(function (data) {
+          if (data.error) {
+            console.log(data.error);
+          } else {
+            if (data.result) {
+              $("#edit-name-error").text("PC with this name already exists.");
+            } else {
+              $("#edit-name-error").text("");
+            }
+          }
+        })
+        .fail(function (jqXHR, textStatus, errorThrown) {
+          console.error("Error fetching name data:", errorThrown);
+        });
+    }
+  });
+
+  // IP validation in edit modal
+  $("#edit-id_ip_address").on("change", function () {
+    const ip = $(this).val();
+    const pcId = $("#edit-pc_id").val();
+    if (ip) {
+      $.getJSON(`/ajax/verify-pc-ip-address/?ip_address=${ip}&exclude_id=${pcId}`)
+        .done(function (data) {
+          if (data.error) {
+            console.log(data.error);
+          } else {
+            if (data.result) {
+              $("#edit-ip-address-error").text("PC with this IP address already exists.");
+            } else {
+              $("#edit-ip-address-error").text("");
+            }
+          }
+        })
+        .fail(function (jqXHR, textStatus, errorThrown) {
+          console.error("Error fetching IP data:", errorThrown);
+        });
+    }
+  });
+
+  // Edit form submission
+  $("#edit-pc-form").on("submit", function(e) {
+    console.log("Edit form is being submitted");
+    
+    const name = $("#edit-id_name").val();
+    const ipAddress = $("#edit-id_ip_address").val();
+    
+    if (!name || name.trim() === '') {
+      alert("Please enter a PC name");
+      e.preventDefault();
+      return false;
+    }
+    if (!ipAddress || ipAddress.trim() === '') {
+      alert("Please enter an IP address");
+      e.preventDefault();
+      return false;
+    }
+    
+    console.log("Edit form validation passed, submitting...");
+    return true;
   });
 
 });

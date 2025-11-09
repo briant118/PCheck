@@ -25,6 +25,9 @@
 
     {% block links %}
     {% endblock %}
+    
+    {% block extra_head %}
+    {% endblock %}
   
   </head>
   <body>
@@ -100,7 +103,7 @@
                   </a>
                   <ul class="dropdown-menu sidebar-dropdown-menu">
                     <li><a class="dropdown-item sidebar-dropdown-item" href="{% url 'account:profile' %}"><i class="fa-solid fa-id-card"></i> Profile</a></li>
-                    <li><a class="dropdown-item sidebar-dropdown-item" href="{% url 'main_app:chats' %}"><i class="fa-solid fa-comments"></i> Chat</a></li>
+                    <li><a class="dropdown-item sidebar-dropdown-item" href="{% url 'main_app:chats' %}"><i class="fa-solid fa-comments"></i> PCheck Support</a></li>
                     <li><a class="dropdown-item sidebar-dropdown-item" href="{% url 'account:about' %}"><i class="fa-solid fa-info-circle"></i> About</a></li>
                     <li><hr class="dropdown-divider sidebar-divider"></li>
                     <li><a class="dropdown-item sidebar-dropdown-item" href="{% url 'account:logout' %}"><i class="fa-solid fa-right-from-bracket"></i> Logout</a></li>
@@ -209,7 +212,7 @@
             <li>
               <a href="{% url 'main_app:chats' %}" class="mobile-nav-item">
                 <i class="fa-solid fa-comments"></i>
-                <span>Chat</span>
+                <span>PCheck Support</span>
               </a>
             </li>
             <li>
@@ -1588,7 +1591,7 @@
             {% load static %}
             <div class="about-container">
               <div id="about-logo" class="text-center mb-4">
-                <img src="{% static 'images/about_logo.png' %}" alt="About Logo" class="img-fluid" style="max-width: 200px;" onerror="this.style.display='none';">
+                <img src="{% static 'image/PSU_logo.png' %}" alt="About Logo" class="img-fluid" style="max-width: 200px;" onerror="this.style.display='none';">
               </div>
               <div id="about-section" class="container">
                 <p class="mb-4">
@@ -1610,5 +1613,13 @@
         </div>
       </div>
     </div>
+
+    <!-- Floating PCheck Support Button (for non-staff users only) -->
+    {% if request.user.is_authenticated and not request.user.is_staff and request.user.profile.role|default:'' != 'staff' %}
+    <a href="{% url 'main_app:chats' %}" class="pcheck-support-float-btn" title="PCheck Support">
+      <i class="fa-solid fa-headset"></i>
+      <span class="pcheck-support-float-text">Support</span>
+    </a>
+    {% endif %}
   </body>
 </html>

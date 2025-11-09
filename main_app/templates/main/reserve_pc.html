@@ -9,11 +9,425 @@
 <link rel="stylesheet" href="{% static 'css/booking.css' %}?v=10">
 {% endblock %}
 
+{% block extra_head %}
+<script>
+// Define showPCStatus immediately so it's available for inline onclick handlers
+// This must be defined before the HTML that uses it
+window.showPCStatus = function(pcId, button) {
+  console.log('Checking PC status:', pcId);
+  
+  // Get PC status from button data attributes
+  const pcStatus = button.getAttribute('data-pc-status');
+  const pcCondition = button.getAttribute('data-pc-condition');
+  const pcBookingStatus = button.getAttribute('data-booking-status');
+  const pcName = button.getAttribute('data-pc-name');
+  
+  // Get modal elements
+  const modal = document.getElementById('pcStatusModal');
+  const modalLabel = document.getElementById('pcStatusModalLabel');
+  const modalHeader = document.getElementById('pcStatusModalHeader');
+  const modalBody = document.getElementById('pcStatusContent');
+  const endSessionBtn = document.getElementById('pc-status-end-session-btn');
+  
+  // Check if modal elements exist
+  if (!modal || !modalLabel || !modalHeader || !modalBody) {
+    console.error('PC Status modal elements not found');
+    alert('Error: PC Status modal not found. Please refresh the page.');
+    return false;
+  }
+  
+  // Hide end session button by default
+  if (endSessionBtn) {
+    endSessionBtn.style.display = 'none';
+    endSessionBtn.setAttribute('data-booking-id', '');
+  }
+  
+  // Check if PC is in repair
+  if (pcCondition === 'repair') {
+    modalLabel.innerHTML = '<i class="fa-solid fa-tools"></i> PC In Repair';
+    modalHeader.className = 'modal-header bg-danger text-white';
+    modalBody.innerHTML = `
+      <div class="mb-3">
+        <i class="fa-solid fa-tools" style="font-size: 3rem; color: #dc3545;"></i>
+      </div>
+      <h4>PC ${pcName}</h4>
+      <p class="text-muted">This PC is currently in repair and not available for reservation until maintenance is complete.</p>
+    `;
+    if (modal && typeof bootstrap !== 'undefined') {
+      const bsModal = new bootstrap.Modal(modal);
+      bsModal.show();
+    }
+    return false;
+  }
+  
+  // Check if PC is offline/disconnected
+  if (pcStatus === 'disconnected') {
+    modalLabel.innerHTML = '<i class="fa-solid fa-plug"></i> PC Offline';
+    modalHeader.className = 'modal-header bg-secondary text-white';
+    modalBody.innerHTML = `
+      <div class="mb-3">
+        <i class="fa-solid fa-plug" style="font-size: 3rem; color: #6c757d;"></i>
+      </div>
+      <h4>PC ${pcName}</h4>
+      <p class="text-muted">This PC is currently offline and not available for reservation until it is connected.</p>
+    `;
+    if (modal && typeof bootstrap !== 'undefined') {
+      const bsModal = new bootstrap.Modal(modal);
+      bsModal.show();
+    }
+    return false;
+  }
+  
+  // Fetch booking information for this PC
+  fetch(`/ajax/get-pc-booking/${pcId}/`)
+    .then(response => response.json())
+    .then(data => {
+      console.log('PC booking data:', data);
+      
+      // Update button's data-booking-status if it's different
+      if (data.booking_status && data.booking_status !== pcBookingStatus) {
+        button.setAttribute('data-booking-status', data.booking_status);
+        // Update button class if needed
+        button.classList.remove('pc-used', 'pc-queue', 'pc-available');
+        if (data.booking_status === 'in_use') {
+          button.classList.add('pc-used');
+        } else if (data.booking_status === 'in_queue') {
+          button.classList.add('pc-queue');
+        } else {
+          button.classList.add('pc-available');
+        }
+      }
+      
+      // Populate modal based on status
+      if (data.booking_status === 'in_queue') {
+        const isCurrentUser = data.is_current_user || false;
+        modalLabel.innerHTML = '<i class="fa-solid fa-hourglass-half"></i> PC In Queue';
+        modalHeader.className = 'modal-header bg-warning text-dark';
+        modalBody.innerHTML = `
+          <div class="mb-3">
+            <i class="fa-solid fa-hourglass-half" style="font-size: 3rem; color: #ffc107;"></i>
+          </div>
+          <h4>PC ${data.pc_name}</h4>
+          <p class="text-muted">This PC is waiting for staff approval.</p>
+          <p><strong>Request made at:</strong><br>${data.created_time || 'Unknown'}</p>
+        `;
+        // Show "End Session" button if current user has this PC in queue
+        if (endSessionBtn && isCurrentUser && data.booking_id) {
+          endSessionBtn.setAttribute('data-booking-id', data.booking_id);
+          window.currentBookingId = data.booking_id;
+          endSessionBtn.style.display = 'block';
+          // Set onclick handler
+          endSessionBtn.onclick = function(e) {
+            if (e) {
+              e.preventDefault();
+              e.stopPropagation();
+            }
+            return window.handleEndSession(e);
+          };
+          console.log('End Session button shown for current user (in queue), booking_id:', data.booking_id);
+        } else if (endSessionBtn) {
+          endSessionBtn.style.display = 'none';
+        }
+      } else if (data.booking_status === 'in_use') {
+        const timeLeft = data.time_remaining || 'Unknown';
+        const userName = data.user || 'Another student';
+        const isCurrentUser = data.is_current_user || false;
+        modalLabel.innerHTML = '<i class="fa-solid fa-user-clock"></i> PC In Use';
+        modalHeader.className = 'modal-header bg-info text-white';
+        modalBody.innerHTML = `
+          <div class="mb-3">
+            <i class="fa-solid fa-user-clock" style="font-size: 3rem; color: #0dcaf0;"></i>
+          </div>
+          <h4>PC ${data.pc_name}</h4>
+          <p class="text-muted">This PC is currently in use by <strong>${userName}</strong>.</p>
+          <div class="mt-3">
+            <p><strong>Estimated time remaining:</strong></p>
+            <h3 class="text-primary">${timeLeft}</h3>
+          </div>
+        `;
+        
+        // Show "End Session" button if current user is the one using this PC
+        if (endSessionBtn && isCurrentUser && data.booking_id) {
+          endSessionBtn.setAttribute('data-booking-id', data.booking_id);
+          window.currentBookingId = data.booking_id;
+          endSessionBtn.style.display = 'block';
+          // Set onclick handler
+          endSessionBtn.onclick = function(e) {
+            if (e) {
+              e.preventDefault();
+              e.stopPropagation();
+            }
+            return window.handleEndSession(e);
+          };
+          console.log('End Session button shown for current user, booking_id:', data.booking_id);
+        } else if (endSessionBtn) {
+          endSessionBtn.style.display = 'none';
+        }
+      } else {
+        modalLabel.innerHTML = '<i class="fa-solid fa-check-circle"></i> PC Available';
+        modalHeader.className = 'modal-header bg-success text-white';
+        modalBody.innerHTML = `
+          <div class="mb-3">
+            <i class="fa-solid fa-check-circle" style="font-size: 3rem; color: #198754;"></i>
+          </div>
+          <h4>PC ${data.pc_name}</h4>
+          <p class="text-muted">This PC is available for reservation.</p>
+        `;
+        // Hide end session button for available PCs
+        if (endSessionBtn) {
+          endSessionBtn.style.display = 'none';
+        }
+      }
+      
+      // Show modal
+      if (modal && typeof bootstrap !== 'undefined') {
+        try {
+          const bsModal = new bootstrap.Modal(modal);
+          bsModal.show();
+          console.log('PC Status modal shown');
+        } catch (error) {
+          console.error('Error showing PC Status modal:', error);
+          alert('Error showing PC status. Please refresh the page.');
+        }
+      } else {
+        console.error('Bootstrap not available or modal not found');
+        alert('Error: Unable to show PC status. Please refresh the page.');
+      }
+    })
+    .catch(error => {
+      console.error('Error fetching PC status:', error);
+      modalLabel.innerHTML = '<i class="fa-solid fa-exclamation-triangle"></i> Error';
+      modalHeader.className = 'modal-header bg-danger text-white';
+      modalBody.innerHTML = `
+        <div class="mb-3">
+          <i class="fa-solid fa-exclamation-triangle" style="font-size: 3rem; color: #dc3545;"></i>
+        </div>
+        <p class="text-danger">Unable to fetch PC status information.</p>
+      `;
+      if (modal && typeof bootstrap !== 'undefined') {
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+      }
+    });
+  
+  return false;
+};
+
+// Define handleEndSession immediately so it's available for showPCStatus
+// This must be defined before the HTML that uses it
+window.handleEndSession = function(e) {
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  
+  // Try multiple sources for booking_id
+  // First try to get from the button that was clicked
+  var btn = e ? e.target : null;
+  if (!btn || !btn.getAttribute('data-booking-id')) {
+    // Try the pc-status-end-session-btn
+    btn = document.getElementById('pc-status-end-session-btn');
+  }
+  if (!btn || !btn.getAttribute('data-booking-id')) {
+    // Try the end-session-btn
+    btn = document.getElementById('end-session-btn');
+  }
+  
+  var bookingId = window.currentBookingId || 
+                  (btn ? btn.getAttribute('data-booking-id') : null) ||
+                  (btn ? btn.dataset.bookingId : null);
+  
+  console.log('End session clicked');
+  console.log('Current booking ID from window.currentBookingId:', window.currentBookingId);
+  console.log('Current booking ID from button data attribute:', btn ? btn.getAttribute('data-booking-id') : 'button not found');
+  console.log('Final booking ID to use:', bookingId);
+  
+  if (!bookingId || bookingId === '' || bookingId === 'null' || bookingId === 'undefined') {
+    console.error('Booking ID not found. All sources checked.');
+    alert('Error: Booking ID not found. Please check your session and try again.');
+    return false;
+  }
+  
+  // Ensure bookingId is a string/number, not null/undefined
+  bookingId = String(bookingId).trim();
+  
+  // Validate bookingId is a valid number
+  if (!bookingId || isNaN(parseInt(bookingId))) {
+    console.error('Invalid booking ID format:', bookingId);
+    alert('Error: Invalid booking ID format. Please refresh the page and try again.');
+    return false;
+  }
+  
+  if (confirm('Are you sure you want to end your session early?')) {
+    var url = '/ajax/end-session/' + bookingId + '/';
+    console.log('Calling end session URL:', url);
+    
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                      document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '',
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(response => {
+      console.log('Response status:', response.status);
+      if (!response.ok) {
+        return response.text().then(text => {
+          console.error('Error response:', text);
+          throw new Error('HTTP error! status: ' + response.status + ' - ' + text);
+        });
+      }
+      return response.json();
+    })
+    .then(data => {
+      console.log('End session response:', data);
+      if (data.success) {
+        alert(data.message || 'Session ended successfully');
+        // Close the modal if it's open
+        var modal = bootstrap.Modal.getInstance(document.getElementById('mySessionModal'));
+        if (modal) {
+          modal.hide();
+        }
+        var pcStatusModal = bootstrap.Modal.getInstance(document.getElementById('pcStatusModal'));
+        if (pcStatusModal) {
+          pcStatusModal.hide();
+        }
+        location.reload();
+      } else {
+        alert('Error: ' + (data.error || data.message || 'Failed to end session'));
+      }
+    })
+    .catch(error => {
+      console.error('Error ending session:', error);
+      alert('Error: Failed to end session. ' + error.message + '\nPlease check console for details.');
+    });
+  }
+  return false;
+};
+
+// Define selectPCForReservation immediately so it's available for inline onclick handlers
+// This must be defined before the HTML that uses it
+window.selectPCForReservation = function(pcId, button) {
+  console.log('PC clicked:', pcId);
+  
+  // Check if button is disabled - if so, prevent selection
+  if (button.disabled || button.hasAttribute('disabled')) {
+    console.warn('Button is disabled, ignoring click');
+    return;
+  }
+  
+  // Get PC status from button data attributes
+  const pcStatus = button.getAttribute('data-pc-status');
+  const pcCondition = button.getAttribute('data-pc-condition');
+  const pcBookingStatus = button.getAttribute('data-booking-status');
+  const pcName = button.getAttribute('data-pc-name');
+  
+  // Double-check if PC is in repair (safety check)
+  if (pcCondition === 'repair') {
+    alert(`PC ${pcName} is currently in repair.\n\nThis PC is not available for reservation until maintenance is complete.`);
+    button.disabled = true;
+    button.style.pointerEvents = 'none';
+    button.style.opacity = '0.6';
+    return;
+  }
+  
+  // Double-check if PC is offline/disconnected (safety check)
+  if (pcStatus === 'disconnected') {
+    alert(`PC ${pcName} is currently offline.\n\nThis PC is not available for reservation until it is connected.`);
+    button.disabled = true;
+    button.style.pointerEvents = 'none';
+    button.style.opacity = '0.6';
+    return;
+  }
+  
+  // Check if PC is already booked
+  if (pcBookingStatus === 'in_use' || pcBookingStatus === 'in_queue') {
+    alert(`PC ${pcName} is currently ${pcBookingStatus.replace('_', ' ')}.\n\nThis PC is not available for reservation.`);
+    button.disabled = true;
+    return;
+  }
+  
+  // Toggle the selected class - handle both old and new button styles
+  var isSelected;
+  if (button.classList.contains('pc-button-modern')) {
+    button.classList.toggle('selected');
+    button.classList.toggle('pc-selected');
+    isSelected = button.classList.contains('selected');
+  } else {
+    button.classList.toggle('text-success');
+    isSelected = button.classList.contains('text-success');
+  }
+  
+  // Set the hidden PC ID field
+  var pcIdInput = document.getElementById('pc_id');
+  if (pcIdInput) {
+    pcIdInput.value = pcId;
+  }
+  
+  // Toggle selected class and disable other PC buttons
+  var allButtons = document.querySelectorAll('.pc-button-modern, .pc-button');
+  allButtons.forEach(function(btn) {
+    if (btn !== button) {
+      btn.classList.remove('selected', 'pc-selected');
+      if (isSelected) {
+        btn.disabled = true;
+      } else {
+        btn.disabled = false;
+      }
+    } else {
+      if (isSelected) {
+        button.classList.add('selected', 'pc-selected');
+      } else {
+        button.classList.remove('selected', 'pc-selected');
+      }
+    }
+  });
+  
+  // Show/hide pagination
+  var pageNav = document.getElementById('page-nav');
+  var paginationModern = document.querySelector('.pagination-modern');
+  if (pageNav) {
+    pageNav.hidden = isSelected;
+  }
+  if (paginationModern) {
+    paginationModern.style.display = isSelected ? 'none' : 'flex';
+  }
+  
+  // Show/hide Next button - only if PC is truly available
+  var nextButton = document.querySelector('.reserve-next-button');
+  if (nextButton) {
+    // Show next button if a PC is selected and it's available (not in use, not in queue, not in repair, not offline)
+    if (isSelected && pcBookingStatus !== 'in_use' && pcBookingStatus !== 'in_queue' && pcCondition !== 'repair' && pcStatus !== 'disconnected') {
+      nextButton.hidden = false;
+      nextButton.style.display = 'block';
+      console.log('Next button shown - PC selected and available');
+    } else {
+      nextButton.hidden = true;
+      nextButton.style.display = 'none';
+      console.log('Next button hidden - PC not selected or not available', {isSelected, pcBookingStatus, pcCondition, pcStatus});
+    }
+  }
+  
+  // Show/hide Block button
+  var blockButton = document.getElementById('block-button');
+  if (blockButton) {
+    blockButton.hidden = isSelected;
+  }
+  
+  console.log('PC selection complete. Selected:', isSelected);
+};
+</script>
+{% endblock %}
+
 {% block content %}
 <div class="mobile-reservation-container">
   <div class="reservation-card">
     <div class="reservation-header">
       <h2 class="reservation-title">Available PC's</h2>
+      <button type="button" class="btn btn-info btn-sm" id="showMySessionBtn" style="display: none; visibility: hidden; margin-left: auto; border-radius: 8px; padding: 8px 16px;">
+        <i class="fa-solid fa-clock"></i> My Session
+      </button>
     </div>
     <div class="reservation-body">
       <div class="reservation-datetime" id="current-datetime">
@@ -66,8 +480,7 @@
                   title="{% if pc.system_condition == 'repair' %}PC is in repair and not available{% elif pc.status == 'disconnected' %}PC is offline and not available{% endif %}"
                   tabindex="-1"
                 {% elif pc.booking_status == 'in_use' or pc.booking_status == 'in_queue' %}
-                  onclick="showPCStatus({{ pc.id }}, this);"
-                  disabled
+                  onclick="showPCStatus({{ pc.id }}, this); return false;"
                   style="cursor: pointer;"
                 {% else %}
                   onclick="selectPCForReservation({{ pc.id }}, this);"
@@ -149,10 +562,10 @@
         </button>
       </div> <!-- end of students-booking -->
 
-      <!-- View QR Code Button (shown after QR is generated) -->
-      <div id="viewQRButtonContainer" style="display: none; text-align: center; margin: 20px 0;">
-        <button type="button" class="btn btn-primary btn-lg" id="viewQRCodeBtn">
-          <i class="fa-solid fa-qrcode"></i> View My QR Code
+      <!-- My Session Button (shown when user has active booking) -->
+      <div id="viewQRButtonContainer" style="display: none; visibility: hidden; text-align: center; margin: 20px 0;">
+        <button type="button" class="btn btn-info btn-lg" id="showMySessionBtnMain" style="display: block;">
+          <i class="fa-solid fa-clock"></i> My Session
         </button>
       </div>
 
@@ -316,6 +729,42 @@
                 <br> 
                 <span class="fw-bold" id="timeRemaining"></span>
               </p>
+              <div class="mt-4">
+                <button type="button" class="btn btn-danger btn-lg" id="end-session-early-btn" data-booking-id="" onclick="if(typeof window.handleEndSessionEarly === 'function') return window.handleEndSessionEarly(); return false;">
+                  <i class="fa-solid fa-stop-circle"></i> End Session Early
+                </button>
+              </div>
+              <div class="mt-3">
+                <p class="text-warning mb-0" style="font-size: 0.9rem;">
+                  <i class="fa-solid fa-info-circle"></i> 
+                  <strong>Note:</strong> To extend your session time, please go to the front desk or contact an admin.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PC Status Modal -->
+      <div class="modal fade" id="pcStatusModal" tabindex="-1" aria-labelledby="pcStatusModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header" id="pcStatusModalHeader">
+              <h5 class="modal-title" id="pcStatusModalLabel">
+                <i class="fa-solid fa-desktop"></i> PC Status
+              </h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center" id="pcStatusModalBody">
+              <div id="pcStatusContent">
+                <!-- Content will be populated by JavaScript -->
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+              <button type="button" class="btn btn-danger" id="pc-status-end-session-btn" style="display: none;" data-booking-id="">
+                <i class="fa-solid fa-stop-circle"></i> End Session Early
+              </button>
             </div>
           </div>
         </div>
@@ -352,9 +801,15 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-        <button type="button" class="btn btn-danger" id="end-session-btn" style="display: none;" data-booking-id="" onclick="if(typeof window.handleEndSession === 'function') return window.handleEndSession(); return false;">
+        <button type="button" class="btn btn-danger" id="end-session-btn" style="display: none;" data-booking-id="">
           <i class="fa-solid fa-stop-circle"></i> End Session Early
         </button>
+      </div>
+      <div class="modal-body border-top">
+        <p class="text-warning mb-0 text-center" style="font-size: 0.9rem;">
+          <i class="fa-solid fa-info-circle"></i> 
+          <strong>Note:</strong> To extend your session time, please go to the front desk or contact an admin.
+        </p>
       </div>
     </div>
   </div>
@@ -364,158 +819,8 @@
 
 {% block scripts %}
 <script>
-// Function to show PC status for PCs in use, in queue, offline, or in repair
-function showPCStatus(pcId, button) {
-  console.log('Checking PC status:', pcId);
-  
-  // Get PC status from button data attributes
-  const pcStatus = button.getAttribute('data-pc-status');
-  const pcCondition = button.getAttribute('data-pc-condition');
-  const pcName = button.getAttribute('data-pc-name');
-  
-  // Check if PC is in repair
-  if (pcCondition === 'repair') {
-    alert(`PC ${pcName} is currently in repair.\n\nThis PC is not available for reservation until maintenance is complete.`);
-    return;
-  }
-  
-  // Check if PC is offline/disconnected
-  if (pcStatus === 'disconnected') {
-    alert(`PC ${pcName} is currently offline.\n\nThis PC is not available for reservation until it is connected.`);
-    return;
-  }
-  
-  // Fetch booking information for this PC
-  fetch(`/ajax/get-pc-booking/${pcId}/`)
-    .then(response => response.json())
-    .then(data => {
-      console.log('PC booking data:', data);
-      let message = '';
-      
-      if (data.booking_status === 'in_queue') {
-        message = `PC ${data.pc_name} is waiting for staff approval.\n\nThe request was made at ${data.created_time}.`;
-      } else if (data.booking_status === 'in_use') {
-        const timeLeft = data.time_remaining;
-        message = `PC ${data.pc_name} is currently in use.\n\nEstimated time remaining: ${timeLeft}`;
-      } else {
-        message = `PC ${data.pc_name} is ${data.booking_status}`;
-      }
-      
-      alert(message);
-    })
-    .catch(error => {
-      console.error('Error fetching PC status:', error);
-      alert('Unable to fetch PC status information.');
-    });
-}
-
-// Function to handle PC selection for reservation
-function selectPCForReservation(pcId, button) {
-  console.log('PC clicked:', pcId);
-  
-  // Check if button is disabled - if so, prevent selection
-  if (button.disabled || button.hasAttribute('disabled')) {
-    console.warn('Button is disabled, ignoring click');
-    return;
-  }
-  
-  // Get PC status from button data attributes
-  const pcStatus = button.getAttribute('data-pc-status');
-  const pcCondition = button.getAttribute('data-pc-condition');
-  const pcBookingStatus = button.getAttribute('data-booking-status');
-  const pcName = button.getAttribute('data-pc-name');
-  
-  // Double-check if PC is in repair (safety check)
-  if (pcCondition === 'repair') {
-    alert(`PC ${pcName} is currently in repair.\n\nThis PC is not available for reservation until maintenance is complete.`);
-    button.disabled = true;
-    button.style.pointerEvents = 'none';
-    button.style.opacity = '0.6';
-    return;
-  }
-  
-  // Double-check if PC is offline/disconnected (safety check)
-  if (pcStatus === 'disconnected') {
-    alert(`PC ${pcName} is currently offline.\n\nThis PC is not available for reservation until it is connected.`);
-    button.disabled = true;
-    button.style.pointerEvents = 'none';
-    button.style.opacity = '0.6';
-    return;
-  }
-  
-  // Check if PC is already booked
-  if (pcBookingStatus === 'in_use' || pcBookingStatus === 'in_queue') {
-    alert(`PC ${pcName} is currently ${pcBookingStatus.replace('_', ' ')}.\n\nThis PC is not available for reservation.`);
-    button.disabled = true;
-    return;
-  }
-  
-  // Toggle the selected class - handle both old and new button styles
-  var isSelected;
-  if (button.classList.contains('pc-button-modern')) {
-    button.classList.toggle('selected');
-    button.classList.toggle('pc-selected');
-    isSelected = button.classList.contains('selected');
-  } else {
-    button.classList.toggle('text-success');
-    isSelected = button.classList.contains('text-success');
-  }
-  
-  // Set the hidden PC ID field
-  var pcIdInput = document.getElementById('pc_id');
-  if (pcIdInput) {
-    pcIdInput.value = pcId;
-  }
-  
-  // Toggle selected class and disable other PC buttons
-  var allButtons = document.querySelectorAll('.pc-button-modern, .pc-button');
-  allButtons.forEach(function(btn) {
-    if (btn !== button) {
-      btn.classList.remove('selected', 'pc-selected');
-      if (isSelected) {
-        btn.disabled = true;
-      } else {
-        btn.disabled = false;
-      }
-    } else {
-      if (isSelected) {
-        button.classList.add('selected', 'pc-selected');
-      } else {
-        button.classList.remove('selected', 'pc-selected');
-      }
-    }
-  });
-  
-  // Show/hide pagination
-  var pageNav = document.getElementById('page-nav');
-  var paginationModern = document.querySelector('.pagination-modern');
-  if (pageNav) {
-    pageNav.hidden = isSelected;
-  }
-  if (paginationModern) {
-    paginationModern.style.display = isSelected ? 'none' : 'flex';
-  }
-  
-  // Show/hide Next button - only if PC is truly available
-  var nextButton = document.querySelector('.reserve-next-button');
-  if (nextButton) {
-    // Only show next button if PC is not offline, not in repair, and not already booked
-    if (isSelected && pcStatus !== 'disconnected' && pcCondition !== 'repair' && (pcBookingStatus === 'available' || !pcBookingStatus)) {
-      nextButton.hidden = false;
-    } else {
-      nextButton.hidden = true;
-    }
-    console.log('Next button hidden:', nextButton.hidden, 'PC status:', {pcStatus, pcCondition, pcBookingStatus});
-  }
-  
-  // Show/hide Block button
-  var blockButton = document.getElementById('block-button');
-  if (blockButton) {
-    blockButton.hidden = isSelected;
-  }
-  
-  console.log('PC selection complete. Selected:', isSelected);
-}
+// showPCStatus and selectPCForReservation are now defined in the extra_head block section above
+// so they're available before the HTML that uses them
 
 // Function to show block booking form
 function showBlockBooking() {
@@ -665,9 +970,11 @@ document.addEventListener('DOMContentLoaded', function() {
   console.log("Reserve PC page loaded");
   
   // Ensure offline/repair PCs are always disabled and unclickable
-  document.querySelectorAll('.pc-button').forEach(function(button) {
+  // Also ensure used/queued PCs are clickable
+  document.querySelectorAll('.pc-button-modern, .pc-button').forEach(function(button) {
     const pcStatus = button.getAttribute('data-pc-status');
     const pcCondition = button.getAttribute('data-pc-condition');
+    const pcBookingStatus = button.getAttribute('data-booking-status');
     
     if (pcCondition === 'repair' || pcStatus === 'disconnected') {
       button.disabled = true;
@@ -683,6 +990,22 @@ document.addEventListener('DOMContentLoaded', function() {
         showPCStatus(parseInt(button.getAttribute('data-pc-id')), button);
         return false;
       };
+    } else if (pcBookingStatus === 'in_use' || pcBookingStatus === 'in_queue') {
+      // Make sure used/queued PCs are clickable (not disabled)
+      button.disabled = false;
+      button.style.pointerEvents = 'auto';
+      button.style.cursor = 'pointer';
+      button.style.opacity = '1';
+      
+      // Ensure onclick handler is set
+      if (!button.onclick || button.onclick.toString().indexOf('showPCStatus') === -1) {
+        button.onclick = function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          showPCStatus(parseInt(button.getAttribute('data-pc-id')), button);
+          return false;
+        };
+      }
     }
   });
   
@@ -904,11 +1227,21 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Error saving to localStorage:', e);
           }
           
-          // Show the "View QR Code" button
+          // Show the "My Session" button (replaces View QR Code button)
           var viewQRContainer = document.getElementById('viewQRButtonContainer');
           if (viewQRContainer) {
             viewQRContainer.style.display = 'block';
+            viewQRContainer.style.visibility = 'visible';
+            viewQRContainer.style.opacity = '1';
           }
+          // Also check for active session to ensure button shows - check immediately and after delay
+          checkMyActiveSession();
+          setTimeout(function() {
+            checkMyActiveSession();
+          }, 500);
+          setTimeout(function() {
+            checkMyActiveSession();
+          }, 2000);
         }
         
         // Set booking ID
@@ -916,6 +1249,11 @@ document.addEventListener('DOMContentLoaded', function() {
           bookingIdSpan.textContent = data.booking_id;
           console.log('Booking ID set:', data.booking_id);
         }
+        
+        // Check for active session to show button after booking is created
+        setTimeout(function() {
+          checkMyActiveSession();
+        }, 500);
         
         // Store PC ID for cancel functionality
         var pcIdInput = document.getElementById('qr_booking_pc_id');
@@ -1010,45 +1348,63 @@ document.addEventListener('DOMContentLoaded', function() {
                 window.qrApprovalChecker = null;
                 console.log('Approval detected. QR expiration timer stopped.');
                 
+                // Clear QR code data (one-time use)
+                try {
+                  localStorage.removeItem('qrCodeData');
+                  localStorage.removeItem('qrBookingId');
+                  localStorage.removeItem('qrPCId');
+                  localStorage.removeItem('qrCodeTimestamp');
+                  window.storedQRCode = null;
+                  window.storedBookingId = null;
+                  window.storedPCId = null;
+                } catch (e) {
+                  console.error('Error clearing QR code data:', e);
+                }
+                
                 // Hide QR modal
                 if (qrModal && typeof bootstrap !== 'undefined') {
                   var modal = bootstrap.Modal.getInstance(qrModal);
                   if (modal) modal.hide();
                 }
                 
-                // Show session timer modal (if it exists)
-                var timeRemainingModal = document.getElementById('timeRemainingModal');
-                if (timeRemainingModal && typeof bootstrap !== 'undefined') {
-                  var durationMinutes = parseInt(document.getElementById('durationInput')?.value || 0);
-                  var endTime = new Date().getTime() + durationMinutes * 60 * 1000;
-                  
-                  var sessionModal = new bootstrap.Modal(timeRemainingModal, {
-                    backdrop: 'static',
-                    keyboard: false
-                  });
-                  sessionModal.show();
-                  
-                  // Start session countdown
-                  var sessionCountdown = setInterval(function() {
-                    var now = new Date().getTime();
-                    var diff = endTime - now;
-                    
-                    if (diff <= 0) {
-                      clearInterval(sessionCountdown);
-                      var timeRemainingEl = document.getElementById('timeRemaining');
-                      if (timeRemainingEl) timeRemainingEl.textContent = 'Expired';
-                      return;
-                    }
-                    
-                    var minutes = Math.floor(diff / (1000 * 60));
-                    var seconds = Math.floor((diff % (1000 * 60)) / 1000);
-                    var timeRemainingEl = document.getElementById('timeRemaining');
-                    if (timeRemainingEl) {
-                      timeRemainingEl.textContent = minutes + 'm ' + seconds + 's';
-                    }
-                  }, 1000);
+                // Show "My Session" modal instead of timeRemainingModal
+                // Get booking ID from approval data
+                var bookingId = approvalData.booking_id;
+                var bookingIdEl = document.getElementById('booking_id');
+                if (bookingId && bookingIdEl) {
+                  bookingIdEl.textContent = bookingId;
                 }
+                
+                // Store booking ID globally for end session button
+                if (bookingId) {
+                  window.currentBookingId = bookingId;
+                }
+                
+                // Immediately check for active session to show button
+                checkMyActiveSession();
+                
+                // Show the "My Session" modal after a short delay to ensure data is loaded
+                setTimeout(function() {
+                  showMySessionModal();
+                }, 500);
+                
+                // Also check again after a short delay to ensure button shows
+                setTimeout(function() {
+                  checkMyActiveSession();
+                }, 1000);
               } else if (approvalData.status === 'cancelled') {
+                // Clear QR code data (one-time use)
+                try {
+                  localStorage.removeItem('qrCodeData');
+                  localStorage.removeItem('qrBookingId');
+                  localStorage.removeItem('qrPCId');
+                  localStorage.removeItem('qrCodeTimestamp');
+                  window.storedQRCode = null;
+                  window.storedBookingId = null;
+                  window.storedPCId = null;
+                } catch (e) {
+                  console.error('Error clearing QR code data:', e);
+                }
                 clearInterval(approvalChecker);
                 clearInterval(countdownInterval);
                 window.qrCountdownInterval = null;
@@ -1135,9 +1491,19 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Cancel booking button handler - use event delegation for dynamically added modals
-$(document).ready(function() {
-  // Use event delegation to handle clicks on dynamically added buttons
-  $(document).on('click', '#cancelBookingBtn', function(e) {
+// Wait for jQuery to be available
+function initCancelBookingHandler() {
+  if (typeof jQuery === 'undefined' && typeof $ === 'undefined') {
+    // jQuery not loaded yet, retry after a short delay
+    setTimeout(initCancelBookingHandler, 100);
+    return;
+  }
+  
+  var $ = jQuery || window.$;
+  
+  $(document).ready(function() {
+    // Use event delegation to handle clicks on dynamically added buttons
+    $(document).on('click', '#cancelBookingBtn', function(e) {
     e.preventDefault();
     e.stopPropagation();
     
@@ -1179,7 +1545,7 @@ $(document).ready(function() {
       url: '/ajax/cancel-reservation/',
       method: 'POST',
       headers: {
-        'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val() || document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken') || ''
+        'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val() || (document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '') || (typeof getCookie !== 'undefined' ? getCookie('csrftoken') : '') || ''
       },
       data: {
         booking_id: bookingId,
@@ -1209,7 +1575,13 @@ $(document).ready(function() {
           }
           
           // Close QR modal and clean up
-          $('#qrModal').modal('hide');
+          var qrModal = document.getElementById('qrModal');
+          if (qrModal && typeof bootstrap !== 'undefined') {
+            var modal = bootstrap.Modal.getInstance(qrModal);
+            if (modal) {
+              modal.hide();
+            }
+          }
           
           // Remove backdrop and clean up modal state
           setTimeout(function() {
@@ -1262,6 +1634,14 @@ $(document).ready(function() {
       }
     });
   });
+}
+
+// Initialize cancel booking handler when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initCancelBookingHandler);
+} else {
+  initCancelBookingHandler();
+}
   
   // Helper function to get CSRF cookie
   function getCookie(name) {
@@ -1280,80 +1660,99 @@ $(document).ready(function() {
   }
   
   // View QR Code button handler
-  $('#viewQRCodeBtn').on('click', function() {
-    // Fallback: reload from localStorage if window vars are missing
-    if (!window.storedQRCode) {
-      try {
-        var storedQR = localStorage.getItem('qrCodeData');
-        var storedBookingId = localStorage.getItem('qrBookingId');
-        var storedPCId = localStorage.getItem('qrPCId');
-        if (storedQR) {
-          window.storedQRCode = storedQR;
-          window.storedBookingId = storedBookingId;
-          window.storedPCId = storedPCId;
+  // Handle My Session button click (replaces View QR Code button)
+  // Use vanilla JS instead of jQuery to avoid dependency issues
+  var showMySessionBtnMain = document.getElementById('showMySessionBtnMain');
+  if (showMySessionBtnMain) {
+    showMySessionBtnMain.addEventListener('click', function() {
+      showMySessionModal();
+    });
+  }
+  
+  // Old viewQRCodeBtn handler - removed, replaced with My Session button
+  // This handler is kept for backward compatibility but should not be needed
+  var viewQRCodeBtn = document.getElementById('viewQRCodeBtn');
+  if (viewQRCodeBtn) {
+    viewQRCodeBtn.addEventListener('click', function() {
+      // Fallback: reload from localStorage if window vars are missing
+      if (!window.storedQRCode) {
+        try {
+          var storedQR = localStorage.getItem('qrCodeData');
+          var storedBookingId = localStorage.getItem('qrBookingId');
+          var storedPCId = localStorage.getItem('qrPCId');
+          if (storedQR) {
+            window.storedQRCode = storedQR;
+            window.storedBookingId = storedBookingId;
+            window.storedPCId = storedPCId;
+          }
+        } catch(e) {
+          console.error('Error loading QR code from localStorage:', e);
         }
-      } catch(e) {}
-    }
-    if (!window.storedQRCode) {
-      alert('No QR code found. Please generate a QR code first.');
-      return;
-    }
-    
-    // Get references
-    var qrModal = document.getElementById('qrModal');
-    var qrImage = document.getElementById('qrImage');
-    var bookingIdSpan = document.getElementById('booking_id');
-    var pcIdInput = document.getElementById('qr_booking_pc_id');
-    var qrCountdown = document.getElementById('qrCountdown');
-    
-    // Restore QR code data
-    if (qrImage) {
-      qrImage.src = window.storedQRCode;
-    }
-    
-    if (bookingIdSpan && window.storedBookingId) {
-      bookingIdSpan.textContent = window.storedBookingId;
-    }
-    
-    if (pcIdInput && window.storedPCId) {
-      pcIdInput.value = window.storedPCId;
-    }
-    
-    // Resume countdown if timer is still running
-    if (window.qrCountdownInterval && window.qrCountdownSeconds !== undefined && window.qrCountdownSeconds >= 0) {
-      window.qrModalPaused = false;
-      // Update display with current time
-      if (qrCountdown) {
-        var minutes = Math.floor(window.qrCountdownSeconds / 60);
-        var seconds = window.qrCountdownSeconds % 60;
-        var displayTime = minutes.toString().padStart(2, '0') + ':' + seconds.toString().padStart(2, '0');
-        qrCountdown.textContent = displayTime;
       }
-    } else {
-      // No active timer, show static message
-      if (qrCountdown) {
-        qrCountdown.textContent = 'Viewing saved QR';
+      if (!window.storedQRCode) {
+        alert('No QR code found. Please generate a QR code first.');
+        return;
       }
-    }
-    
-    // Show the QR modal
-    if (qrModal && typeof bootstrap !== 'undefined') {
-      var modal = new bootstrap.Modal(qrModal);
-      modal.show();
-    } else if (window.jQuery) {
-      $('#qrModal').modal('show');
-    } else if (qrModal) {
-      qrModal.style.display = 'block';
-      qrModal.classList.add('show');
-      document.body.classList.add('modal-open');
-    }
-  });
+      
+      // Get references
+      var qrModal = document.getElementById('qrModal');
+      var qrImage = document.getElementById('qrImage');
+      var bookingIdSpan = document.getElementById('booking_id');
+      var pcIdInput = document.getElementById('qr_booking_pc_id');
+      var qrCountdown = document.getElementById('qrCountdown');
+      
+      // Restore QR code data
+      if (qrImage) {
+        qrImage.src = window.storedQRCode;
+      }
+      
+      if (bookingIdSpan && window.storedBookingId) {
+        bookingIdSpan.textContent = window.storedBookingId;
+      }
+      
+      if (pcIdInput && window.storedPCId) {
+        pcIdInput.value = window.storedPCId;
+      }
+      
+      // Resume countdown if timer is still running
+      if (window.qrCountdownInterval && window.qrCountdownSeconds !== undefined && window.qrCountdownSeconds >= 0) {
+        window.qrModalPaused = false;
+        // Update display with current time
+        if (qrCountdown) {
+          var minutes = Math.floor(window.qrCountdownSeconds / 60);
+          var seconds = window.qrCountdownSeconds % 60;
+          var displayTime = minutes.toString().padStart(2, '0') + ':' + seconds.toString().padStart(2, '0');
+          qrCountdown.textContent = displayTime;
+        }
+      } else {
+        // No active timer, show static message
+        if (qrCountdown) {
+          qrCountdown.textContent = 'Viewing saved QR';
+        }
+      }
+      
+      // Show the QR modal
+      if (qrModal && typeof bootstrap !== 'undefined') {
+        var modal = new bootstrap.Modal(qrModal);
+        modal.show();
+      } else if (window.jQuery && typeof jQuery !== 'undefined') {
+        var $ = jQuery || window.$;
+        $('#qrModal').modal('show');
+      } else if (qrModal) {
+        qrModal.style.display = 'block';
+        qrModal.classList.add('show');
+        document.body.classList.add('modal-open');
+      }
+    });
+  }
   
   // Handle QR modal close event to pause timers and clean up
-  $('#qrModal').on('hidden.bs.modal', function() {
-    // Pause the timers when modal is closed
-    window.qrModalPaused = true;
-    console.log('QR modal closed, timers paused');
+  var qrModal = document.getElementById('qrModal');
+  if (qrModal) {
+    qrModal.addEventListener('hidden.bs.modal', function() {
+      // Pause the timers when modal is closed
+      window.qrModalPaused = true;
+      console.log('QR modal closed, timers paused');
     
     // Clean up modal backdrop and body styles
     setTimeout(function() {
@@ -1365,16 +1764,19 @@ $(document).ready(function() {
       document.body.style.overflow = '';
       document.body.style.paddingRight = '';
     }, 100);
-  });
+    });
+  }
   
   // Handle QR modal show event to resume timers
-  $('#qrModal').on('shown.bs.modal', function() {
-    // Resume the timers when modal is shown
-    if (window.qrCountdownInterval) {
-      window.qrModalPaused = false;
-      console.log('QR modal shown, timers resumed');
-    }
-  });
+  if (qrModal) {
+    qrModal.addEventListener('shown.bs.modal', function() {
+      // Resume the timers when modal is shown
+      if (window.qrCountdownInterval) {
+        window.qrModalPaused = false;
+        console.log('QR modal shown, timers resumed');
+      }
+    });
+  }
   
   // Load QR code data from localStorage on page load
   function loadStoredQRCode() {
@@ -1404,11 +1806,12 @@ $(document).ready(function() {
         window.storedBookingId = storedBookingId;
         window.storedPCId = storedPCId;
         
-        // Show the "View QR Code" button
-        var viewQRContainer = document.getElementById('viewQRButtonContainer');
-        if (viewQRContainer) {
-          viewQRContainer.style.display = 'block';
-        }
+        // Show the "My Session" button (replaces View QR Code button)
+        // But only if there's an active booking
+        // Use setTimeout to ensure DOM is ready
+        setTimeout(function() {
+          checkMyActiveSession();
+        }, 100);
         
         console.log('QR code data restored from localStorage');
       }
@@ -1422,10 +1825,107 @@ $(document).ready(function() {
 });
 
 // Function to check and display student's active session
-function checkMyActiveSession() {
+// Make checkMyActiveSession globally accessible
+window.checkMyActiveSession = function() {
+  console.log('checkMyActiveSession called');
+  
+  // Ensure DOM elements exist before proceeding
+  var showMySessionBtn = document.getElementById('showMySessionBtn');
+  var showMySessionBtnMain = document.getElementById('showMySessionBtnMain');
+  var viewQRContainer = document.getElementById('viewQRButtonContainer');
+  
+  if (!showMySessionBtn && !showMySessionBtnMain && !viewQRContainer) {
+    console.warn('My Session button elements not found, retrying in 500ms...');
+    setTimeout(checkMyActiveSession, 500);
+    return;
+  }
+  
   fetch('/ajax/get-my-active-booking/')
-    .then(response => response.json())
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Network response was not ok: ' + response.status);
+      }
+      return response.json();
+    })
     .then(data => {
+      console.log('Active booking check result:', data);
+      
+      // Show/hide "My Session" button based on whether user has an active booking
+      // Show button for both confirmed and pending bookings
+      // Simplify the condition - show if has_booking is true OR if we have booking data
+      var shouldShow = false;
+      
+      if (data.has_booking === true) {
+        shouldShow = true;
+        console.log('has_booking is true, showing button');
+      } else if (data.booking_id || data.pc_name || data.booking_status !== undefined) {
+        // If we have any booking data, show the button
+        shouldShow = true;
+        console.log('Booking data found, showing button:', {booking_id: data.booking_id, pc_name: data.pc_name, booking_status: data.booking_status});
+      } else {
+        console.log('No booking data found, hiding button');
+      }
+      
+      if (shouldShow) {
+        console.log('User has active booking, showing buttons');
+        // Show buttons if user has active booking - use inline-block or flex to ensure visibility
+        if (showMySessionBtn) {
+          showMySessionBtn.style.display = 'block';
+          showMySessionBtn.style.visibility = 'visible';
+          showMySessionBtn.style.opacity = '1';
+          showMySessionBtn.style.position = 'relative';
+          showMySessionBtn.removeAttribute('hidden');
+          console.log('Header My Session button shown');
+        } else {
+          console.warn('showMySessionBtn element not found');
+        }
+        if (viewQRContainer) {
+          viewQRContainer.style.display = 'block';
+          viewQRContainer.style.visibility = 'visible';
+          viewQRContainer.style.opacity = '1';
+          viewQRContainer.removeAttribute('hidden');
+          console.log('Main My Session button container shown');
+        } else {
+          console.warn('viewQRContainer element not found');
+        }
+        if (showMySessionBtnMain) {
+          showMySessionBtnMain.style.display = 'block';
+          showMySessionBtnMain.style.visibility = 'visible';
+          showMySessionBtnMain.style.opacity = '1';
+          showMySessionBtnMain.removeAttribute('hidden');
+          console.log('Main My Session button shown');
+        } else {
+          console.warn('showMySessionBtnMain element not found');
+        }
+      } else {
+        console.log('User has no active booking, hiding buttons');
+        // Hide buttons if no active booking
+        if (showMySessionBtn) {
+          showMySessionBtn.style.display = 'none';
+          showMySessionBtn.style.visibility = 'hidden';
+        }
+        if (viewQRContainer) {
+          viewQRContainer.style.display = 'none';
+          viewQRContainer.style.visibility = 'hidden';
+        }
+        if (showMySessionBtnMain) {
+          showMySessionBtnMain.style.display = 'none';
+          showMySessionBtnMain.style.visibility = 'hidden';
+        }
+        // Clear QR code data if no active booking
+        try {
+          localStorage.removeItem('qrCodeData');
+          localStorage.removeItem('qrBookingId');
+          localStorage.removeItem('qrPCId');
+          localStorage.removeItem('qrCodeTimestamp');
+          window.storedQRCode = null;
+          window.storedBookingId = null;
+          window.storedPCId = null;
+        } catch (e) {
+          console.error('Error clearing QR code data:', e);
+        }
+      }
+      
       if (data.has_booking) {
         console.log('Active booking found:', data);
         
@@ -1484,30 +1984,173 @@ function checkMyActiveSession() {
           }
         }
         
-        // Show modal
-        var modal = new bootstrap.Modal(document.getElementById('mySessionModal'));
-        modal.show();
+        // Show modal only if called from button click, not on page load
+        // The modal will be shown by the button click handler
       }
     })
     .catch(error => {
       console.error('Error checking session:', error);
+      // On error, still try to show button if elements exist (might be a network issue)
+      // But don't force show if we can't verify booking status
+      console.warn('Failed to check active session, will retry on next interval');
     });
 }
 
-// Add session check button and polling
-document.addEventListener('DOMContentLoaded', function() {
-  // Add a "My Session" button
-  var legendDiv = document.getElementById('legend');
-  if (legendDiv) {
-    var sessionButton = document.createElement('button');
-    sessionButton.className = 'btn btn-success btn-sm mt-3';
-    sessionButton.innerHTML = '<i class="fa-solid fa-user-clock"></i> Check My Session';
-    sessionButton.onclick = checkMyActiveSession;
-    legendDiv.appendChild(sessionButton);
+// Function to show my session modal (called from button click)
+// Add retry counter to prevent infinite loops
+var showMySessionModalRetryCount = 0;
+var MAX_RETRY_COUNT = 5;
+
+function showMySessionModal() {
+  console.log('showMySessionModal called, retry count:', showMySessionModalRetryCount);
+  
+  // Check if modal elements exist
+  var modalElement = document.getElementById('mySessionModal');
+  if (!modalElement) {
+    console.error('mySessionModal element not found');
+    if (showMySessionModalRetryCount < MAX_RETRY_COUNT) {
+      showMySessionModalRetryCount++;
+      setTimeout(function() {
+        showMySessionModal();
+      }, 200);
+      return;
+    } else {
+      alert('Error: Session modal not found. Please refresh the page.');
+      showMySessionModalRetryCount = 0; // Reset counter
+      return;
+    }
   }
   
-  // Poll for session status every 10 seconds
-  setInterval(checkMyActiveSession, 10000);
+  // Reset retry counter if modal found
+  showMySessionModalRetryCount = 0;
+  
+  fetch('/ajax/get-my-active-booking/')
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Network response was not ok: ' + response.status);
+      }
+      return response.json();
+    })
+    .then(data => {
+      console.log('Session modal data:', data);
+      
+      if (data.has_booking) {
+        // Get all modal elements
+        var pcNameEl = document.getElementById('session-pc-name');
+        var statusEl = document.getElementById('session-status');
+        var timeInfoEl = document.getElementById('session-time-info');
+        var waitingEl = document.getElementById('session-waiting');
+        var timeLeftEl = document.getElementById('session-time-left');
+        var endSessionBtn = document.getElementById('end-session-btn');
+        
+        // Check if critical elements exist - retry if not found
+        if (!pcNameEl || !statusEl) {
+          console.warn('Critical modal elements not found, retrying in 200ms...');
+          console.log('Missing elements:', {
+            pcNameEl: !pcNameEl,
+            statusEl: !statusEl,
+            timeInfoEl: !timeInfoEl,
+            waitingEl: !waitingEl,
+            timeLeftEl: !timeLeftEl
+          });
+          
+          // Retry with limit
+          if (showMySessionModalRetryCount < MAX_RETRY_COUNT) {
+            showMySessionModalRetryCount++;
+            setTimeout(function() {
+              showMySessionModal();
+            }, 200);
+            return;
+          } else {
+            console.error('Max retry count reached, showing error');
+            alert('Error: Session modal elements not found. Please refresh the page.');
+            showMySessionModalRetryCount = 0; // Reset counter
+            return;
+          }
+        }
+        
+        // Reset retry counter if critical elements found
+        showMySessionModalRetryCount = 0;
+        
+        // Update modal content - handle missing optional elements gracefully
+        if (pcNameEl) {
+          pcNameEl.textContent = data.pc_name || 'Unknown PC';
+        }
+        if (statusEl) {
+          statusEl.textContent = (data.status === 'in_use' || data.booking_status === 'confirmed') ? 'Active' : 'Waiting Approval';
+          statusEl.className = (data.status === 'in_use' || data.booking_status === 'confirmed') ? 'badge bg-success' : 'badge bg-warning';
+        }
+        
+        if ((data.status === 'in_use' || data.booking_status === 'confirmed') && data.time_remaining) {
+          // Show time info
+          if (timeInfoEl) {
+            timeInfoEl.style.display = 'block';
+          }
+          if (waitingEl) {
+            waitingEl.style.display = 'none';
+          }
+          if (timeLeftEl) {
+            timeLeftEl.textContent = data.time_remaining;
+          }
+          
+          // Set booking_id and show end session button
+          if (endSessionBtn && data.booking_id) {
+            window.currentBookingId = data.booking_id;
+            endSessionBtn.setAttribute('data-booking-id', data.booking_id);
+            // Set onclick handler properly
+            endSessionBtn.onclick = function(e) {
+              if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+              }
+              return window.handleEndSession(e);
+            };
+            endSessionBtn.style.display = 'block';
+            console.log('End session button configured with booking_id:', data.booking_id);
+            console.log('End session button shown with booking_id:', data.booking_id);
+          } else {
+            console.warn('End session button or booking_id not available');
+            if (endSessionBtn) {
+              endSessionBtn.style.display = 'none';
+            }
+          }
+        } else {
+          // Show waiting message
+          if (timeInfoEl) {
+            timeInfoEl.style.display = 'none';
+          }
+          if (waitingEl) {
+            waitingEl.style.display = 'block';
+          }
+          if (endSessionBtn) {
+            endSessionBtn.style.display = 'none';
+            endSessionBtn.removeAttribute('data-booking-id');
+          }
+        }
+        
+        // Show modal
+        if (typeof bootstrap !== 'undefined') {
+          var modal = new bootstrap.Modal(modalElement);
+          modal.show();
+          console.log('Session modal shown');
+        } else {
+          console.error('Bootstrap not available');
+          alert('Error: Bootstrap modal library not loaded. Please refresh the page.');
+        }
+      } else {
+        alert('You do not have an active session.');
+        console.log('No active booking found');
+      }
+    })
+    .catch(error => {
+      console.error('Error checking session:', error);
+      alert('Error loading session information: ' + error.message);
+    });
+};
+
+// Add session check button and polling
+document.addEventListener('DOMContentLoaded', function() {
+  // Note: checkMyActiveSession is now called periodically in the main DOMContentLoaded handler
 
   // Lightweight polling for faculty bulk booking decision for this user
   // Shows a one-time notification using localStorage to avoid repeats
@@ -1564,48 +2207,40 @@ document.addEventListener('DOMContentLoaded', function() {
   // Store booking_id in a variable accessible to the handler
   window.currentBookingId = null;
   
-  // Function to handle end session click
-  window.handleEndSession = function(e) {
+  // Function to handle end session early from timeRemainingModal
+  window.handleEndSessionEarly = function(e) {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
     }
     
-    // Try multiple sources for booking_id
-    var btn = document.getElementById('end-session-btn');
-    var bookingId = window.currentBookingId || 
-                    (btn ? btn.getAttribute('data-booking-id') : null) ||
-                    (btn ? btn.dataset.bookingId : null);
+    var btn = document.getElementById('end-session-early-btn');
+    var bookingId = btn ? btn.getAttribute('data-booking-id') : null;
     
-    console.log('End session clicked');
-    console.log('Current booking ID from window.currentBookingId:', window.currentBookingId);
-    console.log('Current booking ID from button data attribute:', btn ? btn.getAttribute('data-booking-id') : 'button not found');
-    console.log('Current booking ID from button dataset:', btn ? btn.dataset.bookingId : 'button not found');
-    console.log('Final booking ID to use:', bookingId);
+    // Also try to get booking ID from hidden field or other sources
+    if (!bookingId || bookingId === '' || bookingId === 'null' || bookingId === 'undefined') {
+      var bookingIdEl = document.getElementById('booking_id');
+      if (bookingIdEl) {
+        bookingId = bookingIdEl.textContent || bookingIdEl.value;
+      }
+    }
     
     if (!bookingId || bookingId === '' || bookingId === 'null' || bookingId === 'undefined') {
-      console.error('Booking ID not found. All sources checked.');
-      console.error('Button element:', btn);
-      if (btn) {
-        console.error('All button attributes:', Array.from(btn.attributes).map(a => a.name + '=' + a.value));
-      }
-      alert('Error: Booking ID not found. Please check your session and try again.');
+      alert('Error: Booking ID not found. Please refresh the page and try again.');
       return false;
     }
     
-    // Ensure bookingId is a string/number, not null/undefined
     bookingId = String(bookingId).trim();
     
-    // Validate bookingId is a valid number
     if (!bookingId || isNaN(parseInt(bookingId))) {
-      console.error('Invalid booking ID format:', bookingId);
       alert('Error: Invalid booking ID format. Please refresh the page and try again.');
       return false;
     }
     
     if (confirm('Are you sure you want to end your session early?')) {
       var url = '/ajax/end-session/' + bookingId + '/';
-      console.log('Calling end session URL:', url);
+      console.log('Ending session with booking ID:', bookingId);
+      console.log('URL:', url);
       
       fetch(url, {
         method: 'POST',
@@ -1617,11 +2252,10 @@ document.addEventListener('DOMContentLoaded', function() {
       })
       .then(response => {
         console.log('Response status:', response.status);
-        console.log('Response URL:', response.url);
         if (!response.ok) {
           return response.text().then(text => {
             console.error('Error response:', text);
-            throw new Error('HTTP error! status: ' + response.status + ' - ' + text);
+            throw new Error('HTTP error! status: ' + response.status);
           });
         }
         return response.json();
@@ -1630,6 +2264,9 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('End session response:', data);
         if (data.success) {
           alert(data.message || 'Session ended successfully');
+          // Close the modal
+          var modal = bootstrap.Modal.getInstance(document.getElementById('timeRemainingModal'));
+          if (modal) modal.hide();
           location.reload();
         } else {
           alert('Error: ' + (data.error || data.message || 'Failed to end session'));
@@ -1637,17 +2274,69 @@ document.addEventListener('DOMContentLoaded', function() {
       })
       .catch(error => {
         console.error('Error ending session:', error);
-        alert('Error: Failed to end session. ' + error.message + '\nPlease check console for details.');
+        alert('Error: Failed to end session. ' + error.message + '\nPlease try again.');
       });
     }
     return false;
   };
+
+  // Function to handle end session click
+  // Note: handleEndSession is now defined in the extra_head block section above
+  // so it's available before the HTML that uses it
   
   // Set onclick directly on button (will be set when button is shown)
+  // Note: The onclick is also set in showMySessionModal when the modal is opened
   var endSessionBtn = document.getElementById('end-session-btn');
   if (endSessionBtn) {
-    endSessionBtn.onclick = window.handleEndSession;
+    endSessionBtn.onclick = function(e) {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      return window.handleEndSession(e);
+    };
   }
+  
+  // Handle "My Session" button click (header button)
+  var showMySessionBtn = document.getElementById('showMySessionBtn');
+  if (showMySessionBtn) {
+    showMySessionBtn.addEventListener('click', function() {
+      // Show modal with session information
+      showMySessionModal();
+    });
+  }
+  
+  // Handle "My Session" button click (main button - replaces View QR Code)
+  var showMySessionBtnMain = document.getElementById('showMySessionBtnMain');
+  if (showMySessionBtnMain) {
+    showMySessionBtnMain.addEventListener('click', function() {
+      // Show modal with session information
+      showMySessionModal();
+    });
+  }
+  
+  // Check for active session on page load - with a small delay to ensure DOM is ready
+  // Call immediately and also after delays
+  checkMyActiveSession();
+  setTimeout(function() {
+    checkMyActiveSession();
+  }, 500);
+  setTimeout(function() {
+    checkMyActiveSession();
+  }, 2000);
+  
+  // Also check periodically to ensure button visibility is correct
+  setInterval(function() {
+    checkMyActiveSession();
+  }, 5000); // Check every 5 seconds
+  
+  // Also check when page becomes visible (user switches tabs back)
+  document.addEventListener('visibilitychange', function() {
+    if (!document.hidden) {
+      console.log('Page became visible, checking active session');
+      checkMyActiveSession();
+    }
+  });
 });
 </script>
 <script src="{% static 'js/reserve_pc.js' %}"></script>

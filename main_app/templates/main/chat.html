@@ -45,31 +45,6 @@
   color: #e4e6eb;
 }
 
-.search-box {
-  padding: 10px 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background: #242526;
-  flex-shrink: 0;
-}
-
-.search-box input {
-  width: 100%;
-  padding: 8px 12px;
-  border: none;
-  border-radius: 20px;
-  background: #3a3b3c;
-  color: #e4e6eb;
-  font-size: 0.9375rem;
-}
-
-.search-box input:focus {
-  outline: none;
-  background: #4e4f50;
-}
-
-.search-box input::placeholder {
-  color: #b0b3b8;
-}
 
 .conversations-list {
   flex: 1;
@@ -244,12 +219,51 @@
   gap: 8px;
   min-height: 0;
   -webkit-overflow-scrolling: touch;
+  /* Start scroll at top for newest messages */
+  scroll-behavior: smooth;
+}
+
+/* Empty state styling */
+.messages-container .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  color: #b0b3b8;
+  text-align: center;
+  min-height: 200px;
+}
+
+.messages-container .empty-state i {
+  font-size: 3rem;
+  margin-bottom: 15px;
+  opacity: 0.5;
+}
+
+.messages-container .empty-state p {
+  margin: 0;
+  font-size: 1rem;
+  color: #b0b3b8;
 }
 
 .message-wrapper {
   display: flex;
   margin-bottom: 8px;
+  margin-top: 0;
   align-items: flex-end;
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .message-wrapper.sent {
@@ -665,7 +679,6 @@
   <!-- Conversations Sidebar -->
   <div class="conversations-sidebar">
     <div class="conversations-header">
-      <h3>Chats</h3>
     </div>
     
     {% if request.user.is_staff or request.user.profile.role == 'staff' %}
@@ -678,15 +691,28 @@
       <div id="user-search-results" class="user-search-results" style="display: none;"></div>
       <div id="recent-users" class="user-search-results"></div>
     </div>
-    {% else %}
-    <div class="search-box">
-      <input type="text" placeholder="Search conversations..." id="searchConversations">
-    </div>
     {% endif %}
     
+    <!-- PCheck Support - Only visible for students and faculty (not admin/staff) -->
     <div class="conversations-list" id="conversationsList">
-      {% if not request.user.is_staff and request.user.profile.role != 'staff' %}
+      {% if not request.user.is_staff and request.user.profile.role|default:'' != 'staff' %}
+      <!-- FORCE PCheck Support to show immediately for students and faculty only -->
+      <a href="#" class="conversation-item" id="pcheckSupportItem" 
+         data-receiver-id="pcheck" 
+         data-receiver-email="PCheck" 
+         data-receiver-name="PCheck Support"
+         data-is-staff="true">
+        <div class="conversation-avatar-placeholder" style="background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);">PC</div>
+        <div class="conversation-info">
+          <div class="conversation-name">PCheck Support</div>
+          <div class="conversation-preview">Get help from our support team</div>
+        </div>
+        <div class="conversation-meta">
+          <i class="fa-solid fa-headset" style="color: #ff6b35; font-size: 1.2rem;"></i>
+        </div>
+      </a>
       {% endif %}
+      
       <div class="empty-state" id="emptyStateBlock">
         <i class="fa-solid fa-comments"></i>
         <p>No conversations yet</p>
@@ -696,13 +722,6 @@
   
   <!-- Main Chat Area -->
   <div class="chat-main" id="chatMainArea">
-    <div class="chat-placeholder" id="chatPlaceholder">
-      <div class="empty-state">
-        <i class="fa-solid fa-comments" style="font-size: 4rem; color: #65676b; margin-bottom: 20px;"></i>
-        <p style="color: #65676b; font-size: 1.2rem;">Select a conversation to start chatting</p>
-      </div>
-    </div>
-    
     <div id="activeChat" style="display: none; flex-direction: column; height: 100%;">
       <div class="chat-header" id="chatHeader">
         <button class="chat-header-back" id="chatHeaderBack" title="Back to conversations">
@@ -711,7 +730,7 @@
         <div class="chat-header-avatar-placeholder" id="chatHeaderAvatar">
           <i class="fa-solid fa-user"></i>
         </div>
-        <div class="chat-header-name" id="chatHeaderName">Select a conversation</div>
+        <div class="chat-header-name" id="chatHeaderName"></div>
       </div>
       
       <div class="messages-container" id="messagesContainer"></div>
@@ -799,9 +818,36 @@ function getCSRFToken() {
 
 // Format time for display
 function formatTime(timestamp) {
-  const date = new Date(timestamp);
+  if (!timestamp) return 'Just now';
+  
+  // Handle both ISO format and old string format
+  let date;
+  if (typeof timestamp === 'string') {
+    // If it's in the old format 'YYYY-MM-DD HH:MM:SS', convert it
+    if (timestamp.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
+      // Old format without timezone - assume it's UTC and convert to local
+      date = new Date(timestamp.replace(' ', 'T') + 'Z');
+    } else {
+      // ISO format or other valid date string
+      date = new Date(timestamp);
+    }
+  } else {
+    date = new Date(timestamp);
+  }
+  
+  // Check if date is valid
+  if (isNaN(date.getTime())) {
+    return 'Just now';
+  }
+  
   const now = new Date();
   const diff = now - date;
+  
+  // Handle negative differences (future dates) - should not happen but handle gracefully
+  if (diff < 0) {
+    return 'Just now';
+  }
+  
   const minutes = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
@@ -872,8 +918,12 @@ function createConversationItem(room, otherUser) {
   `;
 }
 
-// Create default PCheck Support item (non-staff only)
-function renderPCheckSupportItem(){
+// Create default PCheck Support item (only for students and faculty, not admin/staff)
+function renderPCheckSupportItem(isStaff = false){
+  // Only generate for non-staff users
+  if (isStaff) {
+    return ''; // Return empty string for staff/admin - they should not see PCheck Support
+  }
   return `
     <a href="#" class="conversation-item" id="pcheckSupportItem" 
        data-receiver-id="pcheck" 
@@ -923,14 +973,21 @@ function loadMessages() {
       conversationsList.empty();
       
       if (!data || !data.result || data.result.length === 0) {
-        {% if not request.user.is_staff and request.user.profile.role != 'staff' %}
-        // Always show PCheck Support for new users - add only once
-        conversationsList.prepend(renderPCheckSupportItem());
-        // Hide empty state since PCheck Support is available
-        $("#emptyStateBlock").hide();
-        {% else %}
-        conversationsList.html('<div class="empty-state"><i class="fa-solid fa-comments"></i><p>No conversations yet</p></div>');
-        {% endif %}
+      {% if not request.user.is_staff and request.user.profile.role|default:'' != 'staff' %}
+      // FORCE PCheck Support to show for students and faculty - always at the top
+      conversationsList.empty(); // Clear any existing items
+      conversationsList.prepend(renderPCheckSupportItem(false));
+      // Hide empty state since PCheck Support is available
+      $("#emptyStateBlock").hide();
+      // Ensure PCheck Support click handler is attached
+      $("#pcheckSupportItem").off('click').on('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof openPCheck === 'function') {
+          openPCheck();
+        }
+      });
+      {% endif %}
 
         // If staff/admin, still show all users even when there are no conversations yet
         {% if request.user.is_staff or request.user.profile.role == 'staff' %}
@@ -940,6 +997,15 @@ function loadMessages() {
               // Clear empty state and render users
               conversationsList.empty();
               uData.result.forEach(function(u){
+                // Skip PCheck Support user for admin/staff
+                const isPCheckSupport = (
+                  u.email === 'support@pcheck.psu.palawan.edu.ph' ||
+                  (u.first_name === 'PCheck' && u.last_name === 'Support') ||
+                  (u.email && u.email.toLowerCase().includes('pcheck') && u.email.toLowerCase().includes('support'))
+                );
+                if (isPCheckSupport) {
+                  return; // Skip PCheck Support
+                }
                 const html = createUserItem(u);
                 conversationsList.append(html);
               });
@@ -957,8 +1023,7 @@ function loadMessages() {
                 } else {
                   $(".chat-wrapper").removeClass('fullscreen');
                 }
-                $("#chatPlaceholder").hide();
-                $("#activeChat").show().css('display','flex');
+                  $("#activeChat").show().css('display','flex');
                 $("#chatHeaderName").text(receiverName);
                 $("#chatHeaderAvatar").html(getInitials(receiverName));
                 currentReceiver = { id: receiverId, email: receiverEmail, name: receiverName };
@@ -981,14 +1046,40 @@ function loadMessages() {
               if (retryData && retryData.result && retryData.result.length) {
                 conversationsList.empty();
                 let seenRooms = new Set();
+                let hasStaffConv = false;
                 retryData.result.forEach(room => {
                   if (!seenRooms.has(room.id)) {
                     seenRooms.add(room.id);
                     const other = (String(currentUserId) == String(room.receiver.id)) ? room.initiator : room.receiver;
+                    {% if not request.user.is_staff and request.user.profile.role|default:'' != 'staff' %}
+                    // For non-staff users, skip conversations with staff members since we show static PCheck Support
+                    const isOtherStaff = other.is_staff === true || other.role === 'staff';
+                    if (isOtherStaff) {
+                      hasStaffConv = true;
+                      return; // Skip adding this conversation
+                    }
+                    {% else %}
+                    // For admin/staff users, skip PCheck Support conversations
+                    const isPCheckSupport = (
+                      other.email === 'support@pcheck.psu.palawan.edu.ph' ||
+                      other.first_name === 'PCheck' && other.last_name === 'Support' ||
+                      String(other.id) === 'pcheck' ||
+                      (other.email && other.email.toLowerCase().includes('pcheck') && other.email.toLowerCase().includes('support'))
+                    );
+                    if (isPCheckSupport) {
+                      // Skip PCheck Support conversations for admin/staff
+                      return;
+                    }
+                    {% endif %}
                     const item = createConversationItem(room, other);
                     conversationsList.append(item);
                   }
                 });
+                {% if not request.user.is_staff and request.user.profile.role|default:'' != 'staff' %}
+                // Always add PCheck Support at the top for faculty/students
+                $("#pcheckSupportItem").remove();
+                conversationsList.prepend(renderPCheckSupportItem(false));
+                {% endif %}
                 $(".conversation-item").on("click", function(e) {
                   e.preventDefault();
                   if (this.id === 'pcheckSupportItem') { try { openPCheck(); } catch(_) {} return; }
@@ -1005,7 +1096,6 @@ function loadMessages() {
                   } else {
                     $(".chat-wrapper").removeClass('fullscreen');
                   }
-                  $("#chatPlaceholder").hide();
                   $("#activeChat").show().css('display', 'flex');
                   const isStaff = $(this).data('is-staff') === true || $(this).data('is-staff') === 'true';
                   const displayName = isStaff ? 'PCheck Support' : receiverName;
@@ -1039,12 +1129,24 @@ function loadMessages() {
           const other = (String(currentUserId) == String(room.receiver.id)) ? room.initiator : room.receiver;
           if (other && other.id) { seenUserIds.add(String(other.id)); }
           
-          {% if not request.user.is_staff and request.user.profile.role != 'staff' %}
+          {% if not request.user.is_staff and request.user.profile.role|default:'' != 'staff' %}
           // For non-staff users, skip conversations with staff members since we show static PCheck Support
           const isOtherStaff = other.is_staff === true || other.role === 'staff';
           if (isOtherStaff) {
             hasStaffConversation = true;
             // Skip adding this conversation - we'll use the static PCheck Support item instead
+            return;
+          }
+          {% else %}
+          // For admin/staff users, skip PCheck Support conversations
+          const isPCheckSupport = (
+            other.email === 'support@pcheck.psu.palawan.edu.ph' ||
+            other.first_name === 'PCheck' && other.last_name === 'Support' ||
+            String(other.id) === 'pcheck' ||
+            (other.email && other.email.toLowerCase().includes('pcheck') && other.email.toLowerCase().includes('support'))
+          );
+          if (isPCheckSupport) {
+            // Skip PCheck Support conversations for admin/staff
             return;
           }
           {% endif %}
@@ -1054,14 +1156,45 @@ function loadMessages() {
         }
       });
 
-      // Ensure PCheck item stays at top for non-staff users - add only once
-      {% if not request.user.is_staff and request.user.profile.role != 'staff' %}
+      // FORCE PCheck Support to stay at top for students and faculty only
+      // Show PCheck Support only for students and faculty (not admin/staff)
       // Remove any existing PCheck Support items first to avoid duplicates
       $("#pcheckSupportItem").remove();
-      // Add PCheck Support at the top (static item, not from actual conversation)
-      conversationsList.prepend(renderPCheckSupportItem());
-      $("#emptyStateBlock").toggle(data.result.length === 0 && !hasStaffConversation);
+      
+      {% if request.user.is_staff or request.user.profile.role == 'staff' %}
+      // For admin/staff, remove any PCheck Support conversations or user items that might be in the DOM
+      $(".conversation-item").each(function() {
+        const receiverEmail = $(this).data('receiver-email');
+        const receiverName = $(this).data('receiver-name');
+        const receiverId = $(this).data('receiver-id');
+        const isPCheckSupport = (
+          receiverEmail === 'support@pcheck.psu.palawan.edu.ph' ||
+          receiverEmail === 'PCheck' ||
+          receiverName === 'PCheck Support' ||
+          String(receiverId) === 'pcheck' ||
+          String(receiverId) === '24' // PCheck Support user ID
+        );
+        if (isPCheckSupport) {
+          $(this).remove();
+        }
+      });
       {% endif %}
+      
+      // Always add PCheck Support at the top (static item, not from actual conversation)
+      {% if not request.user.is_staff and request.user.profile.role|default:'' != 'staff' %}
+      // FORCE PCheck Support for students and faculty - always visible
+      conversationsList.prepend(renderPCheckSupportItem(false));
+      // Ensure click handler is attached
+      $("#pcheckSupportItem").off('click').on('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof openPCheck === 'function') {
+          openPCheck();
+        }
+      });
+      {% endif %}
+      // Hide empty state since PCheck Support is always available
+      $("#emptyStateBlock").hide();
 
       // If staff/admin, also show all users not already in rooms
       {% if request.user.is_staff or request.user.profile.role == 'staff' %}
@@ -1089,8 +1222,7 @@ function loadMessages() {
           $(".chat-wrapper").removeClass('fullscreen');
         }
         
-        // Hide placeholder and show chat area
-        $("#chatPlaceholder").hide();
+        // Show chat area
         $("#activeChat").show().css('display', 'flex');
         
         // Update header - check if staff and show PCheck Support
@@ -1110,11 +1242,59 @@ function loadMessages() {
         loadConversation(roomId);
       });
 
+      // FORCE PCheck Support to be visible for all users - especially students and faculty
+      setTimeout(function() {
+        const conversationsList = $("#conversationsList");
+        if (conversationsList.length > 0) {
+          {% if not request.user.is_staff and request.user.profile.role|default:'' != 'staff' %}
+          // FORCE PCheck Support for students and faculty - always show
+          if ($("#pcheckSupportItem").length === 0) {
+            conversationsList.prepend(renderPCheckSupportItem(false));
+          } else {
+            // Ensure it's at the top
+            $("#pcheckSupportItem").detach().prependTo(conversationsList);
+          }
+          $("#emptyStateBlock").hide();
+          // Re-attach click handler
+          $("#pcheckSupportItem").off('click').on('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof openPCheck === 'function') {
+              openPCheck();
+            }
+          });
+          {% endif %}
+        }
+      }, 100);
       
     },
     error: function(xhr) {
       console.error("Error loading messages:", xhr);
       $("#conversationsList").html('<div class="empty-state"><p class="text-danger">Error loading conversations</p></div>');
+      // Even on error, FORCE PCheck Support to be visible for students and faculty only
+      setTimeout(function() {
+        const conversationsList = $("#conversationsList");
+        if (conversationsList.length > 0) {
+          {% if not request.user.is_staff and request.user.profile.role|default:'' != 'staff' %}
+          // FORCE PCheck Support for students and faculty - always show even on error
+          if ($("#pcheckSupportItem").length === 0) {
+            conversationsList.prepend(renderPCheckSupportItem(false));
+          } else {
+            // Ensure it's at the top
+            $("#pcheckSupportItem").detach().prependTo(conversationsList);
+          }
+          $("#emptyStateBlock").hide();
+          // Re-attach click handler
+          $("#pcheckSupportItem").off('click').on('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof openPCheck === 'function') {
+              openPCheck();
+            }
+          });
+          {% endif %}
+        }
+      }, 100);
     }
   });
 }
@@ -1127,6 +1307,15 @@ function ensureStaffUserList(seenUserIds){
         const conversationsList = $("#conversationsList");
         if (uData && uData.result) {
           uData.result.forEach(function(u){
+            // Skip PCheck Support user for admin/staff
+            const isPCheckSupport = (
+              u.email === 'support@pcheck.psu.palawan.edu.ph' ||
+              (u.first_name === 'PCheck' && u.last_name === 'Support') ||
+              (u.email && u.email.toLowerCase().includes('pcheck') && u.email.toLowerCase().includes('support'))
+            );
+            if (isPCheckSupport) {
+              return; // Skip PCheck Support
+            }
             if (!seenUserIds || !seenUserIds.has(String(u.id))) {
               const html = createUserItem(u);
               conversationsList.append(html);
@@ -1146,8 +1335,7 @@ function ensureStaffUserList(seenUserIds){
             } else {
               $(".chat-wrapper").removeClass('fullscreen');
             }
-            $("#chatPlaceholder").hide();
-            $("#activeChat").show().css('display','flex');
+                  $("#activeChat").show().css('display','flex');
             $("#chatHeaderName").text(receiverName);
             $("#chatHeaderAvatar").html(getInitials(receiverName));
             currentReceiver = { id: receiverId, email: receiverEmail, name: receiverName };
@@ -1165,6 +1353,8 @@ function ensureStaffUserList(seenUserIds){
 
 // Load conversation messages
 function loadConversation(roomId) {
+  // Store previous room ID to check if we're switching conversations
+  const previousRoomId = currentRoomId;
   currentRoomId = roomId;
   
   // Connect WebSocket
@@ -1177,16 +1367,25 @@ function loadConversation(roomId) {
     headers: { 'Cache-Control': 'no-store' },
     success: function(data) {
       const messagesContainer = $("#messagesContainer");
-      messagesContainer.empty();
+      
+      // Only empty if we're loading a different conversation
+      if (previousRoomId !== roomId) {
+        messagesContainer.empty();
+      }
       
       if (data.result && data.result.length > 0) {
+        // Backend returns newest first, so prepend each message (newest will be at top)
         data.result.forEach(msg => {
           const isSender = String(currentUserId) == String(msg.sender__id);
-          appendMessage(msg.message, isSender, msg.timestamp, msg.id);
+          // prependMessage now checks for duplicates, so it's safe to call
+          prependMessage(msg.message, isSender, msg.timestamp, msg.id);
         });
-        scrollToBottom();
+        scrollToTop();
       } else {
-        messagesContainer.html('<div class="empty-state"><p>No messages yet. Start the conversation!</p></div>');
+        // Only show empty state if we're loading a new conversation
+        if (previousRoomId !== roomId) {
+          messagesContainer.html('<div class="empty-state"><p>No messages yet. Start the conversation!</p></div>');
+        }
       }
       
       // Mark as read
@@ -1205,15 +1404,37 @@ function loadConversation(roomId) {
   });
 }
 
-// Append message to chat
-function appendMessage(message, isSender, timestamp, chatId) {
+// Prepend message to chat (newest at top)
+function prependMessage(message, isSender, timestamp, chatId) {
   const messagesContainer = $("#messagesContainer");
+  
+  // Check if message already exists to prevent duplicates
+  if (chatId) {
+    const existingMessage = messagesContainer.find(`[data-chat-id="${chatId}"]`);
+    if (existingMessage.length > 0) {
+      // Message already exists, don't add duplicate
+      return;
+    }
+  } else {
+    // For temporary messages without chatId, check by content and timestamp
+    const tempId = 'temp_' + Date.now();
+    const recentMessages = messagesContainer.find('.message-bubble').slice(0, 5); // Check first 5 messages (top)
+    for (let i = 0; i < recentMessages.length; i++) {
+      const msgText = $(recentMessages[i]).find('div').first().text().trim();
+      if (msgText === message.trim() && !$(recentMessages[i]).attr('data-chat-id')) {
+        // Found a temporary message with same content, don't add duplicate
+        return;
+      }
+    }
+  }
+  
   const messageWrapper = $('<div class="message-wrapper"></div>');
   messageWrapper.addClass(isSender ? 'sent' : 'received');
   
   const bubble = $('<div class="message-bubble"></div>');
   bubble.addClass(isSender ? 'sent' : 'received');
-  bubble.attr('data-chat-id', chatId || 'temp_' + Date.now());
+  const finalChatId = chatId || 'temp_' + Date.now();
+  bubble.attr('data-chat-id', finalChatId);
   
   bubble.html(`
     <div>${escapeHtml(message)}</div>
@@ -1221,8 +1442,13 @@ function appendMessage(message, isSender, timestamp, chatId) {
   `);
   
   messageWrapper.append(bubble);
-  messagesContainer.append(messageWrapper);
-  scrollToBottom();
+  messagesContainer.prepend(messageWrapper); // Prepend instead of append
+  scrollToTop(); // Scroll to top instead of bottom
+}
+
+// Keep appendMessage for backward compatibility (but it will prepend)
+function appendMessage(message, isSender, timestamp, chatId) {
+  prependMessage(message, isSender, timestamp, chatId);
 }
 
 // Escape HTML
@@ -1232,10 +1458,21 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// Scroll to bottom
-function scrollToBottom() {
+// Scroll to top (for newest messages at top)
+function scrollToTop() {
   const container = document.getElementById('messagesContainer');
-  container.scrollTop = container.scrollHeight;
+  if (container) {
+    // Smooth scroll to top
+    container.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  }
+}
+
+// Scroll to bottom (kept for backward compatibility)
+function scrollToBottom() {
+  scrollToTop(); // Use top scrolling since messages are now at top
 }
 
 // WebSocket connection
@@ -1260,11 +1497,39 @@ function connectChatSocket(roomId) {
         const isSender = String(currentUserId) == String(data.sender_id);
         if (!isSender || isSender) { // Show all messages
           const existingId = data.chat_id;
-          if (!document.querySelector(`[data-chat-id="${existingId}"]`)) {
+          // Check if message already exists before adding
+          if (existingId && !document.querySelector(`[data-chat-id="${existingId}"]`)) {
+            // Remove any temporary messages with the same content (optimistic updates)
+            const messagesContainer = $("#messagesContainer");
+            messagesContainer.find('[data-chat-id^="temp_"]').each(function() {
+              const msgText = $(this).find('div').first().text().trim();
+              if (msgText === data.message.trim()) {
+                $(this).closest('.message-wrapper').remove();
+              }
+            });
             appendMessage(data.message, isSender, data.timestamp || new Date().toISOString(), existingId);
+          } else if (!existingId) {
+            // If no chat_id, still check for duplicates by content
+            const messagesContainer = $("#messagesContainer");
+            let isDuplicate = false;
+            messagesContainer.find('.message-bubble').each(function() {
+              const msgText = $(this).find('div').first().text().trim();
+              if (msgText === data.message.trim()) {
+                isDuplicate = true;
+                return false; // break
+              }
+            });
+            if (!isDuplicate) {
+              appendMessage(data.message, isSender, data.timestamp || new Date().toISOString(), existingId);
+            }
           }
         }
-        loadMessages(); // Refresh conversation list
+        // Don't reload all messages here - just update conversation list
+        // The new message is already added above, reloading would cause duplicates
+        // Only refresh conversation list to update unread counts
+        setTimeout(function() {
+          loadMessages();
+        }, 500); // Delay to avoid race conditions
       }
     } catch (error) {
       console.error("Error parsing WebSocket message:", error);
@@ -1437,6 +1702,50 @@ function sendInitMessage() {
   // Double-check a moment later in case of slow auth/session propagation
   setTimeout(immediateLoadMessages, 500);
   
+  // Ensure PCheck Support is always visible for non-staff users (faculty/students)
+  // This is a fallback in case template conditions fail
+  function ensurePCheckSupportVisible() {
+    {% if not request.user.is_staff and request.user.profile.role|default:'' != 'staff' %}
+    const conversationsList = $("#conversationsList");
+    if (conversationsList.length > 0) {
+      // Check if PCheck Support item exists
+      if ($("#pcheckSupportItem").length === 0) {
+        // Add PCheck Support if it doesn't exist - FORCE IT TO SHOW
+        console.log("Adding PCheck Support item for non-staff user");
+        conversationsList.prepend(renderPCheckSupportItem(false));
+        $("#emptyStateBlock").hide();
+        // Re-attach click handler for PCheck Support
+        $("#pcheckSupportItem").off('click').on('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof openPCheck === 'function') {
+            openPCheck();
+          }
+        });
+      } else {
+        // Ensure it's at the top even if it exists
+        $("#pcheckSupportItem").detach().prependTo(conversationsList);
+      }
+    } else {
+      // If conversations list doesn't exist yet, wait and try again
+      setTimeout(ensurePCheckSupportVisible, 500);
+    }
+    {% endif %}
+  }
+  
+  // Check for PCheck Support after a short delay to ensure DOM is ready
+  // Multiple checks to ensure it's always visible
+  setTimeout(ensurePCheckSupportVisible, 100);
+  setTimeout(ensurePCheckSupportVisible, 500);
+  setTimeout(ensurePCheckSupportVisible, 1000);
+  setTimeout(ensurePCheckSupportVisible, 2000);
+  setTimeout(ensurePCheckSupportVisible, 3000);
+  
+  // Also check after loadMessages completes - hook into the success callback
+  // This is handled in the loadMessages function itself, but we add this as a safety net
+  
+  // Auto-open disabled - users must manually click on PCheck Support to open chat
+  
   // Reload when tab gains focus or becomes visible (debounced)
   window.addEventListener('focus', function(){ 
     debouncedLoadMessages(300); 
@@ -1448,16 +1757,8 @@ function sendInitMessage() {
     } 
   });
   
-  // Search conversations
-  $("#searchConversations").on("input", function() {
-    const query = $(this).val().toLowerCase();
-    $(".conversation-item").each(function() {
-      const name = $(this).find(".conversation-name").text().toLowerCase();
-      $(this).toggle(name.includes(query));
-    });
-  });
 
-  // Default PCheck support item handler (non-staff)
+  // Default PCheck support item handler (for all users)
   function openPCheck(){
     // Only enable fullscreen mode on mobile (screen width <= 768px)
     const isMobile = window.innerWidth <= 768;
@@ -1466,10 +1767,12 @@ function sendInitMessage() {
     } else {
       $(".chat-wrapper").removeClass('fullscreen');
     }
-    $("#chatPlaceholder").hide();
-    $("#activeChat").show().css('display','flex');
+                  $("#activeChat").show().css('display','flex');
     $("#chatHeaderName").text('PCheck Support');
     $("#chatHeaderAvatar").html(getInitials('PCheck Support'));
+    
+    // For non-staff only, set receiver to PCheck (which broadcasts to all staff)
+    {% if not request.user.is_staff and request.user.profile.role|default:'' != 'staff' %}
     currentReceiver = { id: null, email: 'PCheck', name: 'PCheck Support' };
     
     // Try to find existing conversation with staff
@@ -1481,6 +1784,7 @@ function sendInitMessage() {
           for (var i=0; i<data.result.length; i++){
             var room = data.result[i];
             var other = (String(currentUserId) == String(room.receiver.id)) ? room.initiator : room.receiver;
+            // For non-staff, look for conversation with staff
             if (other && (other.is_staff === true || other.role === 'staff')){
               foundRoomId = room.id;
               break;
@@ -1501,6 +1805,7 @@ function sendInitMessage() {
         $("#messagesContainer").html('<div class="empty-state"><p>Start the conversation with PCheck Support.</p></div>');
         $("#new_message").focus();
       });
+    {% endif %}
   }
   // Expose globally so inline onclick can access it even outside this scope
   window.openPCheck = openPCheck;
@@ -1556,14 +1861,16 @@ function sendInitMessage() {
     const roomId = currentRoomId || modalRoomId || null;
     if (!message) return;
 
-    // Optimistic UI update - show message immediately
+    // Don't add optimistic message - wait for server response to avoid duplicates
+    // The message will appear via WebSocket or after reload
     if (hasInput) {
-      appendMessage(message, true, new Date().toISOString(), null);
       $("#new_message").val("");
     }
 
-    // If no room yet, start with PCheck Support
+    // If no room yet, start with PCheck Support (only for non-staff)
     if (!roomId) {
+      {% if not request.user.is_staff and request.user.profile.role|default:'' != 'staff' %}
+      // For non-staff, message PCheck (broadcasts to all staff)
       const recipient = (currentReceiver && currentReceiver.email) ? currentReceiver.email : "PCheck";
       $.ajax({
         url: $("#send_init_message").data("send-init-message-url"),
@@ -1573,10 +1880,15 @@ function sendInitMessage() {
         success: (res) => {
           const newRoom = res && (res.room_id || (Array.isArray(res.rooms) && res.rooms[0]));
           if (newRoom) {
+            const previousRoom = currentRoomId;
             currentRoomId = newRoom;
             modalRoomId = newRoom;
             connectChatSocket(newRoom);
-            loadConversation(newRoom);
+            // Don't reload conversation immediately - WebSocket will handle the new message
+            // Only load if we're switching to a different room
+            if (previousRoom !== newRoom) {
+              loadConversation(newRoom);
+            }
             loadMessages();
           } else {
             loadMessages();
@@ -1589,6 +1901,11 @@ function sendInitMessage() {
         }
       });
       return;
+      {% else %}
+      // Staff/admin cannot message PCheck Support
+      alert("PCheck Support is not available for staff/admin users.");
+      return;
+      {% endif %}
     }
 
     // Send to existing room
@@ -1598,6 +1915,8 @@ function sendInitMessage() {
       data: { message, csrfmiddlewaretoken: getCSRFToken() },
       beforeSend: (xhr) => { const t = getCSRFToken(); if (t) xhr.setRequestHeader("X-CSRFToken", t); },
       success: () => { 
+        // Don't reload messages here - WebSocket will handle the new message
+        // Only reload conversation list to update unread counts
         loadMessages();
         // Also update modal if open
         if (typeof tgAppend === 'function') {
@@ -1668,9 +1987,8 @@ function sendInitMessage() {
     e.preventDefault();
     // Exit fullscreen mode (only relevant on mobile)
     $(".chat-wrapper").removeClass('fullscreen');
-    // Hide chat, show placeholder
+    // Hide chat
     $("#activeChat").hide();
-    $("#chatPlaceholder").show();
     // Disconnect WebSocket
     if (chatSocket) {
       chatSocket.close();

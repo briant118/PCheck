@@ -6,6 +6,412 @@ body {
     min-height: 100vh;
 }
 
+/* Page Header Modern Design */
+.page-header-modern {
+    background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%);
+    border-radius: 16px;
+    padding: 2rem 1.5rem;
+    margin: 1.5rem 0;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Hide any incorrectly rendered pseudo-elements */
+.page-header-modern *::before,
+.page-header-modern *::after {
+    display: inline-block;
+    font-style: normal;
+    font-variant: normal;
+    text-rendering: auto;
+    -webkit-font-smoothing: antialiased;
+}
+
+.page-header-content {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.page-header-icon {
+    font-size: 3rem;
+    color: #ff9800;
+    margin-bottom: 0.5rem;
+    text-shadow: 0 2px 4px rgba(255, 152, 0, 0.2);
+}
+
+.page-header-title {
+    font-size: 2.25rem;
+    font-weight: 700;
+    color: #212529;
+    margin: 0;
+    padding: 0;
+    background: linear-gradient(135deg, #ff9800 0%, #ff5722 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: none;
+    letter-spacing: -0.5px;
+}
+
+.page-header-subtitle {
+    font-size: 1rem;
+    color: #6c757d;
+    margin: 0;
+    padding: 0;
+    font-weight: 400;
+    letter-spacing: 0.3px;
+}
+
+@media (max-width: 768px) {
+    .page-header-modern {
+        padding: 1.5rem 1rem;
+        margin: 1rem 0;
+        border-radius: 12px;
+    }
+    
+    .page-header-icon {
+        font-size: 2.5rem;
+    }
+    
+    .page-header-title {
+        font-size: 1.75rem;
+    }
+    
+    .page-header-subtitle {
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .page-header-modern {
+        padding: 1.25rem 0.75rem;
+        margin: 0.75rem 0;
+    }
+    
+    .page-header-icon {
+        font-size: 2rem;
+    }
+    
+    .page-header-title {
+        font-size: 1.5rem;
+    }
+    
+    .page-header-subtitle {
+        font-size: 0.85rem;
+    }
+}
+
+/* Modern Card Header */
+.modern-card-header {
+    background: linear-gradient(135deg, #ff9800 0%, #ff5722 100%);
+    border-bottom: none;
+    padding: 1.25rem 1.5rem;
+    box-shadow: 0 2px 8px rgba(255, 152, 0, 0.2);
+}
+
+/* Modern Buttons */
+.modern-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1.25rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    text-decoration: none;
+    letter-spacing: 0.3px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.modern-btn i {
+    font-size: 0.9rem;
+    transition: transform 0.3s ease;
+}
+
+.modern-btn:hover i {
+    transform: scale(1.1);
+}
+
+.modern-btn-secondary {
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.modern-btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+.modern-btn-secondary:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+/* Modern Add Button - Cart Style */
+.modern-add-btn {
+    background: rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 10px;
+    padding: 0.625rem 1.25rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    letter-spacing: 0.3px;
+}
+
+.modern-add-btn:hover {
+    background: rgba(255, 255, 255, 0.35);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.modern-add-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(44, 62, 80, 0.3);
+}
+
+.modern-add-btn span {
+    font-weight: 600;
+}
+
+.modern-add-btn i {
+    font-size: 0.9rem;
+    opacity: 0.9;
+    transition: transform 0.3s ease;
+}
+
+.modern-add-btn:hover i {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+/* Analytics Cards */
+.analytics-card {
+    background: linear-gradient(180deg, #ffc107 0%, #ff9800 50%, #ff5722 100%) !important;
+    border-radius: 20px !important;
+    padding: 1.25rem 1.5rem !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 1.25rem !important;
+    box-shadow: 0 4px 16px rgba(255, 152, 0, 0.25), inset 0 0 0 2px rgba(255, 255, 255, 0.2) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    border: 3px solid rgba(255, 255, 255, 0.5) !important;
+    width: 100% !important;
+    max-width: 220px !important;
+    min-height: 120px !important;
+    margin: 0 !important;
+    position: relative !important;
+    overflow: visible !important;
+}
+
+.analytics-card::after {
+    content: '' !important;
+    position: absolute !important;
+    top: -3px !important;
+    left: -3px !important;
+    right: -3px !important;
+    bottom: -3px !important;
+    border-radius: 20px !important;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.3)) !important;
+    z-index: -1 !important;
+    opacity: 0 !important;
+    transition: opacity 0.3s ease !important;
+}
+
+.analytics-card:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 24px rgba(255, 152, 0, 0.35), inset 0 0 0 3px rgba(255, 255, 255, 0.4) !important;
+    border-color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.analytics-card:hover::after {
+    opacity: 1 !important;
+}
+
+.analytics-card-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.analytics-card-icon i {
+    font-size: 1.5rem;
+    color: #ffffff;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+}
+
+.analytics-card-content {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0.375rem;
+    text-align: left;
+    flex: 1;
+    min-height: 0;
+}
+
+.analytics-card-number {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    letter-spacing: -0.5px;
+}
+
+.analytics-card-label {
+    font-size: 0.75rem;
+    color: #ffffff;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    opacity: 0.95;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Modern PC Card */
+.modern-pc-card {
+    border: none;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    background: linear-gradient(135deg, #ff9800 0%, #ff5722 100%);
+}
+
+.modern-pc-card .card-body {
+    background: linear-gradient(135deg, #ff9800 0%, #ff5722 100%);
+    padding: 2rem;
+    min-height: 400px;
+}
+
+.modern-pc-card .card-header:not(.modern-card-header) {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+}
+
+.modern-pc-card .card-header:not(.modern-card-header) h5 {
+    color: #ffffff;
+    font-weight: 600;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.modern-pc-card .card-header:not(.modern-card-header) .btn {
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #ffffff;
+}
+
+.modern-pc-card .card-header:not(.modern-card-header) .btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.4);
+    color: #ffffff;
+}
+
+/* PC List Buttons on Orange Background */
+.modern-pc-card .pc-list-button {
+    background: rgba(255, 255, 255, 0.95);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 12px;
+    padding: 1rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.modern-pc-card .pc-list-button:hover {
+    background: #ffffff;
+    transform: translateY(-4px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.modern-pc-card .pc-list-button.text-success {
+    border-color: #4caf50;
+}
+
+.modern-pc-card .pc-list-button.text-danger {
+    border-color: #f44336;
+}
+
+.modern-pc-card .pc-list-button.pc-repair {
+    background: rgba(244, 67, 54, 0.1);
+    border-color: #f44336;
+}
+
+/* Table on Orange Background */
+.modern-pc-card .table {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.modern-pc-card .table thead {
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    color: #ffffff;
+}
+
+.modern-pc-card .table tbody {
+    background: rgba(255, 255, 255, 0.95);
+}
+
+.modern-pc-card .table tbody tr {
+    transition: all 0.2s ease;
+}
+
+.modern-pc-card .table tbody tr:hover {
+    background: rgba(255, 255, 255, 1);
+    transform: scale(1.01);
+}
+
 .wrapper {
     background: linear-gradient(180deg, #ff9800 0%, #ff5722 100%);
     min-height: 100vh;
@@ -43,8 +449,9 @@ body {
     margin: 0;
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
     border-bottom: none;
+    gap: 1rem;
 }
 
 .reservation-title {

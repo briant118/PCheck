@@ -1,11 +1,21 @@
-$(document).ready(function () {
-  // Support both old .pc-button and new .pc-button-modern classes
-  const $pcButton = $(".pc-button-modern, .pc-button");
-  const $nextButton = $(".reserve-next-button");
-  const $blockButton = $("#block-button");
-  const $blockButtonNext = $("#block-button-next");
-  const $pageNav = $("#page-nav");
-  const $pcGroupButton = $(".pc-group-number");
+// Wait for jQuery to be available
+function initReservePC() {
+  if (typeof jQuery === 'undefined' && typeof $ === 'undefined') {
+    // jQuery not loaded yet, retry after a short delay
+    setTimeout(initReservePC, 100);
+    return;
+  }
+  
+  var $ = jQuery || window.$;
+  
+  $(document).ready(function () {
+    // Support both old .pc-button and new .pc-button-modern classes
+    const $pcButton = $(".pc-button-modern, .pc-button");
+    const $nextButton = $(".reserve-next-button");
+    const $blockButton = $("#block-button");
+    const $blockButtonNext = $("#block-button-next");
+    const $pageNav = $("#page-nav");
+    const $pcGroupButton = $(".pc-group-number");
 
   function cancelReservation(pcId) {
     $.ajax({
@@ -228,6 +238,14 @@ $(document).ready(function () {
           let durationMinutes = parseInt($("#durationInput").val()); 
           let endTime = new Date().getTime() + durationMinutes * 60 * 1000;
 
+          // Set booking ID for end session button
+          var bookingId = $("#booking_id").text();
+          var endSessionBtn = $("#end-session-early-btn");
+          if (endSessionBtn.length && bookingId) {
+            endSessionBtn.attr("data-booking-id", bookingId);
+            console.log("Set booking_id on end-session-early-btn:", bookingId);
+          }
+
           $("#timeRemainingModal").modal({
             backdrop: "static",  // prevent closing by clicking outside
             keyboard: false      // prevent closing with Esc key
@@ -331,5 +349,12 @@ $(document).ready(function () {
 
     $("#result").html(resultHtml);
   });
-  
-});
+  });
+}
+
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initReservePC);
+} else {
+  initReservePC();
+}

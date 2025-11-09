@@ -10,84 +10,40 @@
 {% block content %}
 <div class="container-fluid">
 
-  <div class="text-center mb-3">
-    <h1>Computer Management</h1>
-  </div>
-
   <div class="row">
 
-    <!-- Left Column -->
-    <div class="col-md-3 col-sm-4 mt-3">
-      <div class="card h-100">
-        <div class="card-header text-center">
-          <a href="{% url 'main_app:pc-list' %}" 
-            id="all-pc-button" class="btn btn-round btn-secondary shadow menu-button mb-2">
-            All PC
-          </a>
-          <br>
-          <button id="addPCbutton" class="btn btn-round btn-secondary shadow menu-button mb-2" onclick="console.log('Add PC clicked via onclick'); document.getElementById('PCformDiv').removeAttribute('hidden');">
-            Add PC
-          </button>
-          <br>
-          <a href="{% url 'main_app:pc-list' %}?filter=repair" 
-            id="repair-button" class="btn btn-round btn-secondary shadow menu-button mb-2">
-            Repair
-          </a>
-        </div>
-
-        <div class="card-body" id="PCformDiv" hidden>
-          <h5 id="form-title">Add a PC</h5>
-          <form method="post" id="pc-form" action="">
-            {% csrf_token %}
-            <input type="hidden" name="pc_id" id="pc_id">
-            <div class="form-group mt-3">
-              <label for="id_name">Name:</label>
-              <input type="text" name="name" id="id_name" class="form-control" required>
-              <span class="text-danger" id="name-error"></span>
-            </div>
-            <div class="form-group mt-3">
-              <label for="id_ip_address">IP Address:</label>
-              <input type="text" name="ip_address" id="id_ip_address" class="form-control" required>
-              <span class="text-danger" id="ip-address-error"></span>
-            </div>
-            <div class="form-group mt-3" style="display: none;">
-              <label for="id_status">Status:</label>
-              <select name="status" id="id_status" class="form-control select">
-                <option value="connected">Connected</option>
-                <option value="disconnected">Disconnected</option>
-              </select>
-            </div>
-            <div class="form-group mt-3">
-              <label for="id_system_condition">System Condition:</label>
-              <select name="system_condition" id="id_system_condition" class="form-control select" required>
-                <option value="active" selected>Active</option>
-                <option value="repair">Repair</option>
-              </select>
-            </div>
-            <div class="mt-3">
-              <p class="mt-1">Network Status: <span id="status_indicator"></span></p>
-              <div id="spinner" style="display: none; text-align:center; margin-top:20px;">
-                <div class="loader"></div>
-                <p>Connecting...</p>
-              </div>
-            </div>
-            <div class="mt-3">
-              <button type="button" id="connectButton" class="btn btn-sm btn-secondary w-100 mb-2" onclick="console.log('Test Connection clicked'); var ip=document.getElementById('id_ip_address').value; if(ip){fetch('/ajax/get-ping-data/?ip_address='+ip).then(r=>r.json()).then(d=>{console.log('Result:',d); var indicator=document.getElementById('status_indicator'); if(d.result){indicator.textContent='Reachable'; indicator.className='text-success'; document.getElementById('id_status').value='connected';} else{indicator.textContent='Unreachable'; indicator.className='text-danger'; document.getElementById('id_status').value='disconnected';}}).catch(e=>console.error('Error:',e));} else{alert('Please enter an IP address');}">
-                Test Connection
+    <!-- PC List Column -->
+    <div class="col-12 mt-3">
+      <div class="card modern-pc-card">
+        <div class="card-header modern-card-header">
+          <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap">
+            <div class="d-flex justify-content-start align-items-center gap-3 flex-wrap">
+              <a href="{% url 'main_app:pc-list' %}" 
+                id="all-pc-button" class="btn modern-btn modern-btn-secondary">
+                <i class="fa-solid fa-list"></i>
+                <span>All PC</span>
+              </a>
+              <a href="{% url 'main_app:pc-list' %}?filter=repair" 
+                id="repair-button" class="btn modern-btn modern-btn-secondary">
+                <i class="fa-solid fa-wrench"></i>
+                <span>Repair</span>
+              </a>
+              <button id="addPCbutton" class="btn modern-add-btn" onclick="showAddPcModal(); return false;">
+                <span>Add PC</span>
+                <i class="fa-solid fa-plus"></i>
               </button>
-              <div class="d-flex">
-                <button type="submit" class="btn btn-sm btn-primary flex-fill me-2" id="save-button" onclick="console.log('Save clicked')">Save</button>
-                <button type="button" id="cancel-button" style="display:none;" class="btn btn-sm btn-secondary flex-fill" onclick="console.log('Cancel clicked'); document.getElementById('PCformDiv').setAttribute('hidden','');">Cancel</button>
+            </div>
+            <div class="analytics-card">
+              <div class="analytics-card-icon">
+                <i class="fa-solid fa-desktop"></i>
+              </div>
+              <div class="analytics-card-content">
+                <div class="analytics-card-number">{{ total_pcs }}</div>
+                <div class="analytics-card-label">Total PC</div>
               </div>
             </div>
-          </form>
+          </div>
         </div>
-      </div>
-    </div>
-
-    <!-- Right Column -->
-    <div class="col-md-9 col-sm-8 mt-3">
-      <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
           <h5 class="mb-0">Available Computers</h5>
           <div>
@@ -223,6 +179,122 @@
   </div>
 </div>
 
+<!-- Add PC Modal -->
+<div class="modal fade" id="addPcModal" tabindex="-1" aria-labelledby="addPcModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addPcModalLabel">
+          <i class="fa-solid fa-plus"></i> Add PC
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form method="post" id="add-pc-form" action="">
+        {% csrf_token %}
+        <div class="modal-body">
+          <input type="hidden" name="pc_id" id="add-pc_id" value="">
+          <div class="form-group mt-3">
+            <label for="add-id_name">Name:</label>
+            <input type="text" name="name" id="add-id_name" class="form-control" required>
+            <span class="text-danger" id="add-name-error"></span>
+          </div>
+          <div class="form-group mt-3">
+            <label for="add-id_ip_address">IP Address:</label>
+            <input type="text" name="ip_address" id="add-id_ip_address" class="form-control" required>
+            <span class="text-danger" id="add-ip-address-error"></span>
+          </div>
+          <div class="form-group mt-3" style="display: none;">
+            <label for="add-id_status">Status:</label>
+            <select name="status" id="add-id_status" class="form-control select">
+              <option value="connected">Connected</option>
+              <option value="disconnected">Disconnected</option>
+            </select>
+          </div>
+          <div class="form-group mt-3">
+            <label for="add-id_system_condition">System Condition:</label>
+            <select name="system_condition" id="add-id_system_condition" class="form-control select" required>
+              <option value="active" selected>Active</option>
+              <option value="repair">Repair</option>
+            </select>
+          </div>
+          <div class="mt-3">
+            <p class="mt-1">Network Status: <span id="add-status_indicator"></span></p>
+            <div id="add-spinner" style="display: none; text-align:center; margin-top:20px;">
+              <div class="loader"></div>
+              <p>Connecting...</p>
+            </div>
+          </div>
+          <div class="mt-3">
+            <button type="button" id="add-connectButton" class="btn btn-sm btn-secondary w-100 mb-2">Test Connection</button>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="add-save-button">Add PC</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Edit PC Modal -->
+<div class="modal fade" id="editPcModal" tabindex="-1" aria-labelledby="editPcModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editPcModalLabel">
+          <i class="fa-solid fa-edit"></i> Edit PC
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form method="post" id="edit-pc-form" action="">
+        {% csrf_token %}
+        <div class="modal-body">
+          <input type="hidden" name="pc_id" id="edit-pc_id">
+          <div class="form-group mt-3">
+            <label for="edit-id_name">Name:</label>
+            <input type="text" name="name" id="edit-id_name" class="form-control" required>
+            <span class="text-danger" id="edit-name-error"></span>
+          </div>
+          <div class="form-group mt-3">
+            <label for="edit-id_ip_address">IP Address:</label>
+            <input type="text" name="ip_address" id="edit-id_ip_address" class="form-control" required>
+            <span class="text-danger" id="edit-ip-address-error"></span>
+          </div>
+          <div class="form-group mt-3" style="display: none;">
+            <label for="edit-id_status">Status:</label>
+            <select name="status" id="edit-id_status" class="form-control select">
+              <option value="connected">Connected</option>
+              <option value="disconnected">Disconnected</option>
+            </select>
+          </div>
+          <div class="form-group mt-3">
+            <label for="edit-id_system_condition">System Condition:</label>
+            <select name="system_condition" id="edit-id_system_condition" class="form-control select" required>
+              <option value="active">Active</option>
+              <option value="repair">Repair</option>
+            </select>
+          </div>
+          <div class="mt-3">
+            <p class="mt-1">Network Status: <span id="edit-status_indicator"></span></p>
+            <div id="edit-spinner" style="display: none; text-align:center; margin-top:20px;">
+              <div class="loader"></div>
+              <p>Connecting...</p>
+            </div>
+          </div>
+          <div class="mt-3">
+            <button type="button" id="edit-connectButton" class="btn btn-sm btn-secondary w-100 mb-2">Test Connection</button>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="edit-save-button">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -270,12 +342,14 @@ function showPCInfoModalVanilla(id, name, ip, status, health) {
   var editBtn = document.getElementById('modal-edit-btn');
   if (editBtn) {
     editBtn.onclick = function() {
-      fillPCFormVanilla(id, name, ip, status, health);
+      // Close info modal
       var modalElement = document.getElementById("pcInfoModal");
       if (window.bootstrap && modalElement) {
         var modal = bootstrap.Modal.getInstance(modalElement);
         if (modal) modal.hide();
       }
+      // Show edit modal
+      showEditPcModalVanilla(id, name, ip, status, health);
     };
   }
   
@@ -296,23 +370,55 @@ function showPCInfoModalVanilla(id, name, ip, status, health) {
   }
 }
 
-// Function to fill PC form (vanilla JS version)
-function fillPCFormVanilla(id, name, ip, status, health) {
-  var formDiv = document.getElementById('PCformDiv');
-  if (formDiv) {
-    formDiv.removeAttribute('hidden');
-    // Scroll to form panel smoothly
-    setTimeout(function() {
-      formDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }, 100);
-  }
+// Function to show Add PC modal (vanilla JS version)
+function showAddPcModal() {
+  // Clear form fields
+  var pcIdField = document.getElementById('add-pc_id');
+  var nameField = document.getElementById('add-id_name');
+  var ipField = document.getElementById('add-id_ip_address');
+  var statusField = document.getElementById('add-id_status');
+  var healthField = document.getElementById('add-id_system_condition');
+  var statusIndicator = document.getElementById('add-status_indicator');
   
-  var pcIdField = document.getElementById('pc_id');
-  var nameField = document.getElementById('id_name');
-  var ipField = document.getElementById('id_ip_address');
-  var statusField = document.getElementById('id_status');
-  var healthField = document.getElementById('id_system_condition');
-  var statusIndicator = document.getElementById('status_indicator');
+  if (pcIdField) pcIdField.value = "";
+  if (nameField) nameField.value = "";
+  if (ipField) ipField.value = "";
+  if (statusField) statusField.value = "connected";
+  if (healthField) healthField.value = "active";
+  if (statusIndicator) statusIndicator.textContent = "";
+  
+  // Clear error messages
+  var nameError = document.getElementById('add-name-error');
+  var ipError = document.getElementById('add-ip-address-error');
+  if (nameError) nameError.textContent = "";
+  if (ipError) ipError.textContent = "";
+  
+  // Show modal using Bootstrap 5
+  var modalElement = document.getElementById("addPcModal");
+  if (modalElement && window.bootstrap) {
+    var existingModal = bootstrap.Modal.getInstance(modalElement);
+    if (existingModal) {
+      existingModal.show();
+    } else {
+      var modal = new bootstrap.Modal(modalElement, {
+        backdrop: true,
+        keyboard: true,
+        focus: true
+      });
+      modal.show();
+    }
+  }
+}
+
+// Function to show Edit PC modal (vanilla JS version)
+function showEditPcModalVanilla(id, name, ip, status, health) {
+  // Fill edit modal form fields
+  var pcIdField = document.getElementById('edit-pc_id');
+  var nameField = document.getElementById('edit-id_name');
+  var ipField = document.getElementById('edit-id_ip_address');
+  var statusField = document.getElementById('edit-id_status');
+  var healthField = document.getElementById('edit-id_system_condition');
+  var statusIndicator = document.getElementById('edit-status_indicator');
   
   if (pcIdField) pcIdField.value = id || "";
   if (nameField) nameField.value = name || "";
@@ -321,11 +427,33 @@ function fillPCFormVanilla(id, name, ip, status, health) {
   if (healthField) healthField.value = health || "active";
   if (statusIndicator) statusIndicator.textContent = "";
   
-  var formTitle = document.getElementById('form-title');
-  if (formTitle) formTitle.textContent = "Edit PC";
+  // Clear error messages
+  var nameError = document.getElementById('edit-name-error');
+  var ipError = document.getElementById('edit-ip-address-error');
+  if (nameError) nameError.textContent = "";
+  if (ipError) ipError.textContent = "";
   
-  var cancelButton = document.getElementById('cancel-button');
-  if (cancelButton) cancelButton.style.display = "block";
+  // Show modal using Bootstrap 5
+  var modalElement = document.getElementById("editPcModal");
+  if (modalElement && window.bootstrap) {
+    var existingModal = bootstrap.Modal.getInstance(modalElement);
+    if (existingModal) {
+      existingModal.show();
+    } else {
+      var modal = new bootstrap.Modal(modalElement, {
+        backdrop: true,
+        keyboard: true,
+        focus: true
+      });
+      modal.show();
+    }
+  }
+}
+
+// Function to fill PC form (vanilla JS version) - kept for backward compatibility
+function fillPCFormVanilla(id, name, ip, status, health) {
+  // Instead of showing side panel, show edit modal
+  showEditPcModalVanilla(id, name, ip, status, health);
 }
 
 // Emergency fallback if jQuery doesn't work
@@ -367,8 +495,8 @@ document.addEventListener('DOMContentLoaded', function() {
       
       console.log("PC list button clicked (vanilla JS):", id, name);
       
-      // Fill the form fields for editing (show info in side panel)
-      fillPCFormVanilla(id, name, ip, status, health);
+      // Show edit modal
+      showEditPcModalVanilla(id, name, ip, status, health);
       
       // Highlight selected button
       pcButtons.forEach(function(btn) {
@@ -400,8 +528,8 @@ document.addEventListener('DOMContentLoaded', function() {
       
       console.log("Edit row clicked (vanilla JS):", id, name);
       
-      // Fill the form fields for editing (show info in side panel)
-      fillPCFormVanilla(id, name, ip, status, health);
+      // Show edit modal
+      showEditPcModalVanilla(id, name, ip, status, health);
     });
   });
 });
@@ -435,8 +563,8 @@ function attachClickHandlers() {
       
       console.log("Edit row clicked (vanilla JS):", id, name);
       
-      // Fill the form fields for editing (show info in side panel)
-      fillPCFormVanilla(id, name, ip, status, health);
+      // Show edit modal
+      showEditPcModalVanilla(id, name, ip, status, health);
     });
   });
 }
@@ -509,6 +637,238 @@ function selectPCFromButton(button) {
   });
   button.classList.add('selected-pc');
 }
+
+// Add PC modal handlers
+document.addEventListener('DOMContentLoaded', function() {
+  // Test connection button in add modal
+  var addConnectButton = document.getElementById('add-connectButton');
+  if (addConnectButton) {
+    addConnectButton.addEventListener('click', function(e) {
+      e.preventDefault();
+      var ipAddress = document.getElementById('add-id_ip_address').value;
+      var statusIndicator = document.getElementById('add-status_indicator');
+      var spinner = document.getElementById('add-spinner');
+      var statusField = document.getElementById('add-id_status');
+      
+      if (spinner) spinner.style.display = 'block';
+      
+      if (ipAddress) {
+        fetch('/ajax/get-ping-data/?ip_address=' + ipAddress)
+          .then(function(response) { return response.json(); })
+          .then(function(data) {
+            if (spinner) spinner.style.display = 'none';
+            if (data.result) {
+              if (statusIndicator) {
+                statusIndicator.textContent = 'Reachable';
+                statusIndicator.className = 'text-success';
+              }
+              if (statusField) statusField.value = 'connected';
+            } else {
+              if (statusIndicator) {
+                statusIndicator.textContent = 'Unreachable';
+                statusIndicator.className = 'text-danger';
+              }
+              if (statusField) statusField.value = 'disconnected';
+            }
+          })
+          .catch(function(error) {
+            console.error('Error fetching ping data:', error);
+            if (spinner) spinner.style.display = 'none';
+          });
+      } else {
+        alert('Please enter an IP address.');
+        if (spinner) spinner.style.display = 'none';
+      }
+    });
+  }
+  
+  // Add form submission
+  var addForm = document.getElementById('add-pc-form');
+  if (addForm) {
+    addForm.addEventListener('submit', function(e) {
+      var name = document.getElementById('add-id_name').value;
+      var ipAddress = document.getElementById('add-id_ip_address').value;
+      
+      if (!name || name.trim() === '') {
+        e.preventDefault();
+        alert('Please enter a PC name');
+        return false;
+      }
+      if (!ipAddress || ipAddress.trim() === '') {
+        e.preventDefault();
+        alert('Please enter an IP address');
+        return false;
+      }
+      
+      // Form will submit normally
+      return true;
+    });
+  }
+  
+  // Name validation in add modal
+  var addNameField = document.getElementById('add-id_name');
+  if (addNameField) {
+    addNameField.addEventListener('change', function() {
+      var name = this.value;
+      var nameError = document.getElementById('add-name-error');
+      
+      if (name) {
+        fetch('/ajax/verify-pc-name/?name=' + encodeURIComponent(name))
+          .then(function(response) { return response.json(); })
+          .then(function(data) {
+            if (data.result && nameError) {
+              nameError.textContent = 'PC with this name already exists.';
+            } else if (nameError) {
+              nameError.textContent = '';
+            }
+          })
+          .catch(function(error) {
+            console.error('Error fetching name data:', error);
+          });
+      }
+    });
+  }
+  
+  // IP validation in add modal
+  var addIpField = document.getElementById('add-id_ip_address');
+  if (addIpField) {
+    addIpField.addEventListener('change', function() {
+      var ip = this.value;
+      var ipError = document.getElementById('add-ip-address-error');
+      
+      if (ip) {
+        fetch('/ajax/verify-pc-ip-address/?ip_address=' + encodeURIComponent(ip))
+          .then(function(response) { return response.json(); })
+          .then(function(data) {
+            if (data.result && ipError) {
+              ipError.textContent = 'PC with this IP address already exists.';
+            } else if (ipError) {
+              ipError.textContent = '';
+            }
+          })
+          .catch(function(error) {
+            console.error('Error fetching IP data:', error);
+          });
+      }
+    });
+  }
+  
+  // Edit modal handlers
+  // Test connection button in edit modal
+  var editConnectButton = document.getElementById('edit-connectButton');
+  if (editConnectButton) {
+    editConnectButton.addEventListener('click', function(e) {
+      e.preventDefault();
+      var ipAddress = document.getElementById('edit-id_ip_address').value;
+      var statusIndicator = document.getElementById('edit-status_indicator');
+      var spinner = document.getElementById('edit-spinner');
+      var statusField = document.getElementById('edit-id_status');
+      
+      if (spinner) spinner.style.display = 'block';
+      
+      if (ipAddress) {
+        fetch('/ajax/get-ping-data/?ip_address=' + ipAddress)
+          .then(function(response) { return response.json(); })
+          .then(function(data) {
+            if (spinner) spinner.style.display = 'none';
+            if (data.result) {
+              if (statusIndicator) {
+                statusIndicator.textContent = 'Reachable';
+                statusIndicator.className = 'text-success';
+              }
+              if (statusField) statusField.value = 'connected';
+            } else {
+              if (statusIndicator) {
+                statusIndicator.textContent = 'Unreachable';
+                statusIndicator.className = 'text-danger';
+              }
+              if (statusField) statusField.value = 'disconnected';
+            }
+          })
+          .catch(function(error) {
+            console.error('Error fetching ping data:', error);
+            if (spinner) spinner.style.display = 'none';
+          });
+      } else {
+        alert('Please enter an IP address.');
+        if (spinner) spinner.style.display = 'none';
+      }
+    });
+  }
+  
+  // Edit form submission
+  var editForm = document.getElementById('edit-pc-form');
+  if (editForm) {
+    editForm.addEventListener('submit', function(e) {
+      var name = document.getElementById('edit-id_name').value;
+      var ipAddress = document.getElementById('edit-id_ip_address').value;
+      
+      if (!name || name.trim() === '') {
+        e.preventDefault();
+        alert('Please enter a PC name');
+        return false;
+      }
+      if (!ipAddress || ipAddress.trim() === '') {
+        e.preventDefault();
+        alert('Please enter an IP address');
+        return false;
+      }
+      
+      // Form will submit normally
+      return true;
+    });
+  }
+  
+  // Name validation in edit modal
+  var editNameField = document.getElementById('edit-id_name');
+  if (editNameField) {
+    editNameField.addEventListener('change', function() {
+      var name = this.value;
+      var nameError = document.getElementById('edit-name-error');
+      var pcId = document.getElementById('edit-pc_id').value;
+      
+      if (name) {
+        fetch('/ajax/verify-pc-name/?name=' + encodeURIComponent(name) + '&exclude_id=' + pcId)
+          .then(function(response) { return response.json(); })
+          .then(function(data) {
+            if (data.result && nameError) {
+              nameError.textContent = 'PC with this name already exists.';
+            } else if (nameError) {
+              nameError.textContent = '';
+            }
+          })
+          .catch(function(error) {
+            console.error('Error fetching name data:', error);
+          });
+      }
+    });
+  }
+  
+  // IP validation in edit modal
+  var editIpField = document.getElementById('edit-id_ip_address');
+  if (editIpField) {
+    editIpField.addEventListener('change', function() {
+      var ip = this.value;
+      var ipError = document.getElementById('edit-ip-address-error');
+      var pcId = document.getElementById('edit-pc_id').value;
+      
+      if (ip) {
+        fetch('/ajax/verify-pc-ip-address/?ip_address=' + encodeURIComponent(ip) + '&exclude_id=' + pcId)
+          .then(function(response) { return response.json(); })
+          .then(function(data) {
+            if (data.result && ipError) {
+              ipError.textContent = 'PC with this IP address already exists.';
+            } else if (ipError) {
+              ipError.textContent = '';
+            }
+          })
+          .catch(function(error) {
+            console.error('Error fetching IP data:', error);
+          });
+      }
+    });
+  }
+});
 </script>
 <script src="{% static 'js/pc_management.js' %}"></script>
 {% endblock %}

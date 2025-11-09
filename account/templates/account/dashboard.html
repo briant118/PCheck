@@ -189,9 +189,10 @@
     box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     border: none;
-    width: 200px;
+    width: 100%;
+    max-width: 200px;
     height: 100px;
-    margin: 0;
+    margin: 0 auto;
     position: relative;
     overflow: visible;
   }
@@ -285,6 +286,18 @@
     overflow: visible !important;
     position: relative;
     z-index: 1;
+  }
+  
+  /* Ensure gap works for analytics cards */
+  .row.g-3 {
+    --bs-gutter-x: 1rem;
+    --bs-gutter-y: 1rem;
+  }
+  
+  .row.g-3 > [class*="col-"] {
+    padding-right: calc(var(--bs-gutter-x) * 0.5);
+    padding-left: calc(var(--bs-gutter-x) * 0.5);
+    margin-top: var(--bs-gutter-y);
   }
   
   .dashboard-container {
