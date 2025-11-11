@@ -36,6 +36,7 @@ urlpatterns = [
          name='block-reservation-approval'),
     path('violation-create-user/<int:user_id>/', views.violation_create_user, name='violation-create-user'),
     path('faculty-booking-confirmation/', views.faculty_booking_confirmation, name='faculty-booking-confirmation'),
+    path('faculty-booking-qr/<int:pk>/', views.faculty_booking_qr_access, name='faculty-booking-qr'),
     
     path('view/<path:filename>/', views.view_file, name='view_file'),
     path('clearup-pcs/', views.clearup_pcs, name='clearup_pcs'),
@@ -48,6 +49,7 @@ urlpatterns = [
     path('ajax/get-all-pc-status/', views.get_all_pc_status, name='get-all-pc-status'),
     path('ajax/get-pc-booking/<int:pk>/', views.get_pc_booking, name='get-pc-booking'),
     path('ajax/get-my-active-booking/', views.get_my_active_booking, name='get-my-active-booking'),
+    path('ajax/check-new-queued-bookings/', views.check_new_queued_bookings, name='check-new-queued-bookings'),
     path('ajax/end-session/<int:booking_id>/', views.end_session, name='end-session'),
     path('ajax/extend-session/<int:booking_id>/', views.extend_session, name='extend-session'),
     path('ajax/export-report/', views.export_report, name='export-report'),

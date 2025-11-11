@@ -61,9 +61,9 @@
     background: linear-gradient(135deg, #ff9800 0%, #ff5722 100%);
     color: #ffffff;
     border: none;
-    padding: 1rem 1.5rem;
+    padding: 0.75rem 1rem;
     font-weight: 600;
-    font-size: 1.1rem;
+    font-size: 1rem;
   }
   
   .modern-card-body {
@@ -811,25 +811,39 @@ new Chart(document.getElementById("bookingStatusChart"), {
 });
 
 // College Breakdown Chart
-const collegeLabels = [{% for name, count in college_data.items %}'{{ name }}'{% if not forloop.last %},{% endif %}{% endfor %}];
-const collegeValues = [{% for name, count in college_data.items %}{{ count }}{% if not forloop.last %},{% endif %}{% endfor %}];
-new Chart(document.getElementById("collegeChart"), {
-  type: 'pie',
-  data: {
-    labels: collegeLabels,
-    datasets: [{
-      data: collegeValues,
-      backgroundColor: ['#ff6384', '#36a2eb', '#cc65fe', '#ffce56', '#4bc0c0']
-    }]
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: true, labels: { font: { size: 10.3 } } }
+const collegeChartElement = document.getElementById("collegeChart");
+if (collegeChartElement) {
+  const collegeLabels = [{% for name, count in college_data.items %}'{{ name }}'{% if not forloop.last %},{% endif %}{% endfor %}];
+  const collegeValues = [{% for name, count in college_data.items %}{{ count }}{% if not forloop.last %},{% endif %}{% endfor %}];
+  
+  // Only create chart if there's data
+  if (collegeLabels.length > 0 && collegeValues.some(v => v > 0)) {
+    try {
+      new Chart(collegeChartElement, {
+        type: 'pie',
+        data: {
+          labels: collegeLabels,
+          datasets: [{
+            data: collegeValues,
+            backgroundColor: ['#ff6384', '#36a2eb', '#cc65fe', '#ffce56', '#4bc0c0', '#ff9f40', '#ff6384', '#c9cbcf']
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true, labels: { font: { size: 10.3 } } }
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error creating college chart:', error);
     }
+  } else {
+    // Show message if no data
+    collegeChartElement.parentElement.innerHTML = '<p class="text-muted text-center p-3">No college data available</p>';
   }
-});
+}
 
 // Peak Hours Chart
 const peakHourLabels = [{% for hour, count in peak_hours %}'{{ hour }}:00'{% if not forloop.last %},{% endif %}{% endfor %}];
@@ -1824,6 +1838,51 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     }
   });
+  
+  // Auto-refresh dashboard when new queued booking is detected
+  // Only for admin/staff users
+  {% if user.is_staff or user.profile.role == 'staff' %}
+  (function() {
+    var lastKnownPendingCount = {{ pending_bookings|default:0 }};
+    var checkInterval = 5000; // Check every 5 seconds
+    var isChecking = false;
+    
+    function checkForNewBookings() {
+      if (isChecking) return;
+      isChecking = true;
+      
+      $.ajax({
+        url: '{% url "main_app:check-new-queued-bookings" %}',
+        method: 'GET',
+        data: {
+          last_pending_count: lastKnownPendingCount
+        },
+        success: function(data) {
+          // Only check for new queued bookings, not ended sessions
+          if (data.has_new_booking && data.total_pending > lastKnownPendingCount) {
+            console.log('New queued booking detected! Refreshing page...');
+            console.log('Previous count:', lastKnownPendingCount, 'New count:', data.total_pending);
+            // Refresh the page when new booking is detected
+            location.reload();
+          } else {
+            // Update last known count
+            lastKnownPendingCount = data.total_pending || 0;
+          }
+        },
+        error: function(xhr, status, error) {
+          console.error('Error checking for new bookings:', error);
+        },
+        complete: function() {
+          isChecking = false;
+        }
+      });
+    }
+    
+    // Start checking for new bookings only
+    setInterval(checkForNewBookings, checkInterval);
+    console.log('Auto-refresh enabled. Checking for new queued bookings every', checkInterval / 1000, 'seconds.');
+  })();
+  {% endif %}
 });
 </script>
 {% endblock %}

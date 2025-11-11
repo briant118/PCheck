@@ -160,25 +160,32 @@
 
       <!-- Main Content Area -->
       <div class="main-content">
-        <!-- Mobile Header with Logo and Menu - Hidden for Admin/Staff -->
+        <!-- Mobile Header with Logo and Profile - Hidden for Admin/Staff -->
         {% if request.resolver_match.app_name != 'account' and request.resolver_match.app_name != 'socialaccount' or request.resolver_match.url_name != 'login' %}
         {% if not request.user.is_staff and request.user.profile.role|default:'' != 'staff' %}
-        <div class="mobile-header d-lg-none">
+        <div class="mobile-header">
           <div class="mobile-header-left">
+            <button class="mobile-menu-toggle" id="mobile-menu-toggle" aria-label="Toggle menu">
+              <i class="fa-solid fa-bars"></i>
+            </button>
             <a class="mobile-brand" href="{% url 'main_app:pc-reservation' %}">
-              <img src="{% static 'image/PSU_logo.png' %}" alt="PSU Logo" class="mobile-header-logo">
               <div class="mobile-brand-text-container">
-                <span class="mobile-brand-text">Palawan State University</span>
-                <span class="mobile-brand-subtitle">Management Information System Office</span>
+                <span class="mobile-brand-text">MISO</span>
               </div>
             </a>
           </div>
           
           <div class="mobile-header-right">
             {% if request.user.is_authenticated %}
-            <button class="mobile-menu-toggle" id="mobile-menu-toggle" aria-label="Toggle menu">
-              <i class="fa-solid fa-bars"></i>
-            </button>
+            <a class="mobile-profile-link" href="#" data-bs-toggle="modal" data-bs-target="#profileModal">
+              {% if request.user.profile and request.user.profile.profile_picture %}
+                <img src="{{ request.user.profile.profile_picture.url }}" alt="Profile" class="mobile-profile-picture">
+              {% else %}
+                <div class="mobile-profile-picture mobile-profile-placeholder">
+                  <i class="fa-solid fa-user"></i>
+                </div>
+              {% endif %}
+            </a>
             {% endif %}
           </div>
         </div>
@@ -189,43 +196,44 @@
         <div class="mobile-nav-overlay" id="mobile-nav-overlay"></div>
         <nav class="mobile-nav" id="mobile-nav">
           <div class="mobile-nav-header">
-            <span class="mobile-nav-title">PCheck</span>
+            <span class="mobile-nav-title">MISO</span>
             <button class="mobile-nav-close" id="mobile-nav-close" aria-label="Close menu">
               <i class="fa-solid fa-times"></i>
             </button>
           </div>
           <ul class="mobile-nav-menu">
             <li>
-              <a href="{% url 'main_app:pc-reservation' %}" class="mobile-nav-item">
+              <a href="{% url 'main_app:pc-reservation' %}"
+                 class="mobile-nav-item {% if request.resolver_match.app_name == 'main_app' and request.resolver_match.url_name == 'pc-reservation' %}active{% endif %}">
                 <i class="fa-solid fa-house-chimney"></i>
                 <span>Home</span>
               </a>
             </li>
             {% if request.user.profile.role|default:'' == 'faculty' %}
             <li>
-              <a href="{% url 'main_app:my-faculty-bookings' %}" class="mobile-nav-item">
+              <a href="{% url 'main_app:my-faculty-bookings' %}"
+                 class="mobile-nav-item {% if request.resolver_match.app_name == 'main_app' and request.resolver_match.url_name == 'my-faculty-bookings' %}active{% endif %}">
                 <i class="fa-solid fa-calendar-check"></i>
                 <span>My Faculty Bookings</span>
               </a>
             </li>
             {% endif %}
             <li>
-              <a href="{% url 'main_app:chats' %}" class="mobile-nav-item">
+              <a href="{% url 'main_app:chats' %}"
+                 class="mobile-nav-item {% if request.resolver_match.app_name == 'main_app' and request.resolver_match.url_name == 'chats' %}active{% endif %}">
                 <i class="fa-solid fa-comments"></i>
                 <span>PCheck Support</span>
               </a>
             </li>
             <li>
-              <a href="{% url 'account:about' %}" class="mobile-nav-item">
+              <a href="{% url 'account:about' %}"
+                 class="mobile-nav-item {% if request.resolver_match.app_name == 'account' and request.resolver_match.url_name == 'about' %}active{% endif %}">
                 <i class="fa-solid fa-info-circle"></i>
                 <span>About</span>
               </a>
             </li>
             <li>
-              <a href="{% url 'account:profile' %}" class="mobile-nav-item">
-                <i class="fa-solid fa-id-card"></i>
-                <span>Profile</span>
-              </a>
+              
             </li>
             <li>
               <a href="{% url 'account:logout' %}" class="mobile-nav-item">
@@ -234,6 +242,12 @@
               </a>
             </li>
           </ul>
+          <div class="mobile-nav-footer">
+            <div class="mobile-nav-footer-icon">
+              <i class="fa-solid fa-display"></i>
+            </div>
+            <span class="mobile-nav-footer-text">PCheck</span>
+          </div>
         </nav>
         {% endif %}
         {% endif %}
@@ -624,8 +638,9 @@
             
             updateStatus('Requesting camera...', '#ffff00');
             
-            // Try to use environment camera (back camera on mobile), fallback to user (front camera)
-            const cameraConfig = { facingMode: "environment" };
+            // Try to use user-facing camera first (built-in camera on laptops)
+            // This is the front-facing camera which is typically the built-in camera on laptops
+            const cameraConfig = { facingMode: "user" };
             
             html5QrCode.start(
               cameraConfig,
@@ -643,7 +658,7 @@
                 },
                 aspectRatio: 1.0,
                 videoConstraints: {
-                  facingMode: "environment",
+                  facingMode: "user",  // Use built-in camera on laptops
                   width: { ideal: 1280 },
                   height: { ideal: 720 }
                 }
@@ -809,36 +824,127 @@
                 overlay.style.display = 'flex';
               }
             }).catch(function(err) {
-              console.error('Unable to start scanning:', err);
-              let errorMsg = 'Failed to start scanner';
+              console.error('Unable to start with user-facing camera, trying environment camera...', err);
               
-              if (err && err.message) {
-                if (err.message.includes('NotReadableError') || err.message.includes('camera')) {
-                  errorMsg = 'Camera not accessible. Please check permissions.';
-                } else if (err.message.includes('NotFoundError')) {
-                  errorMsg = 'No camera found.';
-                } else {
-                  errorMsg = 'Error: ' + err.message;
+              // Fallback: Try environment camera (back camera on mobile, or external camera)
+              const fallbackConfig = { facingMode: "environment" };
+              
+              html5QrCode.start(
+                fallbackConfig,
+                {
+                  fps: 10,
+                  qrbox: function(viewfinderWidth, viewfinderHeight) {
+                    let minEdgePercentage = 0.7;
+                    let minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
+                    let qrboxSize = Math.floor(minEdgeSize * minEdgePercentage);
+                    return {
+                      width: qrboxSize,
+                      height: qrboxSize
+                    };
+                  },
+                  aspectRatio: 1.0,
+                  videoConstraints: {
+                    facingMode: "environment",
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                  }
+                },
+                function(decodedText, decodedResult) {
+                  // Successfully scanned with fallback camera
+                  console.log('QR Code scanned:', decodedText);
+                  updateStatus('QR Code detected!', '#00ff00');
+                  showResult(decodedText);
+                  
+                  if (html5QrCode && scanning) {
+                    html5QrCode.stop().then(function() {
+                      html5QrCode.clear();
+                      scanning = false;
+                      startBtn.style.display = 'flex';
+                      stopBtn.style.display = 'none';
+                      
+                      if (decodedText) {
+                        let normalizedUrl = decodedText.trim().replace(/\/+$/, '');
+                        
+                        if (normalizedUrl.includes('/reservation-approval/') || normalizedUrl.includes('reservation-approval')) {
+                          var bookingIdMatch = normalizedUrl.match(/reservation-approval[\/\-](\d+)/i);
+                          if (bookingIdMatch && bookingIdMatch[1]) {
+                            window.location.href = '/reservation-approval/' + bookingIdMatch[1] + '/';
+                            return;
+                          }
+                          try {
+                            if (normalizedUrl.includes('://')) {
+                              var urlObj = new URL(normalizedUrl);
+                              window.location.href = urlObj.pathname + (urlObj.pathname.endsWith('/') ? '' : '/');
+                              return;
+                            }
+                          } catch (e) {}
+                          if (normalizedUrl.startsWith('/')) {
+                            window.location.href = normalizedUrl + (normalizedUrl.endsWith('/') ? '' : '/');
+                            return;
+                          }
+                        } else if (normalizedUrl.includes('/reservation-approved/') || normalizedUrl.includes('reservation-approved')) {
+                          var bookingIdMatch = normalizedUrl.match(/reservation-approved[\/\-](\d+)/i);
+                          if (bookingIdMatch && bookingIdMatch[1]) {
+                            window.location.href = '/reservation-approved/' + bookingIdMatch[1] + '/';
+                            return;
+                          }
+                        } else if (normalizedUrl.startsWith('http://') || normalizedUrl.startsWith('https://')) {
+                          window.location.href = normalizedUrl;
+                          return;
+                        } else if (normalizedUrl.startsWith('/')) {
+                          window.location.href = normalizedUrl + (normalizedUrl.endsWith('/') ? '' : '/');
+                          return;
+                        } else {
+                          alert('Scanned QR Code: ' + normalizedUrl);
+                          updateStatus('Ready to scan', '#ffffff');
+                        }
+                      }
+                    }).catch(function(stopErr) {
+                      console.error('Error stopping scanner:', stopErr);
+                    });
+                  }
+                },
+                function(errorMessage) {
+                  if (errorMessage && !errorMessage.includes('NotFoundException')) {
+                    console.debug('Scanner error:', errorMessage);
+                  }
                 }
-              }
-              
-              updateStatus(errorMsg, '#ff0000');
-              scanning = false;
-              html5QrCode = null;
-              startBtn.style.display = 'flex';
-              stopBtn.style.display = 'none';
-              
-              // Show placeholder on error
-              const placeholder = document.getElementById('qr-placeholder');
-              if (placeholder) {
-                placeholder.style.display = 'flex';
-              }
-              const overlay = document.getElementById('qr-overlay');
-              if (overlay) {
-                overlay.style.display = 'none';
-              }
-              
-              alert(errorMsg);
+              ).then(function() {
+                startBtn.style.display = 'none';
+                stopBtn.style.display = 'flex';
+                updateStatus('Scanning with fallback camera...', '#00ff00');
+                const placeholder = document.getElementById('qr-placeholder');
+                if (placeholder) placeholder.style.display = 'none';
+                const overlay = document.getElementById('qr-overlay');
+                if (overlay) overlay.style.display = 'flex';
+              }).catch(function(fallbackErr) {
+                // Both cameras failed
+                console.error('Unable to start scanning with any camera:', fallbackErr);
+                let errorMsg = 'Failed to start scanner';
+                
+                if (fallbackErr && fallbackErr.message) {
+                  if (fallbackErr.message.includes('NotReadableError') || fallbackErr.message.includes('camera')) {
+                    errorMsg = 'Camera not accessible. Please check permissions.';
+                  } else if (fallbackErr.message.includes('NotFoundError')) {
+                    errorMsg = 'No camera found.';
+                  } else {
+                    errorMsg = 'Error: ' + fallbackErr.message;
+                  }
+                }
+                
+                updateStatus(errorMsg, '#ff0000');
+                scanning = false;
+                html5QrCode = null;
+                startBtn.style.display = 'flex';
+                stopBtn.style.display = 'none';
+                
+                const placeholder = document.getElementById('qr-placeholder');
+                if (placeholder) placeholder.style.display = 'flex';
+                const overlay = document.getElementById('qr-overlay');
+                if (overlay) overlay.style.display = 'none';
+                
+                alert(errorMsg);
+              });
             });
             
           } catch (err) {
@@ -1189,7 +1295,7 @@
                   Update Profile
                 </button>
                 {% if request.user.has_usable_password %}
-                <a href="{% url 'account:password_change' %}" class="profile-password-btn">
+                <a href="#" class="profile-password-btn" onclick="closeAndOpenModal('#profileModal', '#passwordChangeModal'); return false;">
                   <i class="fa-solid fa-key me-2"></i>
                   Change Password
                 </a>
@@ -1543,26 +1649,42 @@
         }
       })();
     </script>
+    {% endif %}
     
     <!-- Function to close one modal and open another -->
     <script>
       function closeAndOpenModal(closeModalId, openModalId) {
         if (window.bootstrap) {
-          const closeModal = bootstrap.Modal.getInstance(document.querySelector(closeModalId));
+          const closeModalElement = document.querySelector(closeModalId);
+          const closeModal = bootstrap.Modal.getInstance(closeModalElement);
           const openModalElement = document.querySelector(openModalId);
           
-          if (closeModal) {
+          if (closeModal && closeModalElement) {
+            // Remove focus from any focused element inside the modal to prevent aria-hidden warning
+            const focusedElement = closeModalElement.querySelector(':focus');
+            if (focusedElement) {
+              focusedElement.blur();
+            }
+            
+            // Hide the modal
             closeModal.hide();
             
             // Wait for close modal to finish hiding before opening new one
-            document.querySelector(closeModalId).addEventListener('hidden.bs.modal', function() {
-              if (openModalElement) {
-                const openModal = new bootstrap.Modal(openModalElement, {
-                  backdrop: true,
-                  keyboard: true
-                });
-                openModal.show();
-              }
+            closeModalElement.addEventListener('hidden.bs.modal', function() {
+              // Ensure aria-hidden is removed
+              closeModalElement.removeAttribute('aria-hidden');
+              closeModalElement.style.display = 'none';
+              
+              // Small delay to ensure DOM updates complete
+              setTimeout(function() {
+                if (openModalElement) {
+                  const openModal = new bootstrap.Modal(openModalElement, {
+                    backdrop: true,
+                    keyboard: true
+                  });
+                  openModal.show();
+                }
+              }, 50);
             }, { once: true });
           } else if (openModalElement) {
             // If no modal to close, just open the new one
@@ -1575,7 +1697,354 @@
         }
       }
     </script>
+    
+    <!-- Password Change Modal Script -->
+    {% if request.user.is_authenticated and request.user.has_usable_password %}
+    <script>
+      (function() {
+        const passwordChangeModal = document.getElementById('passwordChangeModal');
+        if (passwordChangeModal) {
+          console.log('Password change modal found, setting up event listener');
+          
+          // Reset modal body when modal is shown
+          passwordChangeModal.addEventListener('show.bs.modal', function() {
+            console.log('Password change modal opened');
+            const modalBody = document.getElementById('passwordChangeModalBody');
+            if (!modalBody) {
+              console.error('Password change modal body not found');
+              return;
+            }
+            
+            // Show loading spinner
+            modalBody.innerHTML = '<div class="text-center"><div class="spinner-border text-warning" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+            
+            // Load form content via AJAX with timeout
+            console.log('Loading password change form...');
+            const url = '{% url "account:password_change" %}';
+            console.log('Fetching URL:', url);
+            
+            // Create a timeout promise
+            const timeoutPromise = new Promise((_, reject) => {
+              setTimeout(() => reject(new Error('Request timeout after 10 seconds')), 10000);
+            });
+            
+            // Safety timeout: ensure spinner is removed after 15 seconds even if promise chain fails
+            const safetyTimeout = setTimeout(() => {
+              const spinner = modalBody.querySelector('.spinner-border');
+              if (spinner) {
+                console.warn('Safety timeout: removing spinner after 15 seconds');
+                modalBody.innerHTML = '<div class="alert alert-danger">Request is taking too long. Please try again or <a href="' + url + '" target="_blank">open in a new tab</a>.</div>';
+              }
+            }, 15000);
+            
+            // Race between fetch and timeout
+            Promise.race([
+              fetch(url, {
+                credentials: 'same-origin',
+                headers: {
+                  'X-Requested-With': 'XMLHttpRequest'
+                }
+              }),
+              timeoutPromise
+            ])
+              .then(response => {
+                console.log('Response received, status:', response.status);
+                if (!response.ok) {
+                  throw new Error('Network response was not ok: ' + response.status);
+                }
+                return response.text();
+              })
+              .then(html => {
+                console.log('Password change form response received, length:', html.length);
+                
+                if (!html || html.length === 0) {
+                  throw new Error('Empty response received');
+                }
+                
+                // Check if response is a redirect or login page
+                if (html.includes('login') && !html.includes('password-change-form')) {
+                  console.error('Received login page instead of form');
+                  modalBody.innerHTML = '<div class="alert alert-warning">Session expired. Please refresh the page and try again.</div>';
+                  return;
+                }
+                
+                // Parse the HTML response
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                // Find the form in the parsed document - try multiple selectors
+                let form = doc.querySelector('form.password-change-form');
+                if (!form) {
+                  form = doc.querySelector('form');
+                }
+                
+                if (form) {
+                  console.log('Form found, rendering...');
+                  renderPasswordForm(form, modalBody);
+                } else {
+                  console.error('Form not found in response. HTML length:', html.length);
+                  console.error('Response preview:', html.substring(0, 500));
+                  // Try to show what we got
+                  if (html.includes('password')) {
+                    // Maybe the form is there but with different structure
+                    modalBody.innerHTML = '<div class="alert alert-warning">Form structure may have changed. <a href="' + url + '" target="_blank">Open in new tab</a> to change password.</div>';
+                  } else {
+                    modalBody.innerHTML = '<div class="alert alert-danger">Error: Form not found in response. Please refresh and try again.</div>';
+                  }
+                }
+              })
+              .catch(error => {
+                console.error('Error loading password change form:', error);
+                let errorMsg = error.message || 'Unknown error';
+                if (errorMsg.includes('timeout')) {
+                  errorMsg = 'Request timed out. The server may be slow or unresponsive.';
+                }
+                modalBody.innerHTML = '<div class="alert alert-danger">Error loading form: ' + errorMsg + '. <a href="' + url + '" target="_blank">Click here to open in a new tab</a>.</div>';
+              })
+              .finally(() => {
+                // Clear safety timeout since request completed
+                if (typeof safetyTimeout !== 'undefined') {
+                  clearTimeout(safetyTimeout);
+                }
+                // Safety check: ensure spinner is removed even if something unexpected happens
+                const spinner = modalBody.querySelector('.spinner-border');
+                if (spinner && modalBody.innerHTML.includes('spinner-border')) {
+                  // If spinner is still there and nothing else was set, show error
+                  if (modalBody.innerHTML.trim() === '<div class="text-center"><div class="spinner-border text-warning" role="status"><span class="visually-hidden">Loading...</span></div></div>') {
+                    modalBody.innerHTML = '<div class="alert alert-danger">Error loading form. Please try again or <a href="' + url + '" target="_blank">open in a new tab</a>.</div>';
+                  }
+                }
+              });
+          });
+        }
+        
+        function renderPasswordForm(form, modalBody) {
+          try {
+            // Extract form content
+            let formHTML = form.outerHTML;
+            
+            // Update form to submit via AJAX
+            formHTML = formHTML.replace(/<form([^>]*)>/, '<form$1 id="passwordChangeForm">');
+            
+            // Build modal content with icon and styling
+            let content = '<div class="password-change-modal-wrapper">' +
+              '<div class="password-change-icon-wrapper">' +
+              '<i class="fa-solid fa-lock-open password-change-icon-padlock"></i>' +
+              '<i class="fa-solid fa-key password-change-icon-key"></i>' +
+              '</div>' +
+              '<p class="password-change-subtitle">Please enter your old password, for security\'s sake, and then enter your new password twice so we can verify you typed it in correctly.</p>' +
+              formHTML +
+              '</div>';
+            
+            modalBody.innerHTML = content;
+          } catch (error) {
+            console.error('Error rendering password form:', error);
+            modalBody.innerHTML = '<div class="alert alert-danger">Error rendering form. Please try again.</div>';
+            return;
+          }
+          
+          // Attach submit handler
+          const passwordForm = document.getElementById('passwordChangeForm');
+          if (passwordForm) {
+            attachPasswordSubmitHandler(passwordForm);
+          }
+          
+          // Add toggle password visibility functionality
+          const eyeIcons = modalBody.querySelectorAll('.password-input-right-icon');
+          eyeIcons.forEach(icon => {
+            // Remove any existing onclick handlers
+            icon.removeAttribute('onclick');
+            
+            // Find the associated input field (should be in the same container)
+            const container = icon.closest('.password-input-container');
+            if (container) {
+              const input = container.querySelector('input[type="password"], input[type="text"]');
+              if (input && icon.classList.contains('fa-eye')) {
+                icon.addEventListener('click', function() {
+                  togglePasswordVisibility(input.id, this);
+                });
+              }
+            }
+          });
+        }
+        
+        function attachPasswordSubmitHandler(form) {
+          if (!form) return;
+          
+          // Check if handler is already attached
+          if (form.dataset.submitHandlerAttached === 'true') {
+            return;
+          }
+          form.dataset.submitHandlerAttached = 'true';
+          
+          form.addEventListener('submit', function handleSubmit(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(form);
+            const modalBody = document.getElementById('passwordChangeModalBody');
+            
+            // Get CSRF token
+            let csrfToken = formData.get('csrfmiddlewaretoken');
+            if (!csrfToken) {
+              const cookies = document.cookie.split(';');
+              for (let cookie of cookies) {
+                const [name, value] = cookie.trim().split('=');
+                if (name === 'csrftoken') {
+                  csrfToken = value;
+                  formData.append('csrfmiddlewaretoken', value);
+                  break;
+                }
+              }
+            }
+            
+            // Show loading state
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalBtnText = submitBtn ? submitBtn.innerHTML : '';
+            if (submitBtn) {
+              submitBtn.disabled = true;
+              submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Changing...';
+            }
+            
+            fetch('{% url "account:password_change" %}', {
+              method: 'POST',
+              body: formData,
+              headers: {
+                'X-CSRFToken': csrfToken || ''
+              },
+              credentials: 'same-origin'
+            })
+            .then(response => {
+              if (response.redirected) {
+                // Success - show success message and close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('passwordChangeModal'));
+                if (modal) {
+                  modal.hide();
+                }
+                
+                // Show success toast
+                const toast = document.createElement('div');
+                toast.className = 'alert alert-success alert-dismissible fade show text-center';
+                toast.style.position = 'fixed';
+                toast.style.top = '20px';
+                toast.style.right = '20px';
+                toast.style.zIndex = '2000';
+                toast.innerHTML = 'Password changed successfully! <button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
+                document.body.appendChild(toast);
+                setTimeout(() => {
+                  try { toast.remove(); } catch(e) {}
+                }, 5000);
+                
+                return;
+              } else if (response.ok) {
+                return response.text();
+              } else {
+                throw new Error('Form submission failed');
+              }
+            })
+            .then(html => {
+              if (html) {
+                // Parse response to check for errors
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                // Check if there are errors
+                const errors = doc.querySelectorAll('.password-field-error, .password-alert');
+                if (errors.length > 0) {
+                  // Re-render form with errors
+                  const form = doc.querySelector('form');
+                  if (form) {
+                    renderPasswordForm(form, modalBody);
+                  }
+                } else {
+                  // Check if it's a success page (password_change_done)
+                  if (doc.querySelector('.password-change-done') || html.includes('Password changed')) {
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('passwordChangeModal'));
+                    if (modal) {
+                      modal.hide();
+                    }
+                    
+                    const toast = document.createElement('div');
+                    toast.className = 'alert alert-success alert-dismissible fade show text-center';
+                    toast.style.position = 'fixed';
+                    toast.style.top = '20px';
+                    toast.style.right = '20px';
+                    toast.style.zIndex = '2000';
+                    toast.innerHTML = 'Password changed successfully! <button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
+                    document.body.appendChild(toast);
+                    setTimeout(() => {
+                      try { toast.remove(); } catch(e) {}
+                    }, 5000);
+                  } else {
+                    // Re-render form
+                    const form = doc.querySelector('form');
+                    if (form) {
+                      renderPasswordForm(form, modalBody);
+                    }
+                  }
+                }
+              }
+            })
+            .catch(error => {
+              console.error('Error:', error);
+              modalBody.innerHTML = '<div class="alert alert-danger">Error submitting form. Please try again.</div>';
+            })
+            .finally(() => {
+              // Restore button state
+              const submitBtn = form.querySelector('button[type="submit"]');
+              if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnText || 'CONFIRM CHANGE';
+              }
+            });
+          });
+        }
+        
+        function togglePasswordVisibility(inputId, icon) {
+          const input = document.getElementById(inputId);
+          if (input) {
+            if (input.type === 'password') {
+              input.type = 'text';
+              icon.classList.remove('fa-eye');
+              icon.classList.add('fa-eye-slash');
+            } else {
+              input.type = 'password';
+              icon.classList.remove('fa-eye-slash');
+              icon.classList.add('fa-eye');
+            }
+          }
+        }
+      })();
+    </script>
     {% endif %}
+
+    <!-- Password Change Modal -->
+    <div class="modal fade" id="passwordChangeModal" tabindex="-1" aria-labelledby="passwordChangeModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content password-modal-content">
+          <div class="modal-header password-modal-header">
+            <h2 class="modal-title" id="passwordChangeModalLabel">Change Password</h2>
+            <button type="button" class="password-modal-close" data-bs-dismiss="modal" aria-label="Close">
+              <i class="fa-solid fa-times"></i>
+            </button>
+          </div>
+          <div class="modal-body password-modal-body" id="passwordChangeModalBody">
+            <div class="text-center">
+              <div class="spinner-border text-warning" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <p class="mt-3 text-muted">Loading password change form...</p>
+              <p class="mt-2">
+                <small>
+                  <a href="{% url 'account:password_change' %}" target="_blank" class="text-primary">
+                    Open in new tab if this takes too long
+                  </a>
+                </small>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- About Modal -->
     <div class="modal fade" id="aboutModal" tabindex="-1" aria-labelledby="aboutModalLabel" aria-hidden="true">
@@ -1614,12 +2083,5 @@
       </div>
     </div>
 
-    <!-- Floating PCheck Support Button (for non-staff users only) -->
-    {% if request.user.is_authenticated and not request.user.is_staff and request.user.profile.role|default:'' != 'staff' %}
-    <a href="{% url 'main_app:chats' %}" class="pcheck-support-float-btn" title="PCheck Support">
-      <i class="fa-solid fa-headset"></i>
-      <span class="pcheck-support-float-text">Support</span>
-    </a>
-    {% endif %}
   </body>
 </html>

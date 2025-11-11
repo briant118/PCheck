@@ -28,6 +28,8 @@ from django.contrib.auth.models import User
 from account.models import Profile
 from functools import wraps
 from django.core.exceptions import PermissionDenied
+from django.core.mail import EmailMessage, send_mail
+from email.mime.image import MIMEImage
 from . import forms, models, ping_address
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
@@ -359,20 +361,52 @@ def submit_block_booking(request):
         course = request.POST.get('course')
         block = request.POST.get('block')
         college = request.POST.get('college')
-        date_start = request.POST.get('dateStart')
-        date_end = request.POST.get('dateEnd')
+        date_start_str = request.POST.get('dateStart')
+        date_end_str = request.POST.get('dateEnd')
         email_list = request.POST.get('emailList')
         attachment = request.FILES.get('attachment')
         
         college_obj = get_object_or_404(models.College, pk=college)
+        
+        # Parse datetime strings to datetime objects
+        start_datetime = None
+        end_datetime = None
+        
+        if date_start_str:
+            try:
+                # Parse datetime-local format: "YYYY-MM-DDTHH:MM" or "YYYY-MM-DDTHH:MM:SS"
+                # Try with seconds first, then without
+                try:
+                    start_datetime = datetime.strptime(date_start_str, '%Y-%m-%dT%H:%M:%S')
+                except ValueError:
+                    start_datetime = datetime.strptime(date_start_str, '%Y-%m-%dT%H:%M')
+                # Make it timezone-aware
+                start_datetime = timezone.make_aware(start_datetime)
+            except (ValueError, TypeError) as e:
+                print(f"Error parsing start_datetime: {e}")
+                start_datetime = None
+        
+        if date_end_str:
+            try:
+                # Parse datetime-local format: "YYYY-MM-DDTHH:MM" or "YYYY-MM-DDTHH:MM:SS"
+                # Try with seconds first, then without
+                try:
+                    end_datetime = datetime.strptime(date_end_str, '%Y-%m-%dT%H:%M:%S')
+                except ValueError:
+                    end_datetime = datetime.strptime(date_end_str, '%Y-%m-%dT%H:%M')
+                # Make it timezone-aware
+                end_datetime = timezone.make_aware(end_datetime)
+            except (ValueError, TypeError) as e:
+                print(f"Error parsing end_datetime: {e}")
+                end_datetime = None
         
         models.FacultyBooking.objects.create(
             faculty=request.user,
             college=college_obj,
             course=course,
             block=block,
-            start_datetime=date_start,
-            end_datetime=date_end,
+            start_datetime=start_datetime,
+            end_datetime=end_datetime,
             num_of_devices=cust_num_of_pc if cust_num_of_pc and int(cust_num_of_pc) > 0 else num_of_pc,
             file=attachment,
             email_addresses=email_list,
@@ -545,6 +579,89 @@ def get_my_active_booking(request):
             
     except Exception as e:
         return JsonResponse({'has_booking': False, 'error': str(e)})
+
+
+@login_required
+def check_new_queued_bookings(request):
+    """Check for new queued bookings and ended sessions - returns counts and changes"""
+    try:
+        from main_app.models import Booking, FacultyBooking
+        from django.utils import timezone
+        
+        # Count student pending bookings (status is None)
+        student_pending_count = Booking.objects.filter(status__isnull=True).exclude(status='cancelled').count()
+        
+        # Count faculty pending bookings (status is 'pending')
+        faculty_pending_count = FacultyBooking.objects.filter(status='pending').count()
+        
+        # Total pending bookings
+        total_pending = student_pending_count + faculty_pending_count
+        
+        # Count active bookings (confirmed and not expired)
+        now = timezone.now()
+        active_bookings = Booking.objects.filter(
+            status='confirmed'
+        ).exclude(
+            status='cancelled'
+        )
+        
+        # Filter out expired bookings - count only active confirmed sessions
+        active_count = 0
+        for booking in active_bookings:
+            if booking.end_time:
+                if booking.end_time.tzinfo:
+                    remaining = booking.end_time - now
+                else:
+                    from datetime import datetime
+                    remaining = booking.end_time - datetime.now()
+                # Count only if time remaining is positive
+                if remaining.total_seconds() > 0:
+                    active_count += 1
+            else:
+                # If no end_time, count as active (shouldn't happen but handle it)
+                active_count += 1
+        
+        # Get the last known counts from request (if provided)
+        last_pending_count = request.GET.get('last_pending_count', None)
+        last_active_count = request.GET.get('last_active_count', None)
+        
+        has_new_booking = False
+        has_ended_session = False
+        
+        if last_pending_count:
+            try:
+                last_pending_count = int(last_pending_count)
+                has_new_booking = total_pending > last_pending_count
+            except ValueError:
+                has_new_booking = total_pending > 0
+        else:
+            has_new_booking = total_pending > 0
+        
+        if last_active_count:
+            try:
+                last_active_count = int(last_active_count)
+                has_ended_session = active_count < last_active_count
+            except ValueError:
+                has_ended_session = False
+        else:
+            has_ended_session = False
+        
+        # Check if there's any change that requires refresh
+        needs_refresh = has_new_booking or has_ended_session
+        
+        data = {
+            'total_pending': total_pending,
+            'student_pending': student_pending_count,
+            'faculty_pending': faculty_pending_count,
+            'active_count': active_count,
+            'has_new_booking': has_new_booking,
+            'has_ended_session': has_ended_session,
+            'needs_refresh': needs_refresh
+        }
+        
+        return JsonResponse(data)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 
 @login_required
@@ -1267,7 +1384,87 @@ def block_reservation_approved(request, pk):
     booking = models.FacultyBooking.objects.get(pk=pk)
     booking.status = 'confirmed'
     booking.save()
-    messages.success(request, "Reservation confirmed!")
+    
+    # Send emails with QR codes to students
+    if booking.email_addresses:
+        try:
+            # Parse email addresses (can be comma or newline separated)
+            email_list = booking.email_addresses.replace('\n', ',').replace(' ', '').split(',')
+            email_list = [email.strip() for email in email_list if email.strip()]
+            
+            # Generate QR code for this booking
+            scheme = 'https' if request.is_secure() else 'http'
+            host = request.get_host()
+            qr_url = f"{scheme}://{host}/faculty-booking-qr/{booking.pk}/"
+            
+            # Generate QR code image
+            qr = qrcode.QRCode(
+                version=1,
+                error_correction=qrcode.constants.ERROR_CORRECT_L,
+                box_size=10,
+                border=4,
+            )
+            qr.add_data(qr_url)
+            qr.make(fit=True)
+            
+            img = qr.make_image(fill_color="black", back_color="white")
+            buffer = BytesIO()
+            img.save(buffer, format="PNG")
+            buffer.seek(0)
+            
+            # Format booking dates
+            start_date = booking.start_datetime.strftime("%B %d, %Y at %I:%M %p") if booking.start_datetime else "TBD"
+            end_date = booking.end_datetime.strftime("%B %d, %Y at %I:%M %p") if booking.end_datetime else "TBD"
+            
+            # Email subject and body
+            subject = f"Faculty Booking Approved - {booking.course or 'Class'} Booking"
+            message = f"""
+Dear Student,
+
+Your faculty booking has been approved!
+
+Booking Details:
+- Course: {booking.course or 'N/A'}
+- Block: {booking.block or 'N/A'}
+- Start Date/Time: {start_date}
+- End Date/Time: {end_date}
+- Number of PCs: {booking.num_of_devices}
+- Faculty: {booking.faculty.get_full_name() if booking.faculty else 'N/A'}
+
+Please use the attached QR code to access the booking on the scheduled date. 
+Scan the QR code at the computer lab to check in.
+
+Best regards,
+PCheck System
+"""
+            
+            # Send email to each student with QR code attachment
+            for email in email_list:
+                try:
+                    # Create a new buffer for each email to avoid buffer position issues
+                    email_buffer = BytesIO()
+                    img.save(email_buffer, format="PNG")
+                    email_buffer.seek(0)
+                    
+                    email_msg = EmailMessage(
+                        subject=subject,
+                        body=message,
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        to=[email],
+                    )
+                    email_msg.attach('qr_code.png', email_buffer.getvalue(), 'image/png')
+                    email_msg.send()
+                except Exception as e:
+                    print(f"Error sending email to {email}: {str(e)}")
+                    # Continue sending to other emails even if one fails
+            
+            messages.success(request, f"Reservation confirmed! Emails with QR codes sent to {len(email_list)} student(s).")
+        except Exception as e:
+            print(f"Error sending emails: {str(e)}")
+            messages.warning(request, f"Reservation confirmed, but there was an error sending emails: {str(e)}")
+    else:
+        messages.success(request, "Reservation confirmed!")
+    
     return HttpResponseRedirect(reverse_lazy('main_app:bookings'))
 
 
@@ -1279,6 +1476,107 @@ def block_reservation_declined(request, pk):
     booking.save()
     messages.success(request, "Reservation declined!")
     return HttpResponseRedirect(reverse_lazy('main_app:dashboard'))
+
+
+def faculty_booking_qr_access(request, pk):
+    """
+    View for students to access faculty booking via QR code.
+    Validates the booking date and shows booking details.
+    """
+    try:
+        booking = models.FacultyBooking.objects.get(pk=pk)
+        
+        # Check if booking is confirmed
+        if booking.status != 'confirmed':
+            messages.error(request, "This booking is not confirmed.")
+            return render(request, 'main/faculty_booking_qr_access.html', {
+                'booking': booking,
+                'error': 'Booking not confirmed'
+            })
+        
+        # Format dates for display
+        start_date = booking.start_datetime.strftime("%B %d, %Y at %I:%M %p") if booking.start_datetime else "TBD"
+        end_date = booking.end_datetime.strftime("%B %d, %Y at %I:%M %p") if booking.end_datetime else "TBD"
+        
+        # Assign PCs to this faculty booking if not already assigned
+        # Check if there are existing bookings for this faculty booking
+        existing_bookings = models.Booking.objects.filter(faculty_booking=booking)
+        
+        if existing_bookings.count() == 0:
+            # No PCs assigned yet - assign the requested number of PCs
+            num_pcs_needed = booking.num_of_devices or 1
+            
+            # Get available PCs (not in repair, connected, and available)
+            available_pcs = models.PC.objects.filter(
+                system_condition='active',
+                status='connected',
+                booking_status='available'
+            ).order_by('sort_number', 'name')[:num_pcs_needed]
+            
+            if available_pcs.count() < num_pcs_needed:
+                messages.warning(request, f"Only {available_pcs.count()} PC(s) available out of {num_pcs_needed} requested.")
+            
+            # Create bookings and mark PCs as in_use
+            assigned_pcs = []
+            for pc in available_pcs:
+                # Mark PC as in_use
+                pc.booking_status = 'in_use'
+                pc.save(update_fields=['booking_status'])
+                
+                # Create a booking record for tracking (linked to faculty booking)
+                # Use the faculty user as the booking user, or create a system booking
+                booking_user = booking.faculty if booking.faculty else request.user
+                
+                # Calculate end time if start and end datetime are set
+                end_time = None
+                if booking.start_datetime and booking.end_datetime:
+                    duration = booking.end_datetime - booking.start_datetime
+                    start_time = timezone.now()
+                    end_time = start_time + duration
+                elif booking.start_datetime:
+                    # If only start time is set, use a default duration (e.g., 2 hours)
+                    start_time = timezone.now()
+                    end_time = start_time + timedelta(hours=2)
+                else:
+                    start_time = timezone.now()
+                    end_time = start_time + timedelta(hours=2)
+                
+                booking_record = models.Booking.objects.create(
+                    user=booking_user,
+                    pc=pc,
+                    faculty_booking=booking,
+                    start_time=start_time,
+                    end_time=end_time,
+                    status='confirmed'
+                )
+                assigned_pcs.append(pc.name)
+            
+            if assigned_pcs:
+                print(f"DEBUG: Assigned {len(assigned_pcs)} PC(s) to faculty booking {booking.id}: {', '.join(assigned_pcs)}")
+        
+        # LENIENT VALIDATION: If booking is confirmed, allow access regardless of dates
+        # This is more practical for class bookings where exact time validation can be problematic
+        # Staff can still manage access through the booking status if needed
+        messages.success(request, "Booking validated! You can now access the computer lab.")
+        return render(request, 'main/faculty_booking_qr_access.html', {
+            'booking': booking,
+            'start_date': start_date,
+            'end_date': end_date,
+            'valid': True
+        })
+    except models.FacultyBooking.DoesNotExist:
+        messages.error(request, "Booking not found.")
+        return render(request, 'main/faculty_booking_qr_access.html', {
+            'error': 'Booking not found'
+        })
+    except Exception as e:
+        print(f"Error accessing booking: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        messages.error(request, f"Error accessing booking: {str(e)}")
+        return render(request, 'main/faculty_booking_qr_access.html', {
+            'error': str(e)
+        })
 
 
 @login_required

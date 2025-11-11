@@ -153,6 +153,25 @@
     </div>
   </div>
 
+  <!-- Faculty Booking Cancel Confirmation Modal -->
+  <div class="modal fade" id="facultyCancelConfirmModal" tabindex="-1" aria-labelledby="facultyCancelConfirmLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content faculty-cancel-modal">
+        <div class="modal-body faculty-cancel-modal-body">
+          <div class="faculty-cancel-icon">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+          </div>
+          <h5 class="faculty-cancel-title">Cancel this faculty booking?</h5>
+          <p class="faculty-cancel-message">This action cannot be undone.</p>
+        </div>
+        <div class="modal-footer faculty-cancel-modal-footer">
+          <button type="button" class="btn faculty-cancel-btn-ok" id="facultyCancelConfirmBtn">OK</button>
+          <button type="button" class="btn faculty-cancel-btn-cancel" data-bs-dismiss="modal">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== FACULTY BOOKINGS CONTENT ===== -->
   <div id="faculty-bookings" hidden>
     <div class="nav nav-tabs subtabs">
@@ -194,7 +213,7 @@
             <td>
               <a href="{% url 'main_app:block-reservation-approval' pk=booking.pk %}" class="btn btn-sm btn-outline-secondary">view</a>
               {% if booking.status == 'confirmed' %}
-              <a href="{% url 'main_app:block-reservation-declined' pk=booking.pk %}" class="btn btn-sm btn-outline-danger ms-1" onclick="return confirm('Cancel this faculty booking?');">cancel</a>
+              <a href="{% url 'main_app:block-reservation-declined' pk=booking.pk %}" class="btn btn-sm btn-outline-danger ms-1 faculty-cancel-link" data-booking-id="{{ booking.pk }}">cancel</a>
               {% endif %}
             </td>
           </tr>
@@ -260,7 +279,7 @@
             <td>{{ booking.status }}</td>
             <td>
               <a href="{% url 'main_app:block-reservation-approval' pk=booking.pk %}" class="btn btn-sm btn-outline-secondary">view</a>
-              <a href="{% url 'main_app:block-reservation-declined' pk=booking.pk %}" class="btn btn-sm btn-outline-danger ms-1" onclick="return confirm('Cancel this faculty booking?');">cancel</a>
+              <a href="{% url 'main_app:block-reservation-declined' pk=booking.pk %}" class="btn btn-sm btn-outline-danger ms-1 faculty-cancel-link" data-booking-id="{{ booking.pk }}">cancel</a>
             </td>
           </tr>
           {% endfor %}
@@ -337,6 +356,32 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     }
   });
+
+  // Faculty booking cancel confirmation
+  var cancelUrl = null;
+  document.addEventListener('click', function(e){
+    var target = e.target.closest('.faculty-cancel-link');
+    if (target) {
+      e.preventDefault();
+      e.stopPropagation();
+      cancelUrl = target.getAttribute('href');
+      var modalEl = document.getElementById('facultyCancelConfirmModal');
+      if (modalEl) {
+        var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+      }
+    }
+  });
+
+  // Handle OK button click
+  var confirmBtn = document.getElementById('facultyCancelConfirmBtn');
+  if (confirmBtn) {
+    confirmBtn.addEventListener('click', function(){
+      if (cancelUrl) {
+        window.location.href = cancelUrl;
+      }
+    });
+  }
 });
 </script>
 {% endblock %}

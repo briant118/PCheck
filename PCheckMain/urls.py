@@ -17,6 +17,8 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include, re_path
 from account import views as account_views
+# Import admin to trigger the monkey-patch
+from account import admin as account_admin
 from django.views.generic import RedirectView
 from django.templatetags.static import static as static_url
 from django.views.static import serve as static_serve

@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Faculty Booking QR Access{% endblock %}
+
+{% block content %}
+<div class="container mt-5 pt-5">
+  <div class="card col-md-8 offset-md-2 shadow-lg mb-5 bg-body rounded-bottom rounded-5">
+    <div class="text-center card-title">
+      <div class="p-4 {% if valid %}bg-success{% elif error %}bg-danger{% else %}bg-warning{% endif %} rounded-bottom rounded-5">
+        <h2 class="text-white mb-0">
+          {% if valid %}
+            <i class="fa-solid fa-check-circle"></i> Booking Validated
+          {% elif error %}
+            <i class="fa-solid fa-times-circle"></i> Booking Error
+          {% else %}
+            <i class="fa-solid fa-clock"></i> Booking Status
+          {% endif %}
+        </h2>
+      </div>
+    </div>
+    <div class="card-body p-5">
+      {% if booking %}
+        <div class="text-center mb-4">
+          {% if valid %}
+            <div class="alert alert-success" role="alert">
+              <h4 class="alert-heading"><i class="fa-solid fa-check-circle"></i> Success!</h4>
+              <p class="mb-0">Your booking has been validated. You can now access the computer lab.</p>
+            </div>
+          {% elif error %}
+            <div class="alert alert-danger" role="alert">
+              <h4 class="alert-heading"><i class="fa-solid fa-exclamation-triangle"></i> Error</h4>
+              <p class="mb-0">{{ message|default:error }}</p>
+            </div>
+          {% endif %}
+        </div>
+
+        <div class="bg-light p-4 rounded mb-4">
+          <h4 class="text-center mb-3">Booking Details</h4>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <p><strong>Course:</strong> {{ booking.course|default:"N/A" }}</p>
+              <p><strong>Block:</strong> {{ booking.block|default:"N/A" }}</p>
+              <p><strong>College:</strong> {{ booking.college.name|default:"N/A" }}</p>
+            </div>
+            <div class="col-md-6 mb-3">
+              <p><strong>Start Date/Time:</strong> {{ start_date|default:"TBD" }}</p>
+              <p><strong>End Date/Time:</strong> {{ end_date|default:"TBD" }}</p>
+              <p><strong>Number of PCs:</strong> {{ booking.num_of_devices }}</p>
+            </div>
+          </div>
+          {% if booking.faculty %}
+            <div class="text-center mt-3">
+              <p><strong>Faculty:</strong> {{ booking.faculty.get_full_name }}</p>
+            </div>
+          {% endif %}
+        </div>
+
+        {% if valid %}
+          <div class="text-center">
+            <div class="alert alert-info" role="alert">
+              <i class="fa-solid fa-info-circle"></i> Please proceed to the computer lab and check in with the staff.
+            </div>
+          </div>
+        {% endif %}
+      {% else %}
+        <div class="alert alert-danger" role="alert">
+          <h4 class="alert-heading">Error</h4>
+          <p class="mb-0">Booking not found or invalid.</p>
+        </div>
+      {% endif %}
+
+      <div class="text-center mt-4">
+        <a href="{% url 'main_app:home' %}" class="btn btn-sm btn-secondary">
+          <i class="fa-solid fa-chevron-left"></i> Back to Home
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

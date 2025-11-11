@@ -73,7 +73,7 @@ body {
     margin: 0;
     padding: 0;
     overflow-x: hidden;
-    background: linear-gradient(180deg, #ff9800 0%, #ff5722 100%);
+    background: #363636;
     min-height: 100vh;
 }
 
@@ -95,7 +95,7 @@ body:has(.sidebar) .wrapper {
     padding: 0;
     position: relative;
     overflow-x: hidden;
-    background: linear-gradient(180deg, #ff9800 0%, #ff5722 100%);
+    background: #363636;
 }
 
 /* Mobile: Prevent wrapper from shifting */
@@ -115,7 +115,8 @@ body:has(.sidebar) .wrapper {
         padding-left: 0.5rem !important;
         padding-right: 0.5rem !important;
         margin: 0 !important;
-        background: linear-gradient(180deg, #ff9800 0%, #ff5722 100%);
+        border-radius: 0 0 20px 20px;
+        min-height: calc(100vh - 80px);
     }
     
     /* Admin content - white background */
@@ -412,7 +413,7 @@ nav.sidebar,
     padding: 0;
     width: 100%;
     min-height: 100vh;
-    background: linear-gradient(180deg, #ff9800 0%, #ff5722 100%);
+    background: #363636;
     transition: margin-left 0.3s ease-in-out, width 0.3s ease-in-out;
 }
 
@@ -433,6 +434,7 @@ body:has(.sidebar) .main-content {
         padding-right: 0 !important;
         max-width: 100% !important;
         overflow-x: hidden;
+        background: #363636 !important;
     }
     
     /* Admin main-content - white background on mobile */
@@ -440,13 +442,22 @@ body:has(.sidebar) .main-content {
         background: #ffffff !important;
     }
     
-    /* Content wrapper for mobile */
+    /* Content wrapper for mobile - Light beige background */
     .content-wrapper {
         width: 100% !important;
         max-width: 100% !important;
-        padding: 0.5rem !important;
+        padding: 1rem !important;
         margin: 0 !important;
         box-sizing: border-box;
+        background: #F5F5DC !important;
+        border-radius: 0 0 20px 20px;
+        min-height: calc(100vh - 80px);
+    }
+    
+    /* Content area for non-staff users */
+    body:not(:has(.sidebar)) .content-wrapper,
+    body:not(:has(.sidebar)) #content {
+        background: #F5F5DC !important;
     }
 }
 
@@ -455,6 +466,19 @@ body:has(.sidebar) .main-content {
     .content-wrapper {
         padding: 0 1rem;
         max-width: 100%;
+    }
+    
+    /* Content area for non-staff users - Light beige background */
+    body:not(:has(.sidebar)) .content-wrapper,
+    body:not(:has(.sidebar)) #content {
+        background: #F5F5DC !important;
+        border-radius: 0 0 20px 20px;
+        min-height: calc(100vh - 80px);
+    }
+    
+    /* Desktop header for non-staff users - same as mobile */
+    body:not(:has(.sidebar)) .mobile-header {
+        display: flex !important;
     }
 }
 
@@ -546,18 +570,22 @@ body:has(.sidebar) .main-content {
     font-weight: bold;
 }
 
-/* Mobile Header */
+/* Mobile Header - Orange with Rounded Top Corners */
 .mobile-header {
     display: flex !important;
     align-items: center;
-    padding: 0.9rem 1rem;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
     width: 100%;
     box-sizing: border-box;
-    min-height: 112px;
-    gap: 0.85rem;
+    min-height: 80px;
+    gap: 1rem;
     position: relative;
     z-index: 10;
-    background: linear-gradient(180deg, #ff9800 0%, #ff5722 100%);
+    background: #F57C00;
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin-bottom: 0;
 }
 
 .mobile-header-left {
@@ -566,7 +594,7 @@ body:has(.sidebar) .main-content {
     justify-content: flex-start;
     padding: 0;
     margin: 0;
-    flex: 1;
+    flex: 0 0 auto;
     min-width: 0;
     position: relative;
     z-index: 11;
@@ -577,6 +605,7 @@ body:has(.sidebar) .main-content {
     display: flex;
     align-items: center;
     justify-content: flex-end;
+    gap: 0.75rem;
     padding: 0;
     margin: 0;
 }
@@ -600,15 +629,35 @@ body:has(.sidebar) .mobile-menu-toggle {
     min-width: 0;
 }
 
+/* Mobile Header Icon - Circular with Book Icon */
+.mobile-header-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background-color: #ffffff;
+    border: 2px solid #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.mobile-header-icon i {
+    font-size: 1.5rem;
+    color: #F57C00;
+}
+
 .mobile-header-logo {
-    width: 72px;
-    height: 72px;
+    width: 48px;
+    height: 48px;
     object-fit: contain;
     flex-shrink: 0;
     border-radius: 50%;
     background-color: #ffffff;
     padding: 2px;
     box-sizing: border-box;
+    border: 2px solid #ffffff;
 }
 
 /* Admin mobile header - different background and bigger logo/text */
@@ -651,19 +700,19 @@ body:has(.sidebar) .mobile-menu-toggle {
 /* Main mobile header brand text - ensure it's visible */
 .mobile-header .mobile-brand-text-container .mobile-brand-text {
     font-weight: 700 !important;
-    font-size: clamp(1.25rem, 5.2vw, 1.85rem) !important;
+    font-size: 1.5rem !important;
     color: #ffffff !important;
     white-space: nowrap !important;
     overflow: visible !important;
     line-height: 1.2 !important;
-    text-transform: none !important;
+    text-transform: uppercase !important;
     display: block !important;
     position: relative !important;
     z-index: 13 !important;
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3) !important;
+    text-shadow: none !important;
     opacity: 1 !important;
     visibility: visible !important;
-    letter-spacing: normal !important;
+    letter-spacing: 1px !important;
 }
 
 .mobile-brand-text {
@@ -873,6 +922,53 @@ body:has(.sidebar) .mobile-header {
     border-top: 1px solid #e0e0e0;
 }
 
+/* Mobile Profile Link */
+.mobile-profile-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-decoration: none;
+    color: #ffffff;
+    padding: 0.25rem 0.5rem;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.mobile-profile-link:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    text-decoration: none;
+}
+
+.mobile-profile-picture {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid #ffffff;
+    object-fit: cover;
+    flex-shrink: 0;
+    background-color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mobile-profile-placeholder {
+    background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+}
+
+.mobile-profile-placeholder i {
+    font-size: 1.25rem;
+    color: #ffffff;
+}
+
+.mobile-profile-text {
+    font-size: 1rem;
+    font-weight: 500;
+    color: #ffffff;
+    white-space: nowrap;
+}
+
 .mobile-menu-toggle {
     background: none;
     border: none;
@@ -883,12 +979,15 @@ body:has(.sidebar) .mobile-header {
     align-items: center;
     justify-content: center;
     z-index: 1001;
-    font-size: 1.75rem;
-    color: #000;
+    font-size: 1.5rem;
+    color: #ffffff;
+    border-radius: 8px;
+    transition: all 0.2s ease;
 }
 
 .mobile-menu-toggle:hover {
-    opacity: 0.7;
+    background-color: rgba(255, 255, 255, 0.1);
+    opacity: 0.9;
 }
 
 /* Mobile Navigation Menu */
@@ -899,10 +998,12 @@ body:has(.sidebar) .mobile-header {
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.7);
+    background: rgba(15, 23, 42, 0.35);
     z-index: 999;
     opacity: 0;
     transition: opacity 0.3s ease;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
 }
 
 .mobile-nav-overlay.active {
@@ -913,19 +1014,20 @@ body:has(.sidebar) .mobile-header {
 .mobile-nav {
     position: fixed;
     top: 0;
-    left: -100%;
-    width: auto;
-    min-width: 240px;
-    max-width: 80%;
+    left: -320px;
+    width: 280px;
+    max-width: calc(100% - 48px);
     height: auto;
     max-height: 100vh;
-    background: linear-gradient(180deg, rgba(255, 152, 0, 0.9) 0%, rgba(255, 87, 34, 0.9) 100%);
+    background: #ffffff;
     z-index: 1000;
     transition: left 0.3s ease;
     overflow-y: auto;
-    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 20px 60px rgba(15, 23, 42, 0.15);
     display: flex;
     flex-direction: column;
+    padding: 1.75rem 1.5rem;
+    border-radius: 0 28px 28px 0;
 }
 
 .mobile-nav.active {
@@ -936,40 +1038,44 @@ body:has(.sidebar) .mobile-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 1rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
-    background: transparent;
+    gap: 1rem;
+    padding: 0 0 1.25rem 0;
+    border-bottom: 1px solid #f1f5f9;
     flex-shrink: 0;
-    white-space: nowrap;
 }
 
 .mobile-nav-title {
-    font-weight: bold;
-    font-size: 1.25rem;
-    color: #ffffff;
+    font-weight: 700;
+    font-size: 1.35rem;
+    color: #0f172a;
 }
 
 .mobile-nav-close {
-    background: none;
+    background: #f1f5f9;
     border: none;
     cursor: pointer;
-    padding: 0.5rem;
-    font-size: 1.5rem;
-    color: #ffffff;
+    padding: 0.6rem;
+    font-size: 1.1rem;
+    color: #475569;
     display: flex;
     align-items: center;
     justify-content: center;
+    border-radius: 12px;
+    transition: all 0.2s ease;
 }
 
 .mobile-nav-close:hover {
-    opacity: 0.7;
+    background: #e2e8f0;
+    color: #1e293b;
 }
 
 .mobile-nav-menu {
     list-style: none;
-    padding: 0;
+    padding: 1.25rem 0;
     margin: 0;
-    background: transparent;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
     flex: 1;
     overflow-y: auto;
 }
@@ -982,30 +1088,107 @@ body:has(.sidebar) .mobile-header {
 .mobile-nav-item {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    padding: 1rem;
-    color: #ffffff;
+    gap: 0.9rem;
+    padding: 0.85rem 1rem;
+    color: #475569;
     text-decoration: none;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
-    transition: background-color 0.2s;
-    background-color: transparent;
-    white-space: nowrap;
-    min-width: 100%;
+    border-radius: 18px;
+    transition: all 0.2s ease;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    position: relative;
+    z-index: 0;
+}
+
+.mobile-nav-item::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(249, 115, 22, 0.18), rgba(236, 98, 42, 0.18));
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
 }
 
 .mobile-nav-item:hover {
-    background-color: rgba(255, 255, 255, 0.2);
+    color: #f97316;
+    box-shadow: 0 10px 24px rgba(236, 103, 42, 0.08);
+}
+
+.mobile-nav-item:hover::after {
+    opacity: 1;
 }
 
 .mobile-nav-item i {
-    width: 24px;
+    width: 28px;
     text-align: center;
-    font-size: 1.25rem;
-    color: #ffffff;
+    font-size: 1.2rem;
+    color: inherit;
+    transition: color 0.2s ease;
+    position: relative;
+    z-index: 1;
 }
 
 .mobile-nav-item span {
     font-size: 1rem;
+    color: inherit;
+    position: relative;
+    z-index: 1;
+}
+
+.mobile-nav-item.active {
+    background: linear-gradient(135deg, #f97316 0%, #ec672a 100%);
+    color: #ffffff;
+    box-shadow: 0 18px 35px rgba(236, 103, 42, 0.25);
+}
+
+.mobile-nav-item.active::after {
+    opacity: 0;
+}
+
+.mobile-nav-item.active i {
+    color: #ffffff;
+}
+
+.mobile-nav-item.active span {
+    color: #ffffff;
+}
+
+
+.mobile-nav-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.75rem;
+    margin-top: auto;
+    padding-top: 1.5rem;
+    border-top: 1px solid #f1f5f9;
+}
+
+.mobile-nav-footer-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #f97316 0%, #ec672a 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-size: 1.1rem;
+    box-shadow: 0 10px 24px rgba(236, 103, 42, 0.25);
+    transition: opacity 0.2s ease;
+}
+
+.mobile-nav-footer:hover .mobile-nav-footer-icon {
+    opacity: 0.9;
+}
+
+.mobile-nav-footer-text {
+    font-weight: 600;
+    font-size: 1.05rem;
+    color: #0f172a;
+    letter-spacing: 0.02em;
 }
 
 .mobile-logo-container {
@@ -1165,20 +1348,13 @@ body:has(.sidebar) .mobile-header {
     .mobile-header {
         display: flex !important;
     }
-    
-    /* Responsive user menu dropdown positioning */
-    .user-menu-dropdown {
-        left: 0;
-        right: auto;
-        max-width: calc(100vw - 2rem);
-    }
-    
-    /* Ensure dropdown doesn't overflow on mobile */
-    @media (max-width: 576px) {
-        .user-menu-dropdown {
-            left: -50%;
-            transform: translateX(-50%);
-        }
+}
+
+/* Desktop: Show mobile header for non-staff users */
+@media (min-width: 992px) {
+    /* Show mobile header for non-staff users on desktop */
+    body:not(:has(.sidebar)) .mobile-header {
+        display: flex !important;
     }
 }
 
@@ -3633,5 +3809,292 @@ body:has([class*="chat-wrapper"]) .pcheck-support-float-btn {
     
     .pcheck-support-float-text {
         font-size: 0.6rem;
+    }
+}
+
+/* Password Change Modal Styles */
+.password-modal-content {
+    border: none !important;
+    border-radius: 20px !important;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15) !important;
+    overflow: hidden;
+    max-width: 550px;
+}
+
+.password-modal-header {
+    background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%) !important;
+    border-bottom: none !important;
+    padding: 1.5rem 2rem !important;
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.password-modal-header .modal-title {
+    color: #ffffff !important;
+    font-weight: 600 !important;
+    font-size: 1.5rem !important;
+    margin: 0 !important;
+    text-align: center !important;
+    width: 100%;
+    letter-spacing: -0.5px;
+}
+
+.password-modal-close {
+    position: absolute !important;
+    right: 1.25rem !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    background: rgba(255, 255, 255, 0.15) !important;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    border-radius: 50% !important;
+    width: 32px !important;
+    height: 32px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    transition: all 0.2s ease !important;
+    cursor: pointer !important;
+    z-index: 10 !important;
+}
+
+.password-modal-close i {
+    color: #ffffff !important;
+    font-size: 0.9rem !important;
+}
+
+.password-modal-close:hover {
+    background: rgba(255, 255, 255, 0.25) !important;
+    transform: translateY(-50%) scale(1.1) !important;
+}
+
+.password-modal-close:focus {
+    outline: none !important;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2) !important;
+}
+
+.password-modal-body {
+    padding: 2.5rem 2rem !important;
+    background: #ffffff !important;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.password-change-modal-wrapper {
+    width: 100%;
+}
+
+.password-change-icon-wrapper {
+    width: 140px;
+    height: 110px;
+    margin: 0 auto 1.5rem;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.password-change-icon-padlock {
+    font-size: 4rem;
+    color: #ec672a;
+    position: relative;
+    z-index: 2;
+    transform: rotate(-5deg);
+}
+
+.password-change-icon-key {
+    font-size: 2rem;
+    color: #1e293b;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(15%, -50%) rotate(0deg);
+    z-index: 3;
+}
+
+.password-change-subtitle {
+    font-size: 0.9rem;
+    color: #64748b;
+    margin: 0 0 2rem 0;
+    line-height: 1.6;
+    text-align: center;
+}
+
+.password-field-group {
+    margin-bottom: 1.5rem;
+}
+
+.password-field-label {
+    display: block;
+    font-weight: 600;
+    color: #1e293b;
+    font-size: 0.95rem;
+    margin-bottom: 0.75rem;
+}
+
+.password-input-container {
+    position: relative;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    border: 2px solid #e5e7eb;
+    transition: all 0.2s ease;
+}
+
+.password-input-container:focus-within {
+    border-color: #ff9800;
+    box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.1);
+}
+
+.password-input-container input {
+    width: 100%;
+    padding: 1rem 3.5rem 1rem 1rem;
+    border: none;
+    border-radius: 12px;
+    font-size: 1rem;
+    background: #ffffff;
+    color: #1e293b;
+    box-sizing: border-box;
+    outline: none;
+}
+
+.password-input-container input::placeholder {
+    color: #94a3b8;
+}
+
+.password-input-container input:focus {
+    background: #fafafa;
+}
+
+.password-input-container input.is-invalid {
+    background: #fef2f2;
+    border-color: #ef4444;
+}
+
+.password-input-right-icon {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #1e293b;
+    font-size: 1.2rem;
+    cursor: pointer;
+    z-index: 2;
+    transition: color 0.2s ease;
+}
+
+.password-input-right-icon:hover {
+    color: #64748b;
+}
+
+.password-input-right-icon.lock-icon {
+    cursor: default;
+}
+
+.password-field-error {
+    margin-top: 0.5rem;
+    color: #ef4444;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.password-field-help {
+    margin-top: 0.5rem;
+    color: #64748b;
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.password-field-help ul {
+    margin: 0.5rem 0 0 0;
+    padding-left: 1.25rem;
+}
+
+.password-field-help li {
+    margin-bottom: 0.25rem;
+}
+
+.password-form-actions {
+    margin-top: 2.5rem;
+}
+
+.password-submit-btn {
+    width: 100%;
+    padding: 1.125rem 1.5rem;
+    background: #ec672a;
+    border: none;
+    border-radius: 12px;
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: 0 4px 12px rgba(236, 103, 42, 0.3);
+}
+
+.password-submit-btn:hover:not(:disabled) {
+    background: #e55a1f;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(236, 103, 42, 0.4);
+}
+
+.password-submit-btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.password-submit-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.password-alert {
+    border-radius: 12px;
+    border: none;
+    background: #fef2f2;
+    color: #991b1b;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+}
+
+/* Responsive Design for Password Modal */
+@media (max-width: 767.98px) {
+    .password-modal-content {
+        max-width: 100%;
+        border-radius: 16px !important;
+    }
+    
+    .password-modal-header {
+        padding: 1.25rem 1.5rem !important;
+    }
+    
+    .password-modal-body {
+        padding: 2rem 1.5rem !important;
+    }
+    
+    .password-change-icon-wrapper {
+        width: 120px;
+        height: 100px;
+    }
+    
+    .password-change-icon-padlock {
+        font-size: 3.5rem;
+    }
+    
+    .password-change-icon-key {
+        font-size: 1.75rem;
+    }
+    
+    .password-change-subtitle {
+        font-size: 0.85rem;
     }
 }

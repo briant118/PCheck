@@ -161,14 +161,25 @@ def dashboard(request):
     
     sorted_hours = sorted(peak_hours.items(), key=lambda x: x[1], reverse=True)[:5]
     
-    # College breakdown
+    # College breakdown - count confirmed bookings by college
     college_data = {}
     for college in College.objects.all():
-        count = Booking.objects.filter(
+        # Count regular bookings where user has a profile with this college
+        regular_count = Booking.objects.filter(
+            status='confirmed',
             user__profile__college=college,
-            status='confirmed'
+            faculty_booking__isnull=True  # Exclude faculty bookings here
         ).count()
-        college_data[college.name] = count
+        
+        # Count unique faculty bookings for this college (to avoid double counting)
+        # Each faculty booking can have multiple PCs, but we count the booking once
+        faculty_booking_count = Booking.objects.filter(
+            status='confirmed',
+            faculty_booking__isnull=False,
+            faculty_booking__college=college
+        ).values('faculty_booking').distinct().count()
+        
+        college_data[college.name] = regular_count + faculty_booking_count
     
     # Successful vs canceled bookings
     successful = Booking.objects.filter(status='confirmed').count()
@@ -200,13 +211,15 @@ def dashboard(request):
         status='cancelled'
     ).select_related('user', 'pc', 'user__profile').order_by('-created_at')
     
-    # Calculate time remaining for each active booking
+    # Calculate time remaining for each active booking and count active confirmed sessions
     now = tz.now()
+    active_confirmed_count = 0
     for booking in active_bookings:
         if booking.end_time and booking.status == 'confirmed':
             remaining = booking.end_time - now
             if remaining.total_seconds() > 0:
                 booking.time_remaining_minutes = int(remaining.total_seconds() / 60)
+                active_confirmed_count += 1
             else:
                 booking.time_remaining_minutes = 0
         else:
@@ -227,6 +240,7 @@ def dashboard(request):
         'available_pcs': PC.objects.filter(booking_status='available').count(),
         'pc_list': pc_list,
         'active_bookings': active_bookings,
+        'active_confirmed_count': active_confirmed_count,
     }
     
     return render(request, 'account/dashboard.html', context)
@@ -319,14 +333,33 @@ def verify(request, email):
             return redirect("account:register")
 
         if pending.verification_code == code:
-            # create actual user
-            user = User.objects.create(
-                username=pending.username,
-                email=pending.email,
-                password=make_password(pending.password),  # hash the password
-                first_name=pending.first_name,
-                last_name=pending.last_name,
-            )
+            # Check if user already exists
+            try:
+                existing_user = User.objects.get(username=pending.username)
+                # User already exists, update their profile instead
+                user = existing_user
+                # Update user details if needed
+                if not user.first_name:
+                    user.first_name = pending.first_name
+                if not user.last_name:
+                    user.last_name = pending.last_name
+                if not user.email:
+                    user.email = pending.email
+                user.save()
+            except User.DoesNotExist:
+                # User doesn't exist, create new user
+                try:
+                    user = User.objects.create(
+                        username=pending.username,
+                        email=pending.email,
+                        password=make_password(pending.password),  # hash the password
+                        first_name=pending.first_name,
+                        last_name=pending.last_name,
+                    )
+                except IntegrityError:
+                    # User was created between check and create (race condition)
+                    user = User.objects.get(username=pending.username)
+            
             # Signal automatically creates profile synchronously, so it should exist
             # But handle edge cases where signal might not fire or race conditions
             # First try to get it (most common case - signal created it)

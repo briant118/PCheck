@@ -42,7 +42,7 @@
   </div><!-- end of card -->
   <div id="control" class="p2 text-center mt-2">
     <a href="{% url 'main_app:block-reservation-approved' pk=reservation.pk %}" class="btn btn-lg btn-success rounded rounded-3">approve</a>
-    <a href="{% url 'main_app:block-reservation-declined' pk=reservation.pk %}" class="btn btn-lg btn-danger rounded rounded-3">decline</a>
+    <a href="{% url 'main_app:block-reservation-declined' pk=reservation.pk %}" class="btn btn-lg btn-danger rounded rounded-3" onclick="return confirm('Are you sure you want to decline this faculty booking?');">decline</a>
   </div>
 </div>
 {% endblock %}

@@ -213,6 +213,27 @@ window.showPCStatus = function(pcId, button) {
   return false;
 };
 
+// Shared helper to show/hide selected PC indicator
+window.updateSelectedPcIndicator = function(pcName) {
+  var indicator = document.getElementById('selected-pc-indicator');
+  var nameEl = document.getElementById('selected-pc-name');
+  if (!indicator || !nameEl) {
+    return;
+  }
+
+  if (pcName) {
+    indicator.removeAttribute('hidden');
+    indicator.style.display = 'flex';
+    indicator.style.visibility = 'visible';
+    nameEl.textContent = pcName;
+  } else {
+    indicator.setAttribute('hidden', 'true');
+    indicator.style.display = 'none';
+    indicator.style.visibility = 'hidden';
+    nameEl.textContent = '';
+  }
+};
+
 // Define handleEndSession immediately so it's available for showPCStatus
 // This must be defined before the HTML that uses it
 window.handleEndSession = function(e) {
@@ -326,6 +347,9 @@ window.selectPCForReservation = function(pcId, button) {
   // Double-check if PC is in repair (safety check)
   if (pcCondition === 'repair') {
     alert(`PC ${pcName} is currently in repair.\n\nThis PC is not available for reservation until maintenance is complete.`);
+    if (typeof window.updateSelectedPcIndicator === 'function') {
+      window.updateSelectedPcIndicator(null);
+    }
     button.disabled = true;
     button.style.pointerEvents = 'none';
     button.style.opacity = '0.6';
@@ -335,6 +359,9 @@ window.selectPCForReservation = function(pcId, button) {
   // Double-check if PC is offline/disconnected (safety check)
   if (pcStatus === 'disconnected') {
     alert(`PC ${pcName} is currently offline.\n\nThis PC is not available for reservation until it is connected.`);
+    if (typeof window.updateSelectedPcIndicator === 'function') {
+      window.updateSelectedPcIndicator(null);
+    }
     button.disabled = true;
     button.style.pointerEvents = 'none';
     button.style.opacity = '0.6';
@@ -397,16 +424,21 @@ window.selectPCForReservation = function(pcId, button) {
   // Show/hide Next button - only if PC is truly available
   var nextButton = document.querySelector('.reserve-next-button');
   if (nextButton) {
-    // Show next button if a PC is selected and it's available (not in use, not in queue, not in repair, not offline)
-    if (isSelected && pcBookingStatus !== 'in_use' && pcBookingStatus !== 'in_queue' && pcCondition !== 'repair' && pcStatus !== 'disconnected') {
-      nextButton.hidden = false;
-      nextButton.style.display = 'block';
-      console.log('Next button shown - PC selected and available');
+    // Keep button always visible; enable only if valid selection
+    var isAvailable = pcBookingStatus !== 'in_use' &&
+                      pcBookingStatus !== 'in_queue' &&
+                      pcCondition !== 'repair' &&
+                      pcStatus !== 'disconnected';
+    var canProceed = isSelected && isAvailable;
+    nextButton.disabled = !canProceed;
+    if (canProceed) {
+      nextButton.removeAttribute('aria-disabled');
     } else {
-      nextButton.hidden = true;
-      nextButton.style.display = 'none';
-      console.log('Next button hidden - PC not selected or not available', {isSelected, pcBookingStatus, pcCondition, pcStatus});
+      nextButton.setAttribute('aria-disabled', 'true');
     }
+    console.log('Next button state', { canProceed, isSelected, pcBookingStatus, pcCondition, pcStatus });
+  } else {
+    console.warn('Next button not found!');
   }
   
   // Show/hide Block button
@@ -415,6 +447,10 @@ window.selectPCForReservation = function(pcId, button) {
     blockButton.hidden = isSelected;
   }
   
+  if (typeof window.updateSelectedPcIndicator === 'function') {
+    window.updateSelectedPcIndicator(isSelected ? (pcName || `PC ${pcId}`) : null);
+  }
+
   console.log('PC selection complete. Selected:', isSelected);
 };
 </script>
@@ -423,14 +459,17 @@ window.selectPCForReservation = function(pcId, button) {
 {% block content %}
 <div class="mobile-reservation-container">
   <div class="reservation-card">
-    <div class="reservation-header">
-      <h2 class="reservation-title">Available PC's</h2>
-      <button type="button" class="btn btn-info btn-sm" id="showMySessionBtn" style="display: none; visibility: hidden; margin-left: auto; border-radius: 8px; padding: 8px 16px;">
-        <i class="fa-solid fa-clock"></i> My Session
-      </button>
+    <!-- Available PC's Card Section -->
+    <div class="available-pcs-card">
+      <div class="available-pcs-header">
+        <h2 class="available-pcs-title">Available PC's</h2>
+        <div class="available-count-badge">
+          <span class="available-count-number" id="available-count">0</span>
+          <span class="available-count-label">Available</span>
     </div>
-    <div class="reservation-body">
+      </div>
       <div class="reservation-datetime" id="current-datetime">
+        <i class="fa-solid fa-clock"></i>
         <script>
           (function() {
             var now = new Date();
@@ -446,10 +485,47 @@ window.selectPCForReservation = function(pcId, button) {
             hours = hours ? hours : 12;
             minutes = minutes < 10 ? '0' + minutes : minutes;
             var dateTime = month + ' ' + day + ', ' + year + ' | ' + hours + ':' + minutes + ' ' + ampm;
-            document.getElementById('current-datetime').textContent = dateTime;
+            document.getElementById('current-datetime').innerHTML = '<i class="fa-solid fa-clock"></i> ' + dateTime;
           })();
         </script>
       </div>
+      
+      <!-- Status Legend Section -->
+      <div class="status-legend-inline">
+        <div class="legend-item available">
+          <div class="legend-icon">
+            <i class="fa-solid fa-desktop"></i>
+          </div>
+          <span class="legend-text">Available</span>
+        </div>
+        <div class="legend-item selected">
+          <div class="legend-icon">
+            <i class="fa-solid fa-desktop"></i>
+          </div>
+          <span class="legend-text">Selected</span>
+        </div>
+        <div class="legend-item queue">
+          <div class="legend-icon">
+            <i class="fa-solid fa-desktop"></i>
+          </div>
+          <span class="legend-text">In Queue</span>
+        </div>
+        <div class="legend-item used">
+          <div class="legend-icon">
+            <i class="fa-solid fa-desktop"></i>
+          </div>
+          <span class="legend-text">Used</span>
+        </div>
+        <div class="legend-item repair">
+          <div class="legend-icon">
+            <i class="fa-solid fa-desktop"></i>
+          </div>
+          <span class="legend-text">Repair</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="reservation-body">
       <input type="hidden" id="pc_id" name="pc_id">
 
       <div id="students-booking"> <!-- students-booking -->
@@ -517,55 +593,34 @@ window.selectPCForReservation = function(pcId, button) {
           {% endif %}
         </div>
         {% endif %}
-        
-        <!-- Legends Section -->
-        <div class="legends-section">
-          <div class="legends-title">Legends</div>
-          <div class="legends-list">
-            <div class="legend-item available">
-              <div class="legend-icon">
-                <i class="fa-solid fa-desktop"></i>
-              </div>
-              <span class="legend-text">Available</span>
-            </div>
-            <div class="legend-item selected">
-              <div class="legend-icon">
-                <i class="fa-solid fa-desktop"></i>
-              </div>
-              <span class="legend-text">Selected</span>
-            </div>
-            <div class="legend-item queue">
-              <div class="legend-icon">
-                <i class="fa-solid fa-desktop"></i>
-              </div>
-              <span class="legend-text">In queue</span>
-            </div>
-            <div class="legend-item used">
-              <div class="legend-icon">
-                <i class="fa-solid fa-desktop"></i>
-              </div>
-              <span class="legend-text">Used</span>
-            </div>
-            <div class="legend-item repair">
-              <div class="legend-icon" style="background-color:#dc3545; border-color:#dc3545;">
-                <i class="fa-solid fa-desktop" style="color:#ffffff"></i>
-              </div>
-              <span class="legend-text">Repair</span>
-            </div>
-          </div>
-        </div>
         {% endif %}
         
-        <!-- Next Button - Fixed Position -->
-        <button type="button" class="next-button-modern reserve-next-button" hidden>
+        <!-- Next Button -->
+        <button type="button" class="next-button-modern reserve-next-button" disabled aria-disabled="true">
           Next <i class="fa-solid fa-chevron-right"></i>
         </button>
+        
+        <!-- View QR Code Button (shown when QR code is available) -->
+        <div id="viewQRCodeButtonNext" style="display: none; text-align: center; margin-top: 15px; position: relative; z-index: 1000;">
+          <button type="button" class="btn btn-primary btn-lg" id="viewQRCodeBtnNext" style="position: relative; z-index: 1000; width: 100%; max-width: 300px;">
+            <i class="fa-solid fa-qrcode"></i> View QR Code
+          </button>
+        </div>
+
+        <div id="selected-pc-indicator" class="selected-pc-indicator" hidden>
+          <i class="fa-solid fa-circle-check"></i>
+          <span>Selected PC:</span>
+          <strong id="selected-pc-name"></strong>
+        </div>
       </div> <!-- end of students-booking -->
 
       <!-- My Session Button (shown when user has active booking) -->
       <div id="viewQRButtonContainer" style="display: none; visibility: hidden; text-align: center; margin: 20px 0;">
         <button type="button" class="btn btn-info btn-lg" id="showMySessionBtnMain" style="display: block;">
           <i class="fa-solid fa-clock"></i> My Session
+        </button>
+        <button type="button" class="btn btn-primary btn-lg mt-2" id="viewQRCodeBtn" style="display: block;">
+          <i class="fa-solid fa-qrcode"></i> View QR Code
         </button>
       </div>
 
@@ -705,11 +760,39 @@ window.selectPCForReservation = function(pcId, button) {
                 Confirming site is at the Ict desk info.
               </p>
             </div>
-            <div class="modal-footer justify-content-between">
-              <button type="button" class="btn btn-danger btn-sm" id="cancelBookingBtn">
-                <i class="fa-solid fa-times"></i> Cancel Booking
+            <div class="modal-footer justify-content-center">
+              <button type="button" class="btn btn-danger btn-sm" id="endQRSessionBtn">
+                <i class="fa-solid fa-stop"></i> End Session
               </button>
-              <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Custom Confirmation Modal -->
+      <div class="modal fade" id="confirmEndSessionModal" tabindex="-1" aria-labelledby="confirmEndSessionLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-danger text-white border-0">
+              <h5 class="modal-title" id="confirmEndSessionLabel">
+                <i class="fa-solid fa-exclamation-triangle me-2"></i>Confirm End Session
+              </h5>
+              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+              <div class="mb-3">
+                <i class="fa-solid fa-circle-question text-danger" style="font-size: 3rem;"></i>
+              </div>
+              <h6 class="mb-3">Are you sure you want to end your booking session?</h6>
+              <p class="text-muted mb-0">This will cancel your reservation and you will need to create a new booking.</p>
+            </div>
+            <div class="modal-footer border-0 justify-content-center pb-4">
+              <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">
+                <i class="fa-solid fa-times me-1"></i>Cancel
+              </button>
+              <button type="button" class="btn btn-danger" id="confirmEndSessionBtn">
+                <i class="fa-solid fa-stop me-1"></i>End Session
+              </button>
             </div>
           </div>
         </div>
@@ -819,6 +902,52 @@ window.selectPCForReservation = function(pcId, button) {
 
 {% block scripts %}
 <script>
+// Count available PCs and update the count badge
+function updateAvailableCount() {
+  var availableCount = 0;
+  var pcButtons = document.querySelectorAll('.pc-button-modern');
+  
+  pcButtons.forEach(function(button) {
+    var pcBookingStatus = button.getAttribute('data-booking-status');
+    var pcCondition = button.getAttribute('data-pc-condition');
+    var pcStatus = button.getAttribute('data-pc-status');
+    
+    // Count as available if: not in use, not in queue, not in repair, not offline
+    if (pcBookingStatus !== 'in_use' && 
+        pcBookingStatus !== 'in_queue' && 
+        pcCondition !== 'repair' && 
+        pcStatus !== 'disconnected') {
+      availableCount++;
+    }
+  });
+  
+  var countElement = document.getElementById('available-count');
+  if (countElement) {
+    countElement.textContent = availableCount;
+  }
+}
+
+// Initialize when DOM is ready
+function initReservationPage() {
+  updateAvailableCount();
+  
+  // Update available count when PC selection changes
+  var pcButtons = document.querySelectorAll('.pc-button-modern');
+  pcButtons.forEach(function(button) {
+    button.addEventListener('click', function() {
+      setTimeout(updateAvailableCount, 100);
+    });
+  });
+}
+
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initReservationPage);
+} else {
+  // DOM is already loaded
+  initReservationPage();
+}
+
 // showPCStatus and selectPCForReservation are now defined in the extra_head block section above
 // so they're available before the HTML that uses them
 
@@ -1031,6 +1160,15 @@ document.addEventListener('DOMContentLoaded', function() {
   var blockButtonNext = document.getElementById('block-button-next');
   if (blockButtonNext) {
     blockButtonNext.addEventListener('click', goToBlockBookingForm);
+  }
+  
+  // Ensure Next button starts disabled and visible
+  var nextButtonInit = document.querySelector('.reserve-next-button');
+  if (nextButtonInit) {
+    nextButtonInit.disabled = true;
+    nextButtonInit.setAttribute('aria-disabled', 'true');
+    nextButtonInit.style.display = 'block';
+    nextButtonInit.style.visibility = 'visible';
   }
   
   // Add event listeners for custom PC input +/- buttons
@@ -1545,7 +1683,17 @@ function initCancelBookingHandler() {
       url: '/ajax/cancel-reservation/',
       method: 'POST',
       headers: {
-        'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val() || (document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '') || (typeof getCookie !== 'undefined' ? getCookie('csrftoken') : '') || ''
+        'X-CSRFToken': (function() {
+          var token = $('[name=csrfmiddlewaretoken]').val();
+          if (!token) {
+            var el = document.querySelector('[name=csrfmiddlewaretoken]');
+            token = el ? el.value : '';
+          }
+          if (!token && typeof getCookie !== 'undefined') {
+            token = getCookie('csrftoken') || '';
+          }
+          return token || '';
+        })()
       },
       data: {
         booking_id: bookingId,
@@ -2337,6 +2485,76 @@ document.addEventListener('DOMContentLoaded', function() {
       checkMyActiveSession();
     }
   });
+  
+  // Mobile menu toggle in reservation body
+  function initMobileMenuToggleReservation() {
+    var mobileMenuToggleReservation = document.getElementById('mobile-menu-toggle-reservation');
+    var mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+    var mobileNav = document.getElementById('mobile-nav');
+    var mobileNavOverlay = document.getElementById('mobile-nav-overlay');
+    var sidebar = document.getElementById('sidebar');
+    var sidebarOverlay = document.getElementById('sidebar-overlay');
+    
+    console.log('Initializing mobile menu toggle reservation', {
+      button: mobileMenuToggleReservation,
+      mobileNav: mobileNav,
+      sidebar: sidebar
+    });
+    
+    if (mobileMenuToggleReservation) {
+      // Hide the original mobile menu toggle in header
+      if (mobileMenuToggle) {
+        mobileMenuToggle.style.display = 'none';
+      }
+      
+      // Remove any existing event listeners by cloning the element
+      var newButton = mobileMenuToggleReservation.cloneNode(true);
+      mobileMenuToggleReservation.parentNode.replaceChild(newButton, mobileMenuToggleReservation);
+      
+      newButton.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('Mobile menu toggle clicked');
+        
+        // Mobile navigation for regular users
+        if (mobileNav) {
+          if (mobileNav.classList.contains('active')) {
+            mobileNav.classList.remove('active');
+            if (mobileNavOverlay) mobileNavOverlay.classList.remove('active');
+            document.body.style.overflow = '';
+            console.log('Mobile nav closed');
+          } else {
+            mobileNav.classList.add('active');
+            if (mobileNavOverlay) mobileNavOverlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+            console.log('Mobile nav opened');
+          }
+        }
+        
+        // Staff sidebar toggle
+        if (sidebar && !mobileNav) {
+          if (sidebar.classList.contains('mobile-open')) {
+            sidebar.classList.remove('mobile-open');
+            if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+            document.body.style.overflow = '';
+            console.log('Sidebar closed');
+          } else {
+            sidebar.classList.add('mobile-open');
+            if (sidebarOverlay) sidebarOverlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+            console.log('Sidebar opened');
+          }
+        }
+      });
+    } else {
+      console.warn('Mobile menu toggle reservation button not found');
+    }
+  }
+  
+  // Initialize mobile menu toggle - try multiple times to ensure DOM is ready
+  initMobileMenuToggleReservation();
+  setTimeout(initMobileMenuToggleReservation, 100);
+  setTimeout(initMobileMenuToggleReservation, 500);
 });
 </script>
 <script src="{% static 'js/reserve_pc.js' %}"></script>
