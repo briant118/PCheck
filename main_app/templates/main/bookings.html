@@ -22,13 +22,6 @@
   
   <!-- ===== STUDENT BOOKINGS CONTENT ===== -->
   <div id="student-bookings">
-    <!-- DEBUG INFO -->
-    <div class="alert alert-info">
-      <strong>DEBUG:</strong> Total bookings: {{ student_bookings|length }}, 
-      Pending: {{ student_pending_count }}, 
-      Pending list: {{ student_pending_approvals|length }}
-    </div>
-    
     <div class="nav nav-tabs subtabs">
       <button id="tab-student-all" class="nav-link active subtab">All</button>
       <button id="tab-student-pending" class="nav-link subtab position-relative">
@@ -96,7 +89,8 @@
                       data-college="{{ pending.user.profile.college.name }}"
                       data-date="{{ pending.created_at }}"
                       data-pc="{{ pending.pc.name|default:'-' }}"
-                      data-accept-url="{% url 'main_app:reservation-approval' pk=pending.pk %}">
+                      data-accept-url="{% url 'main_app:reservation-approved' pk=pending.pk %}"
+                      data-decline-url="{% url 'main_app:reservation-declined' pk=pending.pk %}">
                 review
               </button>
             </td>
@@ -147,6 +141,7 @@
         </div>
         <div class="modal-footer">
           <a id="bk_accept" class="btn btn-success" href="#">Accept</a>
+          <a id="bk_decline" class="btn btn-danger" href="#">Decline</a>
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
         </div>
       </div>
@@ -344,11 +339,13 @@ document.addEventListener('DOMContentLoaded', function() {
       var date = target.getAttribute('data-date') || '';
       var pc = target.getAttribute('data-pc') || '-';
       var acceptUrl = target.getAttribute('data-accept-url') || '#';
+      var declineUrl = target.getAttribute('data-decline-url') || '#';
       document.getElementById('bk_name').textContent = name;
       document.getElementById('bk_college').textContent = college;
       document.getElementById('bk_date').textContent = date;
       document.getElementById('bk_pc').textContent = pc;
       document.getElementById('bk_accept').setAttribute('href', acceptUrl);
+      document.getElementById('bk_decline').setAttribute('href', declineUrl);
       var modalEl = document.getElementById('bookingReviewModal');
       if (modalEl) {
         var modal = bootstrap.Modal.getOrCreateInstance(modalEl);

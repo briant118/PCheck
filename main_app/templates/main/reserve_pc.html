@@ -7,43 +7,6 @@
 
 {% block links %}
 <link rel="stylesheet" href="{% static 'css/booking.css' %}?v=10">
-<style>
-  /* PC View Background - No Image */
-  body:not(:has(.sidebar)) .main-content {
-    background: #F5F5DC;
-    min-height: 100vh;
-    position: relative;
-    width: 100% !important;
-    overflow-x: hidden;
-    margin-left: 0 !important;
-  }
-
-
-  /* Ensure content is above background */
-  body:not(:has(.sidebar)) .main-content > * {
-    position: relative;
-    z-index: 1;
-  }
-
-  /* Fix login button positioning in sidebar */
-  .sidebar-bottom {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    width: 100%;
-  }
-
-  @media (max-width: 991.98px) {
-    body:not(:has(.sidebar)) .main-content {
-      background: #F5F5DC;
-      width: 100% !important;
-      margin-left: 0 !important;
-      padding-left: 0 !important;
-      padding-right: 0 !important;
-    }
-  }
-</style>
 {% endblock %}
 
 {% block extra_head %}
@@ -495,73 +458,73 @@ window.selectPCForReservation = function(pcId, button) {
 
 {% block content %}
 <div class="mobile-reservation-container">
-  <!-- Available PC's Card Section - At the Top -->
-  <div class="available-pcs-card">
-    <div class="available-pcs-header">
-      <h2 class="available-pcs-title">Available PC's</h2>
-      <div class="available-count-badge">
-        <span class="available-count-number" id="available-count">{{ available_count|default:"0" }}</span>
-        <span class="available-count-label">Available</span>
+  <div class="reservation-card">
+    <!-- Available PC's Card Section -->
+    <div class="available-pcs-card">
+      <div class="available-pcs-header">
+        <h2 class="available-pcs-title">Available PC's</h2>
+        <div class="available-count-badge">
+          <span class="available-count-number" id="available-count">{{ available_count|default:"0" }}</span>
+          <span class="available-count-label">Available</span>
+        </div>
       </div>
-    </div>
-    <div class="reservation-datetime" id="current-datetime">
-      <i class="fa-solid fa-clock"></i>
-      <script>
-        (function() {
-          var now = new Date();
-          var months = ['January', 'February', 'March', 'April', 'May', 'June', 
-                       'July', 'August', 'September', 'October', 'November', 'December'];
-          var month = months[now.getMonth()];
-          var day = now.getDate();
-          var year = now.getFullYear();
-          var hours = now.getHours();
-          var minutes = now.getMinutes();
-          var ampm = hours >= 12 ? 'PM' : 'AM';
-          hours = hours % 12;
-          hours = hours ? hours : 12;
-          minutes = minutes < 10 ? '0' + minutes : minutes;
-          var dateTime = month + ' ' + day + ', ' + year + ' | ' + hours + ':' + minutes + ' ' + ampm;
-          document.getElementById('current-datetime').innerHTML = '<i class="fa-solid fa-clock"></i> ' + dateTime;
-        })();
-      </script>
+      <div class="reservation-datetime" id="current-datetime">
+        <i class="fa-solid fa-clock"></i>
+        <script>
+          (function() {
+            var now = new Date();
+            var months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                         'July', 'August', 'September', 'October', 'November', 'December'];
+            var month = months[now.getMonth()];
+            var day = now.getDate();
+            var year = now.getFullYear();
+            var hours = now.getHours();
+            var minutes = now.getMinutes();
+            var ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12;
+            minutes = minutes < 10 ? '0' + minutes : minutes;
+            var dateTime = month + ' ' + day + ', ' + year + ' | ' + hours + ':' + minutes + ' ' + ampm;
+            document.getElementById('current-datetime').innerHTML = '<i class="fa-solid fa-clock"></i> ' + dateTime;
+          })();
+        </script>
+      </div>
+      
+      <!-- Status Legend Section -->
+      <div class="status-legend-inline">
+        <div class="legend-item available">
+          <div class="legend-icon">
+            <i class="fa-solid fa-desktop"></i>
+          </div>
+          <span class="legend-text">Available</span>
+        </div>
+        <div class="legend-item selected">
+          <div class="legend-icon">
+            <i class="fa-solid fa-desktop"></i>
+          </div>
+          <span class="legend-text">Selected</span>
+        </div>
+        <div class="legend-item queue">
+          <div class="legend-icon">
+            <i class="fa-solid fa-desktop"></i>
+          </div>
+          <span class="legend-text">In Queue</span>
+        </div>
+        <div class="legend-item used">
+          <div class="legend-icon">
+            <i class="fa-solid fa-desktop"></i>
+          </div>
+          <span class="legend-text">Used</span>
+        </div>
+        <div class="legend-item repair">
+          <div class="legend-icon">
+            <i class="fa-solid fa-desktop"></i>
+          </div>
+          <span class="legend-text">Repair</span>
+        </div>
+      </div>
     </div>
     
-    <!-- Status Legend Section -->
-    <div class="status-legend-inline">
-      <div class="legend-item available">
-        <div class="legend-icon">
-          <i class="fa-solid fa-desktop"></i>
-        </div>
-        <span class="legend-text">Available</span>
-      </div>
-      <div class="legend-item selected">
-        <div class="legend-icon">
-          <i class="fa-solid fa-desktop"></i>
-        </div>
-        <span class="legend-text">Selected</span>
-      </div>
-      <div class="legend-item queue">
-        <div class="legend-icon">
-          <i class="fa-solid fa-desktop"></i>
-        </div>
-        <span class="legend-text">In Queue</span>
-      </div>
-      <div class="legend-item used">
-        <div class="legend-icon">
-          <i class="fa-solid fa-desktop"></i>
-        </div>
-        <span class="legend-text">Used</span>
-      </div>
-      <div class="legend-item repair">
-        <div class="legend-icon">
-          <i class="fa-solid fa-desktop"></i>
-        </div>
-        <span class="legend-text">Repair</span>
-      </div>
-    </div>
-  </div>
-  
-  <div class="reservation-card">
     <div class="reservation-body">
       <input type="hidden" id="pc_id" name="pc_id">
 
@@ -2617,11 +2580,132 @@ document.addEventListener('DOMContentLoaded', function() {
     checkMyActiveSession();
   }, 5000); // Check every 5 seconds
   
+  // Auto-refresh PC status every 2 seconds to show real-time updates
+  function refreshPCStatusForReservation() {
+    fetch('/ajax/get-all-pc-status/')
+      .then(response => response.json())
+      .then(data => {
+        if (data.pcs) {
+          data.pcs.forEach(function(pcData) {
+            // Find the PC button by data-pc-id
+            var pcButton = document.querySelector('.pc-button-modern[data-pc-id="' + pcData.id + '"]');
+            if (pcButton) {
+              var oldBookingStatus = pcButton.getAttribute('data-booking-status');
+              var newBookingStatus = pcData.booking_status || 'available';
+              
+              // Always update data attributes to ensure they're current
+              pcButton.setAttribute('data-booking-status', newBookingStatus);
+              pcButton.setAttribute('data-pc-status', pcData.status || 'connected');
+              pcButton.setAttribute('data-pc-condition', pcData.system_condition || 'active');
+              
+              // Always update button classes and styling to ensure consistency
+              // Don't just update when status changes - always update to keep in sync
+              var statusChanged = oldBookingStatus !== newBookingStatus;
+              if (statusChanged) {
+                console.log('PC status changed:', pcData.name, 'from', oldBookingStatus, 'to', newBookingStatus);
+              }
+              
+              // Always update button classes and styling
+              pcButton.classList.remove('pc-available', 'pc-queue', 'pc-used', 'pc-repair', 'pc-offline', 'selected', 'pc-selected');
+              
+              // Remove selection if PC is no longer available
+              if (newBookingStatus !== 'available') {
+                var pcIdInput = document.getElementById('pc_id');
+                if (pcIdInput && pcIdInput.value == pcData.id) {
+                  pcIdInput.value = '';
+                }
+              }
+              
+              if (pcData.system_condition === 'repair') {
+                pcButton.classList.add('pc-repair');
+                pcButton.disabled = true;
+                pcButton.style.cursor = 'not-allowed';
+                pcButton.style.opacity = '0.6';
+                pcButton.style.pointerEvents = 'none';
+                pcButton.onclick = function(e) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  showPCStatus(pcData.id, pcButton);
+                  return false;
+                };
+              } else if (pcData.status === 'disconnected') {
+                pcButton.classList.add('pc-offline');
+                pcButton.disabled = true;
+                pcButton.style.cursor = 'not-allowed';
+                pcButton.style.opacity = '0.6';
+                pcButton.style.pointerEvents = 'none';
+                pcButton.onclick = function(e) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  showPCStatus(pcData.id, pcButton);
+                  return false;
+                };
+              } else if (newBookingStatus === 'in_use') {
+                pcButton.classList.add('pc-used');
+                pcButton.disabled = false;
+                pcButton.style.cursor = 'pointer';
+                pcButton.style.opacity = '1';
+                pcButton.style.pointerEvents = 'auto';
+                pcButton.onclick = function() {
+                  showPCStatus(pcData.id, pcButton);
+                  return false;
+                };
+              } else if (newBookingStatus === 'in_queue') {
+                pcButton.classList.add('pc-queue');
+                pcButton.disabled = false;
+                pcButton.style.cursor = 'pointer';
+                pcButton.style.opacity = '1';
+                pcButton.style.pointerEvents = 'auto';
+                pcButton.onclick = function() {
+                  showPCStatus(pcData.id, pcButton);
+                  return false;
+                };
+              } else {
+                pcButton.classList.add('pc-available');
+                pcButton.disabled = false;
+                pcButton.style.cursor = 'pointer';
+                pcButton.style.opacity = '1';
+                pcButton.style.pointerEvents = 'auto';
+                pcButton.onclick = function() {
+                  selectPCForReservation(pcData.id, pcButton);
+                };
+              }
+            }
+          });
+          
+          // Update available count
+          var availableCount = data.pcs.filter(function(pc) {
+            return pc.booking_status === 'available' && 
+                   pc.system_condition !== 'repair' && 
+                   pc.status === 'connected';
+          }).length;
+          
+          var countElement = document.getElementById('available-count');
+          if (countElement) {
+            countElement.textContent = availableCount;
+          }
+        }
+      })
+      .catch(error => {
+        console.error('Error refreshing PC status:', error);
+      });
+  }
+  
+  // Make it globally accessible
+  window.refreshPCStatusForReservation = refreshPCStatusForReservation;
+  
+  // Refresh PC status every 2 seconds for faster updates
+  setInterval(refreshPCStatusForReservation, 2000);
+  // Also refresh immediately on page load
+  setTimeout(refreshPCStatusForReservation, 500);
+  
   // Also check when page becomes visible (user switches tabs back)
   document.addEventListener('visibilitychange', function() {
     if (!document.hidden) {
       console.log('Page became visible, checking active session');
       checkMyActiveSession();
+      // Also refresh PC status when page becomes visible
+      refreshPCStatusForReservation();
     }
   });
   

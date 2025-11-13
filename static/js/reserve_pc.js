@@ -344,6 +344,20 @@ function initReservePC() {
         // Show View QR button so user can view QR again after closing modal
         // Only show if user has an active booking (will be verified by checkAndShowViewQRButton)
         checkAndShowViewQRButton();
+        
+        // Immediately refresh PC status to show updated status to all users
+        if (typeof window.refreshPCStatusForReservation === 'function') {
+          // Refresh multiple times to ensure status is updated
+          setTimeout(function() {
+            window.refreshPCStatusForReservation();
+          }, 500);
+          setTimeout(function() {
+            window.refreshPCStatusForReservation();
+          }, 1500);
+          setTimeout(function() {
+            window.refreshPCStatusForReservation();
+          }, 3000);
+        }
 
         // Clear any old timer
         clearInterval(countdownInterval);

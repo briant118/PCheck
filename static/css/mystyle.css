@@ -69,16 +69,11 @@
 }
 
 /* Global */
-html, body {
+body {
     margin: 0;
     padding: 0;
-    margin-top: 0;
-    padding-top: 0;
-}
-
-body {
     overflow-x: hidden;
-    background: #F5F5DC;
+    background: #363636;
     min-height: 100vh;
 }
 
@@ -97,12 +92,10 @@ body:has(.sidebar) .wrapper {
     min-height: 100vh;
     width: 100%;
     margin: 0;
-    margin-top: 0;
     padding: 0;
-    padding-top: 0;
     position: relative;
     overflow-x: hidden;
-    background: #F5F5DC;
+    background: #363636;
 }
 
 /* Mobile: Prevent wrapper from shifting */
@@ -417,15 +410,11 @@ nav.sidebar,
 /* Default: full width (for users without sidebar) */
 .main-content {
     margin-left: 0;
-    margin-top: 0;
     padding: 0;
-    padding-top: 0;
     width: 100%;
     min-height: 100vh;
-    background: #F5F5DC;
+    background: #363636;
     transition: margin-left 0.3s ease-in-out, width 0.3s ease-in-out;
-    position: relative;
-    overflow-x: hidden;
 }
 
 /* If sidebar exists (staff), add margin and white background */
@@ -445,8 +434,7 @@ body:has(.sidebar) .main-content {
         padding-right: 0 !important;
         max-width: 100% !important;
         overflow-x: hidden;
-        background: #F5F5DC !important;
-        position: relative;
+        background: #363636 !important;
     }
     
     /* Admin main-content - white background on mobile */
@@ -458,13 +446,11 @@ body:has(.sidebar) .main-content {
     .content-wrapper {
         width: 100% !important;
         max-width: 100% !important;
-        padding: 0 1rem 1rem 1rem !important;
-        padding-top: 0 !important;
+        padding: 1rem !important;
         margin: 0 !important;
-        margin-top: 0 !important;
         box-sizing: border-box;
         background: #F5F5DC !important;
-        border-radius: 0;
+        border-radius: 0 0 20px 20px;
         min-height: calc(100vh - 80px);
     }
     
@@ -486,10 +472,8 @@ body:has(.sidebar) .main-content {
     body:not(:has(.sidebar)) .content-wrapper,
     body:not(:has(.sidebar)) #content {
         background: #F5F5DC !important;
-        border-radius: 0;
+        border-radius: 0 0 20px 20px;
         min-height: calc(100vh - 80px);
-        padding-top: 0 !important;
-        margin-top: 0 !important;
     }
     
     /* Desktop header for non-staff users - same as mobile */
@@ -599,9 +583,8 @@ body:has(.sidebar) .main-content {
     position: relative;
     z-index: 10;
     background: #F57C00;
-    border-radius: 0;
+    border-radius: 20px 20px 0 0;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    margin-top: 0 !important;
     margin-bottom: 0;
 }
 

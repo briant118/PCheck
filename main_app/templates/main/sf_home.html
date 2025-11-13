@@ -5,126 +5,24 @@
 
 {% block links %}
 <link rel="stylesheet" href="{% static 'css/booking.css' %}?v=10">
-<style>
-  /* PC View Background - No Image */
-  body:not(:has(.sidebar)) .main-content {
-    background: #F5F5DC;
-    min-height: 100vh;
-    position: relative;
-    width: 100% !important;
-    overflow-x: hidden;
-    margin-left: 0 !important;
-  }
-
-  /* Ensure content is above background */
-  body:not(:has(.sidebar)) .main-content > * {
-    position: relative;
-    z-index: 1;
-  }
-
-  @media (max-width: 991.98px) {
-    body:not(:has(.sidebar)) .main-content {
-      background: #F5F5DC;
-      width: 100% !important;
-      margin-left: 0 !important;
-      padding-left: 0 !important;
-      padding-right: 0 !important;
-    }
-  }
-</style>
 {% endblock %}
 
 {% block content %}
-<div class="mobile-reservation-container">
-  <!-- Available PC's Card Section - At the Top -->
-  <div class="available-pcs-card">
-    <div class="available-pcs-header">
-      <h2 class="available-pcs-title">Available PC's</h2>
-      <div class="available-count-badge">
-        <span class="available-count-number" id="available-count">{{ available_count|default:"0" }}</span>
-        <span class="available-count-label">Available</span>
-      </div>
+<div class="container">
+  <div class="card col-md-8 offset-md-2 shadow-lg mb-5 bg-body rounded-bottom rounded-5">
+    <div class="text-center card-title">
+      <div class="p-4 bg-warning rounded-bottom rounded-5"></div>
     </div>
-    <div class="reservation-datetime" id="current-datetime">
-      <i class="fa-solid fa-clock"></i>
-      <script>
-        (function() {
-          var now = new Date();
-          var months = ['January', 'February', 'March', 'April', 'May', 'June', 
-                       'July', 'August', 'September', 'October', 'November', 'December'];
-          var month = months[now.getMonth()];
-          var day = now.getDate();
-          var year = now.getFullYear();
-          var hours = now.getHours();
-          var minutes = now.getMinutes();
-          var ampm = hours >= 12 ? 'PM' : 'AM';
-          hours = hours % 12;
-          hours = hours ? hours : 12;
-          minutes = minutes < 10 ? '0' + minutes : minutes;
-          var dateTime = month + ' ' + day + ', ' + year + ' | ' + hours + ':' + minutes + ' ' + ampm;
-          document.getElementById('current-datetime').innerHTML = '<i class="fa-solid fa-clock"></i> ' + dateTime;
-        })();
-      </script>
-    </div>
-    
-    <!-- Status Legend Section -->
-    <div class="status-legend-inline">
-      <div class="legend-item available">
-        <div class="legend-icon">
-          <i class="fa-solid fa-desktop"></i>
-        </div>
-        <span class="legend-text">Available</span>
+    <div class="card-body p-5"> <!-- Card body -->
+      <div class="text-center">
+        <h2>Real-Time PC Availability Checker</h2>
+        <p class="fs-small">Find available PC in seconds</p>
       </div>
-      <div class="legend-item selected">
-        <div class="legend-icon">
-          <i class="fa-solid fa-desktop"></i>
-        </div>
-        <span class="legend-text">Selected</span>
+      <div class="text-center mt-5 mb-5">
+        <a href="{% url 'main_app:pc-reservation' %}" class="btn btn-lg btn-warning">Check available PCs</a>
       </div>
-      <div class="legend-item queue">
-        <div class="legend-icon">
-          <i class="fa-solid fa-desktop"></i>
-        </div>
-        <span class="legend-text">In Queue</span>
-      </div>
-      <div class="legend-item used">
-        <div class="legend-icon">
-          <i class="fa-solid fa-desktop"></i>
-        </div>
-        <span class="legend-text">Used</span>
-      </div>
-      <div class="legend-item repair">
-        <div class="legend-icon">
-          <i class="fa-solid fa-desktop"></i>
-        </div>
-        <span class="legend-text">Repair</span>
-      </div>
-    </div>
-  </div>
-  
-  <!-- Home Page Content Card -->
-  <div class="reservation-card">
-    <div class="reservation-body">
-      <div class="text-center mb-4">
-        <h3 style="color: #424242; font-weight: 600; margin-bottom: 0.5rem;">Real-Time PC Availability</h3>
-        <p style="color: #6c757d; font-size: 0.9rem;">Find and book available PCs instantly</p>
-      </div>
-      
-      <!-- Next Button -->
-      <a href="{% url 'main_app:pc-reservation' %}" class="next-button-modern" style="text-decoration: none;">
-        <span>Next</span>
-        <i class="fa-solid fa-arrow-right"></i>
-      </a>
-      
-      <!-- Bulk Booking Button (for faculty) -->
-      {% if request.user.profile.role|default:'' == 'faculty' %}
-      <a href="{% url 'main_app:pc-reservation' %}" class="btn btn-success w-100 mt-3" style="border-radius: 12px; padding: 1rem; font-weight: 600; font-size: 1rem; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
-        <i class="fa-solid fa-users"></i>
-        <span>Bulk booking for class</span>
-      </a>
-      {% endif %}
-    </div>
-  </div>
+    </div> <!-- end of card-body -->
+  </div> <!-- end of card -->
 </div>
 {% endblock %}
 
@@ -143,21 +41,6 @@ $(document).ready(function() {
             console.error("Error calling Django function:", error);
         }
     });
-    
-    // Update available count periodically
-    function updateAvailableCount() {
-        $.ajax({
-            url: "{% url 'main_app:pc-reservation' %}",
-            method: "GET",
-            success: function(data) {
-                // This would need to parse the response to get the count
-                // For now, we'll just refresh the page data
-            }
-        });
-    }
-    
-    // Update every 30 seconds
-    setInterval(updateAvailableCount, 30000);
 });
 </script>
 {% endblock %}

@@ -166,9 +166,67 @@ def get_pc_details(request, pk):
 def get_all_pc_status(request):
     """Get status of all PCs for dashboard auto-refresh"""
     try:
+        from django.utils import timezone
         pcs = models.PC.objects.all().order_by('sort_number')
         pc_statuses = []
         for pc in pcs:
+            # Sync booking_status with actual bookings to ensure accuracy
+            # Check for confirmed bookings first
+            confirmed_booking = models.Booking.objects.filter(
+                pc=pc,
+                status='confirmed'
+            ).exclude(status='cancelled').order_by('-created_at').first()
+            
+            if confirmed_booking and confirmed_booking.end_time:
+                now = timezone.now()
+                if confirmed_booking.end_time > now:
+                    # Booking is still active
+                    if pc.booking_status != 'in_use':
+                        pc.booking_status = 'in_use'
+                        pc.save(update_fields=['booking_status'])
+                else:
+                    # Booking expired, check for pending
+                    pending_booking = models.Booking.objects.filter(
+                        pc=pc,
+                        status__isnull=True
+                    ).exclude(status='cancelled').order_by('-created_at').first()
+                    if pending_booking:
+                        if pc.booking_status != 'in_queue':
+                            pc.booking_status = 'in_queue'
+                            pc.save(update_fields=['booking_status'])
+                    elif pc.booking_status != 'available':
+                        pc.booking_status = 'available'
+                        pc.save(update_fields=['booking_status'])
+            else:
+                # Check for pending bookings (status is None or not set)
+                # Important: Don't exclude cancelled here - we want to check ALL pending bookings
+                pending_booking = models.Booking.objects.filter(
+                    pc=pc,
+                    status__isnull=True
+                ).order_by('-created_at').first()
+                
+                # Also check if there's a cancelled pending booking that might interfere
+                # We only care about non-cancelled pending bookings
+                if pending_booking and pending_booking.status != 'cancelled':
+                    # There's a pending booking - PC should be in_queue
+                    if pc.booking_status != 'in_queue':
+                        pc.booking_status = 'in_queue'
+                        pc.save(update_fields=['booking_status'])
+                elif pc.booking_status in ['in_use', 'in_queue']:
+                    # No active or pending bookings, but status says otherwise
+                    # Double-check: look for any non-cancelled bookings
+                    has_any_active_booking = models.Booking.objects.filter(
+                        pc=pc
+                    ).exclude(status='cancelled').filter(
+                        Q(status='confirmed') | Q(status__isnull=True)
+                    ).exists()
+                    
+                    if not has_any_active_booking:
+                        # No bookings at all - set to available
+                        if pc.booking_status != 'available':
+                            pc.booking_status = 'available'
+                            pc.save(update_fields=['booking_status'])
+            
             pc_statuses.append({
                 'id': pc.id,
                 'name': pc.name,
@@ -1423,29 +1481,51 @@ def send_new_message(request, room_id):
 @login_required
 @staff_required
 def reservation_approved(request, pk):
-    booking = models.Booking.objects.get(pk=pk)
-    pc = models.PC.objects.get(pk=booking.pc.pk)
-    pc.approve()
-    booking.start_time = timezone.now()
-    # booking.duration is already a timedelta, so use it directly
-    booking.end_time = booking.start_time + booking.duration
-    booking.status = 'confirmed'
-    booking.save()
-    messages.success(request, "Reservation has been approved.")
-    return HttpResponseRedirect(reverse_lazy('main_app:bookings'))
+    try:
+        booking = models.Booking.objects.get(pk=pk)
+        pc = booking.pc
+        if not pc:
+            messages.error(request, "PC not found for this reservation.")
+            return HttpResponseRedirect(reverse_lazy('main_app:bookings'))
+        
+        pc.approve()
+        booking.start_time = timezone.now()
+        # booking.duration is already a timedelta, so use it directly
+        booking.end_time = booking.start_time + booking.duration
+        booking.status = 'confirmed'
+        booking.save()
+        messages.success(request, f"Reservation for {pc.name} has been approved.")
+        return HttpResponseRedirect(reverse_lazy('main_app:bookings'))
+    except models.Booking.DoesNotExist:
+        messages.error(request, "Reservation not found.")
+        return HttpResponseRedirect(reverse_lazy('main_app:bookings'))
+    except Exception as e:
+        messages.error(request, f"Error approving reservation: {str(e)}")
+        return HttpResponseRedirect(reverse_lazy('main_app:bookings'))
 
 
 @login_required
 @staff_required
 def reservation_declined(request, pk):
-    booking = models.Booking.objects.get(pk=pk)
-    pc = models.PC.objects.get(pk=booking.pc.pk)
-    pc.decline()
-    booking.status = 'cancelled'
-    booking.start_time = timezone.now()
-    booking.save()
-    messages.success(request, "Reservation has been declined.")
-    return HttpResponseRedirect(reverse_lazy('main_app:dashboard'))
+    try:
+        booking = models.Booking.objects.get(pk=pk)
+        pc = booking.pc
+        if not pc:
+            messages.error(request, "PC not found for this reservation.")
+            return HttpResponseRedirect(reverse_lazy('main_app:bookings'))
+        
+        pc.decline()
+        booking.status = 'cancelled'
+        booking.start_time = timezone.now()
+        booking.save()
+        messages.success(request, f"Reservation for {pc.name} has been declined.")
+        return HttpResponseRedirect(reverse_lazy('main_app:bookings'))
+    except models.Booking.DoesNotExist:
+        messages.error(request, "Reservation not found.")
+        return HttpResponseRedirect(reverse_lazy('main_app:bookings'))
+    except Exception as e:
+        messages.error(request, f"Error declining reservation: {str(e)}")
+        return HttpResponseRedirect(reverse_lazy('main_app:bookings'))
 
 
 @login_required
