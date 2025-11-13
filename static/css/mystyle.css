@@ -449,7 +449,7 @@ body:has(.sidebar) .main-content {
         padding: 1rem !important;
         margin: 0 !important;
         box-sizing: border-box;
-        background: #F5F5DC !important;
+        /*background: #F5F5DC !important;*/
         border-radius: 0 0 20px 20px;
         min-height: calc(100vh - 80px);
     }
@@ -471,7 +471,7 @@ body:has(.sidebar) .main-content {
     /* Content area for non-staff users - Light beige background */
     body:not(:has(.sidebar)) .content-wrapper,
     body:not(:has(.sidebar)) #content {
-        background: #F5F5DC !important;
+        background: url("../image/backgroun-psu.png") no-repeat center center / cover !important;
         border-radius: 0 0 20px 20px;
         min-height: calc(100vh - 80px);
     }

@@ -136,6 +136,19 @@ body {
     transform: translateY(0);
 }
 
+.password-group .toggle-password {
+    background: #f8f9fa;
+    border: 2px solid #e0e0e0;
+    border-left: none;
+    color: #6c757d;
+    transition: all 0.3s ease;
+}
+
+.password-group .toggle-password:hover {
+    background: #e9ecef;
+    color: #ff6b35;
+}
+
 .form-control {
     border-radius: 10px;
     border: 2px solid #e0e0e0;
@@ -270,12 +283,22 @@ body {
           </div>
           <input type="hidden" name="email" id="email_full">
           <div class="mt-2" style="max-width: auto;">
-            <input type="password" name="password" placeholder="Create a strong password" required class="form-control mb-2"
-              pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
-              title="Use at least 8 characters with uppercase, lowercase, and a number." autocomplete="new-password">
-            <input type="password" name="password2" placeholder="Re-enter the same password" required class="form-control mb-2"
-              pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
-              title="Repeat the password. It must match and meet all strength rules." autocomplete="new-password">
+            <div class="input-group password-group mb-2">
+              <input type="password" id="reg_password" name="password" placeholder="Create a strong password" required class="form-control"
+                pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
+                title="Use at least 8 characters with uppercase, lowercase, and a number." autocomplete="new-password">
+              <button type="button" class="toggle-password input-group-text" aria-label="Toggle password visibility" onclick="togglePasswordVisibility('reg_password', this)">
+                <i class="fa-solid fa-eye"></i>
+              </button>
+            </div>
+            <div class="input-group password-group mb-2">
+              <input type="password" id="reg_password_confirm" name="password2" placeholder="Re-enter the same password" required class="form-control"
+                pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
+                title="Repeat the password. It must match and meet all strength rules." autocomplete="new-password">
+              <button type="button" class="toggle-password input-group-text" aria-label="Toggle confirm password visibility" onclick="togglePasswordVisibility('reg_password_confirm', this)">
+                <i class="fa-solid fa-eye"></i>
+              </button>
+            </div>
             <small class="form-text text-muted d-block">
               Passwords must be 8 or more characters and include uppercase, lowercase, and at least one number.
             </small>
@@ -293,63 +316,93 @@ body {
 
 {% block scripts %}
 <script>
-// Load registration script after jQuery
-$(document).ready(function () {
-  console.log("Registration.js loaded");
-  
-  // Email validation regex
-  var regex = /^[a-zA-Z0-9]+$/;
-  
-  // Registration script
+document.addEventListener("DOMContentLoaded", function () {
+  console.log("Registration form script loaded");
+
+  const regex = /^[a-zA-Z0-9]+$/;
+  const form = document.getElementById("registrationForm");
+  const roleInput = document.getElementById("role");
+  const studentFields = document.getElementById("student-fields");
+
   // Handle next button clicks
-  $(".next").click(function(){
-    console.log("Next button clicked");
-    var nextStep = $(this).data("next");
-    console.log("Next step:", nextStep);
+  document.querySelectorAll(".next").forEach(function (button) {
+    button.addEventListener("click", function () {
+      const nextStep = this.dataset.next;
+      const currentStep = this.closest(".step");
 
-    // if role button clicked, set role value
-    if($(this).data("role")){
-      var role = $(this).data("role");
-      console.log("Role selected:", role);
-      $("#role").val(role);
-    }
+      if (this.dataset.role && roleInput) {
+        roleInput.value = this.dataset.role;
+        if (this.dataset.role === "student") {
+          studentFields.style.display = "block";
+        } else {
+          studentFields.style.display = "none";
+        }
+      }
 
-    $(this).closest(".step").removeClass("active");
-    $("#" + nextStep).addClass("active");
-    console.log("Step changed to:", nextStep);
-  });
-
-  // Handle form submit
-  $("#registrationForm").on("submit", function(e) {
-    // Temporarily disable required on hidden steps to avoid browser blocking
-    $(".step:not(.active)").find("input, select, textarea").each(function(){
-      var el = $(this);
-      if (el.prop('required')) {
-        el.data('was-required', true);
-        el.prop('required', false);
+      if (currentStep && nextStep) {
+        currentStep.classList.remove("active");
+        const nextStepElement = document.getElementById(nextStep);
+        if (nextStepElement) {
+          nextStepElement.classList.add("active");
+        }
       }
     });
-
-    // Validate email prefix
-    var prefix = $("#email_prefix").val().trim();
-    var domain = "@psu.palawan.edu.ph";
-
-    if (!regex.test(prefix)) {
-      alert("Email prefix must only contain letters and numbers (no @ or .).");
-      e.preventDefault();
-      return false;
-    }
-
-    // Validate password match
-    var password = $('input[name="password"]').val();
-    var password2 = $('input[name="password2"]').val();
-    
-    if (password !== password2) {
-      alert("Passwords do not match. Please re-enter your password.");
-      e.preventDefault();
-      return false;
-    }
   });
+
+  window.togglePasswordVisibility = function(targetId, button) {
+    const input = document.getElementById(targetId);
+    if (!input) {
+      console.warn("Password input not found for", targetId);
+      return;
+    }
+    const icon = button.querySelector("i");
+
+    if (input.type === "password") {
+      input.type = "text";
+      if (icon) {
+        icon.classList.remove("fa-eye");
+        icon.classList.add("fa-eye-slash");
+      }
+    } else {
+      input.type = "password";
+      if (icon) {
+        icon.classList.remove("fa-eye-slash");
+        icon.classList.add("fa-eye");
+      }
+    }
+  };
+
+  if (form) {
+    form.addEventListener("submit", function (e) {
+      // Temporarily disable required on hidden steps
+      document.querySelectorAll(".step:not(.active) input, .step:not(.active) select, .step:not(.active) textarea")
+        .forEach(function (el) {
+          if (el.hasAttribute("required")) {
+            el.dataset.wasRequired = "true";
+            el.removeAttribute("required");
+          }
+        });
+
+      const prefixInput = document.getElementById("email_prefix");
+      const passwordInput = document.querySelector('input[name="password"]');
+      const password2Input = document.querySelector('input[name="password2"]');
+
+      if (prefixInput) {
+        const prefix = prefixInput.value.trim();
+        if (!regex.test(prefix)) {
+          alert("Email prefix must only contain letters and numbers (no @ or .).");
+          e.preventDefault();
+          return;
+        }
+      }
+
+      if (passwordInput && password2Input && passwordInput.value !== password2Input.value) {
+        alert("Passwords do not match. Please re-enter your password.");
+        e.preventDefault();
+        return;
+      }
+    });
+  }
 });
 </script>
 {% endblock %}
