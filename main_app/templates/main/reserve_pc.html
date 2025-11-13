@@ -244,28 +244,48 @@ window.handleEndSession = function(e) {
   
   // Try multiple sources for booking_id
   // First try to get from the button that was clicked
-  var btn = e ? e.target : null;
-  if (!btn || !btn.getAttribute('data-booking-id')) {
-    // Try the pc-status-end-session-btn
-    btn = document.getElementById('pc-status-end-session-btn');
-  }
-  if (!btn || !btn.getAttribute('data-booking-id')) {
-    // Try the end-session-btn
-    btn = document.getElementById('end-session-btn');
+  var btn = e ? (e.target || e.currentTarget) : null;
+  
+  // If clicked element is the icon, get the parent button
+  if (btn && (btn.tagName === 'I' || btn.tagName === 'SPAN')) {
+    btn = btn.closest('button');
   }
   
-  var bookingId = window.currentBookingId || 
-                  (btn ? btn.getAttribute('data-booking-id') : null) ||
-                  (btn ? btn.dataset.bookingId : null);
+  var bookingId = null;
+  
+  // Try to get booking_id from clicked button
+  if (btn) {
+    bookingId = btn.getAttribute('data-booking-id') || btn.dataset.bookingId;
+  }
+  
+  // If not found, try window.currentBookingId
+  if (!bookingId) {
+    bookingId = window.currentBookingId;
+  }
+  
+  // If still not found, try other buttons
+  if (!bookingId) {
+    var endSessionBtn = document.getElementById('end-session-btn');
+    if (endSessionBtn) {
+      bookingId = endSessionBtn.getAttribute('data-booking-id');
+    }
+  }
+  
+  if (!bookingId) {
+    var pcStatusEndBtn = document.getElementById('pc-status-end-session-btn');
+    if (pcStatusEndBtn) {
+      bookingId = pcStatusEndBtn.getAttribute('data-booking-id');
+    }
+  }
   
   console.log('End session clicked');
   console.log('Current booking ID from window.currentBookingId:', window.currentBookingId);
-  console.log('Current booking ID from button data attribute:', btn ? btn.getAttribute('data-booking-id') : 'button not found');
-  console.log('Final booking ID to use:', bookingId);
+  console.log('Current booking ID from button:', bookingId);
+  console.log('Button element:', btn);
   
   if (!bookingId || bookingId === '' || bookingId === 'null' || bookingId === 'undefined') {
     console.error('Booking ID not found. All sources checked.');
-    alert('Error: Booking ID not found. Please check your session and try again.');
+    alert('Error: Booking ID not found. Please refresh the page and try again.');
     return false;
   }
   
@@ -338,6 +358,19 @@ window.selectPCForReservation = function(pcId, button) {
     return;
   }
   
+  // Check if user has active booking (quick check via data attribute or cached value)
+  // This is a client-side check, server-side validation will also prevent booking
+  if (window.__hasActiveBooking === true) {
+    alert('You already have an active booking. Please wait for your current booking to end before booking another PC.');
+    return;
+  }
+  
+  // Check if faculty has active booking
+  if (window.__hasActiveFacultyBooking === true) {
+    alert('You have an active faculty booking. Please wait for your current booking to be processed or cancelled before booking another PC.');
+    return;
+  }
+  
   // Get PC status from button data attributes
   const pcStatus = button.getAttribute('data-pc-status');
   const pcCondition = button.getAttribute('data-pc-condition');
@@ -400,7 +433,19 @@ window.selectPCForReservation = function(pcId, button) {
       if (isSelected) {
         btn.disabled = true;
       } else {
-        btn.disabled = false;
+        // Only re-enable if user doesn't have active booking
+        if (!window.__hasActiveBooking) {
+          // Still check for repair/offline/booking status
+          var pcCondition = btn.getAttribute('data-pc-condition');
+          var pcStatus = btn.getAttribute('data-pc-status');
+          var pcBookingStatus = btn.getAttribute('data-booking-status');
+          if (pcCondition !== 'repair' && 
+              pcStatus !== 'disconnected' &&
+              pcBookingStatus !== 'in_use' &&
+              pcBookingStatus !== 'in_queue') {
+            btn.disabled = false;
+          }
+        }
       }
     } else {
       if (isSelected) {
@@ -457,6 +502,12 @@ window.selectPCForReservation = function(pcId, button) {
 {% endblock %}
 
 {% block content %}
+<!-- Store user role for JavaScript -->
+<div data-user-role="{{ request.user.profile.role|default:'' }}" style="display: none;"></div>
+<script>
+  // Set global user role variable
+  window.userRole = '{{ request.user.profile.role|default:'' }}';
+</script>
 <div class="mobile-reservation-container">
   <div class="reservation-card">
     <!-- Available PC's Card Section -->
@@ -623,6 +674,271 @@ window.selectPCForReservation = function(pcId, button) {
           <i class="fa-solid fa-qrcode"></i> View QR Code
         </button>
       </div>
+      
+      <!-- Floating Timer Widget (always visible when user has active booking) -->
+      <div id="floatingTimerWidget" style="display: none; position: fixed; top: 20px; right: 20px; z-index: 1050;">
+        <!-- Minimized state (shows only timer) -->
+        <div class="floating-timer-minimized" id="floating-timer-minimized">
+          <div class="timer-mini-content" onclick="window.toggleFloatingTimer()">
+            <div id="floating-time-display-mini" class="timer-countdown-mini">--:--:--</div>
+          </div>
+          <div class="timer-mini-controls">
+            <button type="button" class="btn-timer-control" onclick="window.toggleFloatingTimer(); return false;" title="Expand">
+              <i class="fa-solid fa-chevron-down"></i>
+            </button>
+          </div>
+        </div>
+        
+        <!-- Expanded state (shows full widget) -->
+        <div class="floating-timer-container" id="floating-timer-expanded" style="display: none;">
+          <div class="floating-timer-header">
+            <i class="fa-solid fa-clock me-2"></i>
+            <span>Session Timer</span>
+            <div class="timer-header-controls">
+              <button type="button" class="btn-close-timer" onclick="window.toggleFloatingTimer(); return false;" title="Minimize">
+                <i class="fa-solid fa-chevron-up"></i>
+              </button>
+            </div>
+          </div>
+          <div class="floating-timer-display">
+            <div id="floating-time-display" class="timer-countdown">--:--:--</div>
+            <div id="floating-timer-status" class="timer-status">Active</div>
+          </div>
+          <div class="floating-timer-actions">
+            <button type="button" class="btn btn-danger btn-sm w-100" id="floating-end-session-btn" data-booking-id="" onclick="window.endMySession(this); return false;">
+              <i class="fa-solid fa-stop-circle me-2"></i> End Session
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <style>
+        /* Minimized timer (compact view) */
+        .floating-timer-minimized {
+          background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+          border-radius: 12px;
+          padding: 0.5rem;
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+          border: 2px solid #e9ecef;
+          transition: all 0.3s ease;
+          min-width: 140px;
+          animation: slideInRight 0.3s ease-out;
+        }
+        
+        .timer-mini-content {
+          text-align: center;
+          cursor: pointer;
+          padding: 0.25rem 0;
+        }
+        
+        .timer-mini-content:hover {
+          opacity: 0.8;
+        }
+        
+        .timer-mini-controls {
+          display: flex;
+          justify-content: center;
+          gap: 0.5rem;
+          margin-top: 0.25rem;
+          padding-top: 0.25rem;
+          border-top: 1px solid #e9ecef;
+        }
+        
+        .btn-timer-control {
+          background: none;
+          border: none;
+          color: #6c757d;
+          cursor: pointer;
+          padding: 0.25rem 0.5rem;
+          border-radius: 4px;
+          transition: all 0.2s ease;
+          font-size: 0.75rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        
+        .btn-timer-control:hover {
+          background: #f0f0f0;
+          color: #495057;
+        }
+        
+        .floating-timer-minimized:hover {
+          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+          transform: translateY(-2px);
+        }
+        
+        .timer-countdown-mini {
+          font-size: 1.1rem;
+          font-weight: 700;
+          color: #198754;
+          font-family: 'Courier New', monospace;
+          letter-spacing: 1px;
+          margin: 0;
+        }
+        
+        .timer-countdown-mini.warning {
+          color: #ffc107;
+        }
+        
+        .timer-countdown-mini.danger {
+          color: #dc3545;
+          animation: pulse 1s infinite;
+        }
+        
+        /* Expanded timer (full widget) */
+        .floating-timer-container {
+          background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+          border-radius: 16px;
+          padding: 1rem;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+          border: 2px solid #e9ecef;
+          min-width: 200px;
+          animation: slideInRight 0.3s ease-out;
+        }
+        
+        @keyframes slideInRight {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+        
+        .floating-timer-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          font-weight: 600;
+          color: #495057;
+          font-size: 0.9rem;
+          margin-bottom: 0.75rem;
+          padding-bottom: 0.5rem;
+          border-bottom: 1px solid #e9ecef;
+        }
+        
+        .timer-header-controls {
+          display: flex;
+          gap: 0.25rem;
+        }
+        
+        .btn-close-timer {
+          background: none;
+          border: none;
+          color: #6c757d;
+          cursor: pointer;
+          padding: 0.25rem 0.5rem;
+          border-radius: 4px;
+          transition: all 0.2s ease;
+          font-size: 0.8rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        
+        .btn-close-timer:hover {
+          background: #f0f0f0;
+          color: #495057;
+        }
+        
+        .floating-timer-display {
+          text-align: center;
+          margin-bottom: 0.75rem;
+        }
+        
+        .timer-countdown {
+          font-size: 1.5rem;
+          font-weight: 700;
+          color: #198754;
+          font-family: 'Courier New', monospace;
+          letter-spacing: 1px;
+          margin-bottom: 0.25rem;
+        }
+        
+        .timer-countdown.warning {
+          color: #ffc107;
+        }
+        
+        .timer-countdown.danger {
+          color: #dc3545;
+          animation: pulse 1s infinite;
+        }
+        
+        .timer-status {
+          font-size: 0.75rem;
+          color: #6c757d;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        
+        .floating-timer-actions {
+          margin-top: 0.5rem;
+        }
+        
+        .floating-timer-actions .btn {
+          border-radius: 8px;
+          font-weight: 600;
+          padding: 0.5rem 1rem;
+          transition: all 0.2s ease;
+        }
+        
+        .floating-timer-actions .btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+        }
+        
+        @keyframes pulse {
+          0%, 100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.7;
+          }
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+          #floatingTimerWidget {
+            top: 10px;
+            right: 10px;
+          }
+          
+          .floating-timer-container {
+            min-width: 180px;
+            padding: 0.75rem;
+          }
+          
+          .timer-countdown {
+            font-size: 1.25rem;
+          }
+        }
+      </style>
+      
+      <script>
+        // Toggle floating timer between minimized and expanded states
+        if (typeof window.toggleFloatingTimer === 'undefined') {
+          window.toggleFloatingTimer = function() {
+            var minimized = document.getElementById('floating-timer-minimized');
+            var expanded = document.getElementById('floating-timer-expanded');
+            
+            if (minimized && expanded) {
+              if (minimized.style.display === 'none') {
+                // Currently expanded, minimize it
+                minimized.style.display = 'block';
+                expanded.style.display = 'none';
+              } else {
+                // Currently minimized, expand it
+                minimized.style.display = 'none';
+                expanded.style.display = 'block';
+              }
+            }
+          };
+        }
+        
+      </script>
 
       {% if request.user.is_authenticated and request.user.profile.role|default:'' == 'faculty' %}
       <div class="text-center my-3">
@@ -905,16 +1221,29 @@ window.selectPCForReservation = function(pcId, button) {
         </p>
         <div id="session-time-info" style="display: none;">
           <p><strong>Time Remaining:</strong></p>
+          <!-- End Session Button at top of timer -->
+          <div class="mb-3" id="end-session-top-container">
+            <button type="button" class="btn btn-danger btn-lg" id="end-session-top-btn" style="display: none;" data-booking-id="" onclick="window.endMySession(this); return false;">
+              <i class="fa-solid fa-stop-circle me-2"></i> End Session
+            </button>
+          </div>
           <h2 class="text-primary" id="session-time-left">0h 0m</h2>
+          <p class="text-muted small mt-2" id="session-end-time"></p>
         </div>
         <div id="session-waiting" class="alert alert-warning">
           <i class="fa-solid fa-hourglass-half"></i><br>
           Waiting for staff approval...
+          <!-- End Session Button for pending bookings -->
+          <div class="mt-3" id="end-session-pending-container">
+            <button type="button" class="btn btn-danger btn-lg" id="end-session-pending-btn" style="display: none;" data-booking-id="" onclick="window.endMySession(this); return false;">
+              <i class="fa-solid fa-stop-circle me-2"></i> Cancel Booking
+            </button>
+          </div>
         </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-        <button type="button" class="btn btn-danger" id="end-session-btn" style="display: none;" data-booking-id="">
+        <button type="button" class="btn btn-danger" id="end-session-btn" style="display: none;" data-booking-id="" onclick="window.endMySession(this); return false;">
           <i class="fa-solid fa-stop-circle"></i> End Session Early
         </button>
       </div>
@@ -1221,23 +1550,39 @@ document.addEventListener('DOMContentLoaded', function() {
         showPCStatus(parseInt(button.getAttribute('data-pc-id')), button);
         return false;
       };
-    } else if (pcBookingStatus === 'in_use' || pcBookingStatus === 'in_queue') {
-      // Make sure used/queued PCs are clickable (not disabled)
-      button.disabled = false;
-      button.style.pointerEvents = 'auto';
-      button.style.cursor = 'pointer';
-      button.style.opacity = '1';
-      
-      // Ensure onclick handler is set
-      if (!button.onclick || button.onclick.toString().indexOf('showPCStatus') === -1) {
-        button.onclick = function(e) {
-          e.preventDefault();
-          e.stopPropagation();
-          showPCStatus(parseInt(button.getAttribute('data-pc-id')), button);
-          return false;
-        };
-      }
-    }
+     } else if (pcBookingStatus === 'in_use' || pcBookingStatus === 'in_queue') {
+       // Make sure used/queued PCs are clickable (not disabled) to show status
+       button.disabled = false;
+       button.style.pointerEvents = 'auto';
+       button.style.cursor = 'pointer';
+       button.style.opacity = '1';
+       
+       // Ensure onclick handler is set
+       if (!button.onclick || button.onclick.toString().indexOf('showPCStatus') === -1) {
+         button.onclick = function(e) {
+           e.preventDefault();
+           e.stopPropagation();
+           showPCStatus(parseInt(button.getAttribute('data-pc-id')), button);
+           return false;
+         };
+       }
+     } else {
+       // Available PC - check if user has active booking
+       if (window.__hasActiveBooking) {
+         button.disabled = true;
+         button.style.cursor = 'not-allowed';
+         button.style.opacity = '0.6';
+         button.style.pointerEvents = 'none';
+         button.onclick = function() {
+           return false;
+         };
+       } else {
+         button.disabled = false;
+         button.style.cursor = 'pointer';
+         button.style.opacity = '1';
+         button.style.pointerEvents = 'auto';
+       }
+     }
   });
   
   // Check if any PCs exist
@@ -2331,6 +2676,82 @@ function showMySessionModal() {
           statusEl.className = (data.status === 'in_use' || data.booking_status === 'confirmed') ? 'badge bg-success' : 'badge bg-warning';
         }
         
+        // ALWAYS show end session button if booking_id exists
+        if (data.booking_id) {
+          window.currentBookingId = data.booking_id;
+          console.log('Setting up end session buttons with booking_id:', data.booking_id);
+          
+          // Configure ALL end session buttons
+          var endSessionTopBtn = document.getElementById('end-session-top-btn');
+          var endSessionPendingBtn = document.getElementById('end-session-pending-btn');
+          
+          // Function to configure a button
+          function configureEndSessionButton(btn, btnName) {
+            if (btn) {
+              btn.setAttribute('data-booking-id', data.booking_id);
+              btn.setAttribute('onclick', 'window.endMySession(this); return false;');
+              btn.onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                return window.endMySession(this);
+              };
+              // Force show the button
+              btn.style.display = 'block';
+              btn.style.visibility = 'visible';
+              btn.style.opacity = '1';
+              btn.removeAttribute('hidden');
+              btn.removeAttribute('style'); // Remove inline style that might hide it
+              btn.style.display = 'block';
+              btn.style.visibility = 'visible';
+              btn.style.opacity = '1';
+              
+              // Also ensure parent container is visible
+              var parent = btn.parentElement;
+              if (parent) {
+                parent.style.display = 'block';
+                parent.style.visibility = 'visible';
+              }
+              
+              console.log(btnName + ' button configured and shown, booking_id:', data.booking_id);
+              console.log('Button computed style:', window.getComputedStyle(btn).display);
+              return true;
+            } else {
+              console.warn(btnName + ' button element not found');
+              return false;
+            }
+          }
+          
+          // Configure top button
+          configureEndSessionButton(endSessionTopBtn, 'Top end session');
+          
+          // Configure pending button
+          configureEndSessionButton(endSessionPendingBtn, 'Pending booking cancel');
+          
+          // Configure footer button
+          configureEndSessionButton(endSessionBtn, 'Footer end session');
+          
+          // Double-check after a short delay
+          setTimeout(function() {
+            console.log('Double-checking button visibility...');
+            if (endSessionTopBtn) {
+              console.log('Top button display:', endSessionTopBtn.style.display, 'computed:', window.getComputedStyle(endSessionTopBtn).display);
+              if (window.getComputedStyle(endSessionTopBtn).display === 'none') {
+                endSessionTopBtn.style.display = 'block';
+                endSessionTopBtn.style.setProperty('display', 'block', 'important');
+              }
+            }
+            if (endSessionBtn) {
+              console.log('Footer button display:', endSessionBtn.style.display, 'computed:', window.getComputedStyle(endSessionBtn).display);
+              if (window.getComputedStyle(endSessionBtn).display === 'none') {
+                endSessionBtn.style.display = 'block';
+                endSessionBtn.style.setProperty('display', 'block', 'important');
+              }
+            }
+          }, 100);
+        } else {
+          console.warn('No booking_id in response:', data);
+        }
+        
         if ((data.status === 'in_use' || data.booking_status === 'confirmed') && data.time_remaining) {
           // Show time info
           if (timeInfoEl) {
@@ -2343,38 +2764,24 @@ function showMySessionModal() {
             timeLeftEl.textContent = data.time_remaining;
           }
           
-          // Set booking_id and show end session button
-          if (endSessionBtn && data.booking_id) {
-            window.currentBookingId = data.booking_id;
-            endSessionBtn.setAttribute('data-booking-id', data.booking_id);
-            // Set onclick handler properly
-            endSessionBtn.onclick = function(e) {
-              if (e) {
-                e.preventDefault();
-                e.stopPropagation();
-              }
-              return window.handleEndSession(e);
-            };
-            endSessionBtn.style.display = 'block';
-            console.log('End session button configured with booking_id:', data.booking_id);
-            console.log('End session button shown with booking_id:', data.booking_id);
-          } else {
-            console.warn('End session button or booking_id not available');
-            if (endSessionBtn) {
-              endSessionBtn.style.display = 'none';
-            }
+          // Show end time if available
+          var endTimeEl = document.getElementById('session-end-time');
+          if (endTimeEl && data.end_time) {
+            var endTime = new Date(data.end_time);
+            endTimeEl.textContent = 'Session ends at: ' + endTime.toLocaleTimeString();
+          }
+          
+          // Start live countdown timer in modal
+          if (data.end_time) {
+            startModalCountdown(data.end_time, timeLeftEl);
           }
         } else {
-          // Show waiting message
+          // Show waiting message (booking in queue)
           if (timeInfoEl) {
             timeInfoEl.style.display = 'none';
           }
           if (waitingEl) {
             waitingEl.style.display = 'block';
-          }
-          if (endSessionBtn) {
-            endSessionBtn.style.display = 'none';
-            endSessionBtn.removeAttribute('data-booking-id');
           }
         }
         
@@ -2397,6 +2804,139 @@ function showMySessionModal() {
       alert('Error loading session information: ' + error.message);
     });
 };
+
+// Global variable for modal countdown
+var modalCountdownInterval = null;
+
+// Start live countdown timer in modal
+function startModalCountdown(endTimeStr, timeLeftEl) {
+  // Clear any existing countdown
+  if (modalCountdownInterval) {
+    clearInterval(modalCountdownInterval);
+  }
+  
+  var endTime = new Date(endTimeStr);
+  
+  // Update immediately
+  updateModalCountdown(endTime, timeLeftEl);
+  
+  // Update every second
+  modalCountdownInterval = setInterval(function() {
+    updateModalCountdown(endTime, timeLeftEl);
+  }, 1000);
+}
+
+// Update modal countdown display
+function updateModalCountdown(endTime, timeLeftEl) {
+  if (!timeLeftEl) return;
+  
+  var now = new Date();
+  var diff = endTime - now;
+  
+  if (diff > 0) {
+    var hours = Math.floor(diff / (1000 * 60 * 60));
+    var minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    var seconds = Math.floor((diff % (1000 * 60)) / 1000);
+    
+    var timeStr = '';
+    if (hours > 0) {
+      timeStr = hours + 'h ' + minutes + 'm ' + seconds + 's';
+    } else if (minutes > 0) {
+      timeStr = minutes + 'm ' + seconds + 's';
+    } else {
+      timeStr = seconds + 's';
+    }
+    
+    timeLeftEl.textContent = timeStr;
+    
+    // Change color if less than 5 minutes
+    if (diff < 5 * 60 * 1000) {
+      timeLeftEl.className = 'text-danger';
+    } else {
+      timeLeftEl.className = 'text-primary';
+    }
+  } else {
+    timeLeftEl.textContent = 'Expired';
+    timeLeftEl.className = 'text-danger';
+    if (modalCountdownInterval) {
+      clearInterval(modalCountdownInterval);
+      modalCountdownInterval = null;
+    }
+  }
+}
+
+// Simple function to end session directly from button
+window.endMySession = function(button) {
+  var bookingId = button.getAttribute('data-booking-id') || window.currentBookingId;
+  
+  console.log('endMySession called, booking_id:', bookingId);
+  
+  if (!bookingId || bookingId === '' || bookingId === 'null') {
+    alert('Error: Booking ID not found. Please refresh the page.');
+    return false;
+  }
+  
+  if (confirm('Are you sure you want to end your session early?')) {
+    var url = '/ajax/end-session/' + bookingId + '/';
+    console.log('Calling end session URL:', url);
+    
+    // Get CSRF token
+    var csrftoken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                    document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+    
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': csrftoken,
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(response => {
+      console.log('Response status:', response.status);
+      if (!response.ok) {
+        return response.text().then(text => {
+          console.error('Error response:', text);
+          throw new Error('HTTP error! status: ' + response.status);
+        });
+      }
+      return response.json();
+    })
+    .then(data => {
+      console.log('End session response:', data);
+      if (data.success) {
+        alert(data.message || 'Session ended successfully');
+        // Close the modal
+        var modal = bootstrap.Modal.getInstance(document.getElementById('mySessionModal'));
+        if (modal) {
+          modal.hide();
+        }
+        // Reload page
+        location.reload();
+      } else {
+        alert('Error: ' + (data.error || data.message || 'Failed to end session'));
+      }
+    })
+    .catch(error => {
+      console.error('Error ending session:', error);
+      alert('Error: Failed to end session. ' + error.message + '\nPlease try again.');
+    });
+  }
+  
+  return false;
+};
+
+// Clear modal countdown when modal is closed
+document.addEventListener('DOMContentLoaded', function() {
+  var mySessionModal = document.getElementById('mySessionModal');
+  if (mySessionModal) {
+    mySessionModal.addEventListener('hidden.bs.modal', function() {
+      if (modalCountdownInterval) {
+        clearInterval(modalCountdownInterval);
+        modalCountdownInterval = null;
+      }
+    });
+  }
+});
 
 // Add session check button and polling
 document.addEventListener('DOMContentLoaded', function() {
@@ -2662,13 +3202,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 };
               } else {
                 pcButton.classList.add('pc-available');
-                pcButton.disabled = false;
-                pcButton.style.cursor = 'pointer';
-                pcButton.style.opacity = '1';
-                pcButton.style.pointerEvents = 'auto';
-                pcButton.onclick = function() {
-                  selectPCForReservation(pcData.id, pcButton);
-                };
+                // Check if user has active booking - if so, disable selection
+                if (window.__hasActiveBooking) {
+                  pcButton.disabled = true;
+                  pcButton.style.cursor = 'not-allowed';
+                  pcButton.style.opacity = '0.6';
+                  pcButton.style.pointerEvents = 'none';
+                  pcButton.onclick = function() {
+                    return false;
+                  };
+                } else {
+                  pcButton.disabled = false;
+                  pcButton.style.cursor = 'pointer';
+                  pcButton.style.opacity = '1';
+                  pcButton.style.pointerEvents = 'auto';
+                  pcButton.onclick = function() {
+                    selectPCForReservation(pcData.id, pcButton);
+                  };
+                }
               }
             }
           });
@@ -2683,6 +3234,14 @@ document.addEventListener('DOMContentLoaded', function() {
           var countElement = document.getElementById('available-count');
           if (countElement) {
             countElement.textContent = availableCount;
+          }
+          
+          // After updating PC buttons, re-check and disable if user has active booking
+          // This ensures buttons stay disabled even after refresh
+          if (typeof window.checkAndDisablePCSelection === 'function') {
+            window.checkAndDisablePCSelection();
+          } else if (typeof checkAndDisablePCSelection === 'function') {
+            checkAndDisablePCSelection();
           }
         }
       })

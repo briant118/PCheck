@@ -415,6 +415,33 @@ def add_pc_from_form(request):
 @login_required
 def submit_block_booking(request):
     if request.method == "POST":
+        # Check if faculty already has an active booking (pending or confirmed)
+        from django.utils import timezone
+        active_booking = models.FacultyBooking.objects.filter(
+            faculty=request.user
+        ).exclude(status='cancelled').order_by('-created_at').first()
+        
+        if active_booking:
+            status = active_booking.status or 'pending'
+            has_active_booking = status in ['pending', 'confirmed']
+            
+            # If confirmed, check if booking hasn't expired
+            if status == 'confirmed' and active_booking.end_datetime:
+                now = timezone.now()
+                if active_booking.end_datetime.tzinfo:
+                    remaining = active_booking.end_datetime - now
+                else:
+                    from datetime import datetime
+                    remaining = active_booking.end_datetime - datetime.now()
+                # If expired, allow new booking
+                if remaining.total_seconds() <= 0:
+                    has_active_booking = False
+            
+            if has_active_booking:
+                from django.contrib import messages
+                messages.error(request, f'You already have an active booking ({status}). Please wait for your current booking to be processed or cancelled before creating a new one.')
+                return HttpResponseRedirect(reverse_lazy('main_app:reserve-pc'))
+        
         cust_num_of_pc = request.POST.get('custNumOfPc')
         num_of_pc = request.POST.get('numOfPc')
         course = request.POST.get('course')
@@ -863,6 +890,44 @@ def reserve_pc(request):
                     "success": False,
                     "error": "Missing pc_id or duration"
                 }, status=400)
+
+            # Check if user already has an active booking (confirmed or in queue)
+            # First check for pending bookings (in queue)
+            pending_booking = models.Booking.objects.filter(
+                user=request.user,
+                status__isnull=True
+            ).exclude(status='cancelled').first()
+            
+            if pending_booking:
+                return JsonResponse({
+                    "success": False,
+                    "error": "You already have a booking in queue. Please wait for approval or cancellation before booking another PC."
+                }, status=400)
+            
+            # Check for confirmed bookings that haven't expired
+            now = timezone.now()
+            confirmed_bookings = models.Booking.objects.filter(
+                user=request.user,
+                status='confirmed'
+            ).exclude(status='cancelled')
+            
+            for booking in confirmed_bookings:
+                if booking.end_time:
+                    if booking.end_time.tzinfo:
+                        remaining = booking.end_time - now
+                    else:
+                        remaining = booking.end_time - datetime.now()
+                    if remaining.total_seconds() > 0:
+                        return JsonResponse({
+                            "success": False,
+                            "error": "You already have an active booking. Please wait for your current booking to end before booking another PC."
+                        }, status=400)
+                else:
+                    # Confirmed booking without end_time, consider it active
+                    return JsonResponse({
+                        "success": False,
+                        "error": "You already have an active booking. Please wait for your current booking to end before booking another PC."
+                    }, status=400)
 
             pc = get_object_or_404(models.PC, id=pc_id)
             
@@ -2531,20 +2596,47 @@ def check_faculty_booking_status(request):
 def check_my_faculty_booking_status(request):
     """Return status of the most recent FacultyBooking created by the current user (faculty)."""
     try:
+        from django.utils import timezone
+        
         fb = models.FacultyBooking.objects.filter(
             faculty=request.user
         ).order_by('-created_at').first()
 
         if not fb:
-            return JsonResponse({'has_update': False})
+            return JsonResponse({
+                'has_update': False,
+                'has_active_booking': False
+            })
+
+        # Check if booking is active (pending or confirmed, not cancelled)
+        # Also check if confirmed booking hasn't expired
+        status = fb.status or 'pending'
+        has_active_booking = status in ['pending', 'confirmed'] and status != 'cancelled'
+        
+        # If confirmed, check if booking hasn't expired
+        if status == 'confirmed' and fb.end_datetime:
+            now = timezone.now()
+            if fb.end_datetime.tzinfo:
+                remaining = fb.end_datetime - now
+            else:
+                from datetime import datetime
+                remaining = fb.end_datetime - datetime.now()
+            # If expired, it's no longer active
+            if remaining.total_seconds() <= 0:
+                has_active_booking = False
 
         return JsonResponse({
             'has_update': True,
+            'has_active_booking': has_active_booking,
             'booking_id': fb.id,
-            'status': fb.status or 'pending',
+            'status': status,
             'start': fb.start_datetime.isoformat() if fb.start_datetime else None,
             'end': fb.end_datetime.isoformat() if fb.end_datetime else None,
             'num_devices': fb.num_of_devices,
         })
     except Exception as e:
-        return JsonResponse({'has_update': False, 'error': str(e)}, status=500)
+        return JsonResponse({
+            'has_update': False,
+            'has_active_booking': False,
+            'error': str(e)
+        }, status=500)

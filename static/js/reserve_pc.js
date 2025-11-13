@@ -153,6 +153,81 @@ function initReservePC() {
   let countdownInterval;
   let approvalChecker;
 
+  // Check if user has active booking and disable PC selection if they do
+  // Make it globally accessible
+  window.checkAndDisablePCSelection = function() {
+    $.ajax({
+      url: '/ajax/get-my-active-booking/',
+      method: 'GET',
+      success: function(data) {
+        console.log('Checking for active booking to disable PC selection:', data);
+        
+        // Check if user has an active booking (confirmed or in queue)
+        var hasActiveBooking = data.has_booking === true && 
+                              data.booking_id && 
+                              data.booking_status !== 'cancelled' &&
+                              data.time_remaining !== 'Expired';
+        
+        // Set global flag for template function to check
+        window.__hasActiveBooking = hasActiveBooking;
+        
+        if (hasActiveBooking) {
+          // Disable all PC buttons
+          $('.pc-button-modern, .pc-button').each(function() {
+            var $btn = $(this);
+            // Only disable if not already disabled for other reasons (repair, offline)
+            if (!$btn.prop('disabled') && 
+                $btn.attr('data-pc-condition') !== 'repair' && 
+                $btn.attr('data-pc-status') !== 'disconnected') {
+              $btn.prop('disabled', true);
+              $btn.css({
+                'cursor': 'not-allowed',
+                'opacity': '0.6',
+                'pointer-events': 'none'
+              });
+              
+              // Remove click handler
+              $btn.off('click');
+              $btn.attr('onclick', 'return false;');
+            }
+          });
+          
+          // Disable Next button
+          $('.reserve-next-button').prop('disabled', true).css('opacity', '0.6');
+          
+          // Remove any existing warning message (if user wants it removed)
+          $('#active-booking-warning').remove();
+        } else {
+          // User has no active booking, ensure buttons are enabled (if not disabled for other reasons)
+          window.__hasActiveBooking = false;
+          
+          $('.pc-button-modern, .pc-button').each(function() {
+            var $btn = $(this);
+            // Only enable if not disabled for repair/offline reasons
+            if ($btn.attr('data-pc-condition') !== 'repair' && 
+                $btn.attr('data-pc-status') !== 'disconnected' &&
+                $btn.attr('data-booking-status') !== 'in_use' &&
+                $btn.attr('data-booking-status') !== 'in_queue') {
+              $btn.prop('disabled', false);
+              $btn.css({
+                'cursor': 'pointer',
+                'opacity': '1',
+                'pointer-events': 'auto'
+              });
+            }
+          });
+          
+          // Remove warning message
+          $('#active-booking-warning').remove();
+        }
+      },
+      error: function(xhr, status, error) {
+        console.error('Error checking active booking:', error);
+        // On error, don't disable buttons (fail open)
+      }
+    });
+  }
+
   // Check if current user has an active booking before showing View QR button
   // Only show View QR button if user has an active booking
   function checkAndShowViewQRButton() {
@@ -341,6 +416,12 @@ function initReservePC() {
           console.error('Error saving QR code to localStorage:', e);
         }
         
+        // Set active booking flag - user now has a booking in queue
+        window.__hasActiveBooking = true;
+        
+        // Disable PC selection since booking is now in queue
+        checkAndDisablePCSelection();
+        
         // Show View QR button so user can view QR again after closing modal
         // Only show if user has an active booking (will be verified by checkAndShowViewQRButton)
         checkAndShowViewQRButton();
@@ -427,6 +508,16 @@ function initReservePC() {
           $("#qrModal").fadeOut();
           $("#viewQRButtonContainer").hide();
           $("#viewQRCodeButtonNext").hide();
+          
+          // Update active booking flag - user now has confirmed booking
+          window.__hasActiveBooking = true;
+          
+          // Disable PC selection since booking is now confirmed
+          checkAndDisablePCSelection();
+          
+          // Show floating booking button
+          checkAndShowFloatingBookingButton();
+          
           // Clear localStorage when booking is confirmed (finished)
           try {
             localStorage.removeItem('qrCodeData');
@@ -480,6 +571,20 @@ function initReservePC() {
         else if (status === "cancelled"){
           var qrModalCancelled = getBsModal("#qrModal");
           if (qrModalCancelled) qrModalCancelled.hide();
+          
+          // Clear active booking flag - booking was cancelled
+          window.__hasActiveBooking = false;
+          
+          // Re-enable PC selection
+          checkAndDisablePCSelection();
+          
+          // Hide floating booking button
+          $('#floatingTimerWidget').hide();
+          if (floatingBookingCountdownInterval) {
+            clearInterval(floatingBookingCountdownInterval);
+            floatingBookingCountdownInterval = null;
+          }
+          
           clearInterval(approvalChecker);
           // Clear the QR expiration countdown timer
           clearInterval(countdownInterval);
@@ -666,6 +771,15 @@ function initReservePC() {
         // So don't show View QR button - hide it instead
         $("#viewQRButtonContainer").hide();
         $("#viewQRCodeButtonNext").hide();
+        
+        // Clear active booking flag
+        window.__hasActiveBooking = false;
+        
+        // Re-enable PC selection
+        checkAndDisablePCSelection();
+        
+        // Hide floating booking button
+        checkAndShowFloatingBookingButton();
         
         // Clear QR data when booking is cancelled
         if (window.__lastQR__) {
@@ -970,6 +1084,16 @@ function initReservePC() {
         $("#viewQRButtonContainer").hide();
         $("#viewQRCodeButtonNext").hide();
         
+        // Clear active booking flag
+        window.__hasActiveBooking = false;
+        
+        // Hide floating booking button
+        $('#floatingMyBookingBtn').hide();
+        if (floatingBookingCountdownInterval) {
+          clearInterval(floatingBookingCountdownInterval);
+          floatingBookingCountdownInterval = null;
+        }
+        
         // Clear QR data
         if (window.__lastQR__) {
           window.__lastQR__ = null;
@@ -1077,6 +1201,217 @@ function initReservePC() {
     }, 10000);
   }
   
+  // Check if faculty has active booking and disable PC selection if they do
+  // Make it globally accessible
+  window.checkAndDisableFacultyPCSelection = function() {
+    $.ajax({
+      url: '/ajax/check-my-faculty-booking-status/',
+      method: 'GET',
+      success: function(data) {
+        console.log('Checking for faculty active booking to disable PC selection:', data);
+        
+        // Check if faculty has an active booking (pending or confirmed)
+        var hasActiveBooking = data.has_active_booking === true;
+        
+        // Set global flag for template function to check
+        window.__hasActiveFacultyBooking = hasActiveBooking;
+        
+        // Get all faculty booking elements
+        var $pcGroupButtons = $('.pc-group-number');
+        var $customInput = $('#customNumOfPc');
+        var $customMinusBtn = $('#fb-minusBtn');
+        var $customPlusBtn = $('#fb-plusBtn');
+        var $blockButtonNext = $('#block-button-next');
+        var $blockButton = $('#block-button');
+        
+        if (hasActiveBooking) {
+          // Disable all individual PC buttons (for student booking section)
+          $('.pc-button-modern, .pc-button').each(function() {
+            var $btn = $(this);
+            // Only disable if not already disabled for repair/offline reasons
+            var pcCondition = $btn.attr('data-pc-condition');
+            var pcStatus = $btn.attr('data-pc-status');
+            if (pcCondition !== 'repair' && pcStatus !== 'disconnected') {
+              $btn.prop('disabled', true);
+              $btn.css({
+                'cursor': 'not-allowed',
+                'opacity': '0.6',
+                'pointer-events': 'none'
+              });
+              $btn.removeClass('selected', 'pc-selected');
+              // Remove onclick handler and replace with disabled handler
+              var pcId = $btn.attr('data-pc-id');
+              if (pcId) {
+                $btn.attr('onclick', 'event.preventDefault(); event.stopPropagation(); alert("You have an active faculty booking. Please wait for your current booking to be processed or cancelled before booking another PC."); return false;');
+              }
+            }
+          });
+          
+          // Disable all PC group buttons
+          $pcGroupButtons.each(function() {
+            var $btn = $(this);
+            $btn.prop('disabled', true);
+            $btn.css({
+              'cursor': 'not-allowed',
+              'opacity': '0.6',
+              'pointer-events': 'none'
+            });
+            $btn.removeClass('bg-warning');
+            $btn.off('click');
+            $btn.attr('onclick', 'return false;');
+          });
+          
+          // Disable custom input and buttons
+          if ($customInput.length) {
+            $customInput.prop('disabled', true);
+            $customInput.css({
+              'cursor': 'not-allowed',
+              'opacity': '0.6'
+            });
+          }
+          if ($customMinusBtn.length) {
+            $customMinusBtn.prop('disabled', true);
+            $customMinusBtn.css({
+              'cursor': 'not-allowed',
+              'opacity': '0.6'
+            });
+          }
+          if ($customPlusBtn.length) {
+            $customPlusBtn.prop('disabled', true);
+            $customPlusBtn.css({
+              'cursor': 'not-allowed',
+              'opacity': '0.6'
+            });
+          }
+          
+          // Hide Next button
+          if ($blockButtonNext.length) {
+            $blockButtonNext.prop('disabled', true);
+            $blockButtonNext.prop('hidden', true);
+            $blockButtonNext.css('opacity', '0.6');
+          }
+          
+          // Disable block button (prevent opening faculty booking section)
+          if ($blockButton.length) {
+            $blockButton.prop('disabled', true);
+            $blockButton.css({
+              'cursor': 'not-allowed',
+              'opacity': '0.6'
+            });
+            $blockButton.off('click');
+            $blockButton.attr('onclick', 'return false;');
+          }
+          
+          // Show warning message if not already shown
+          if ($('#faculty-active-booking-warning').length === 0) {
+            var warningHtml = `
+              <div id="faculty-active-booking-warning" class="alert alert-warning alert-dismissible fade show" role="alert" style="
+                margin-bottom: 1rem;
+                border-radius: 8px;
+                box-shadow: 0 2px 8px rgba(255, 193, 7, 0.2);
+              ">
+                <i class="fa-solid fa-triangle-exclamation me-2"></i>
+                <strong>You have an active booking (${data.status || 'pending'}).</strong> Please wait for your current booking to be processed or cancelled before creating a new one.
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+              </div>
+            `;
+            var $facultyBookingSection = $('#faculty-booking-pc-group');
+            if ($facultyBookingSection.length) {
+              $facultyBookingSection.prepend(warningHtml);
+            } else {
+              // If section is hidden, prepend to reservation body
+              var $reservationBody = $('.reservation-body');
+              if ($reservationBody.length) {
+                $reservationBody.prepend(warningHtml);
+              }
+            }
+          }
+        } else {
+          // Faculty has no active booking, ensure buttons are enabled
+          window.__hasActiveFacultyBooking = false;
+          
+          // Re-enable individual PC buttons (only if not disabled for other reasons)
+          $('.pc-button-modern, .pc-button').each(function() {
+            var $btn = $(this);
+            // Only enable if not disabled for repair/offline/booking reasons
+            if ($btn.attr('data-pc-condition') !== 'repair' && 
+                $btn.attr('data-pc-status') !== 'disconnected' &&
+                $btn.attr('data-booking-status') !== 'in_use' &&
+                $btn.attr('data-booking-status') !== 'in_queue' &&
+                !window.__hasActiveBooking) { // Also check student booking status
+              $btn.prop('disabled', false);
+              $btn.css({
+                'cursor': 'pointer',
+                'opacity': '1',
+                'pointer-events': 'auto'
+              });
+              // Restore onclick handler (will be handled by selectPCForReservation)
+              var pcId = $btn.attr('data-pc-id');
+              if (pcId) {
+                $btn.attr('onclick', 'selectPCForReservation(' + pcId + ', this); return false;');
+              }
+            }
+          });
+          
+          // Enable PC group buttons
+          $pcGroupButtons.each(function() {
+            var $btn = $(this);
+            $btn.prop('disabled', false);
+            $btn.css({
+              'cursor': 'pointer',
+              'opacity': '1',
+              'pointer-events': 'auto'
+            });
+            // Restore click handler
+            $btn.attr('onclick', 'handlePcGroupClick(this)');
+          });
+          
+          // Enable custom input and buttons
+          if ($customInput.length) {
+            $customInput.prop('disabled', false);
+            $customInput.css({
+              'cursor': 'text',
+              'opacity': '1'
+            });
+          }
+          if ($customMinusBtn.length) {
+            $customMinusBtn.prop('disabled', false);
+            $customMinusBtn.css({
+              'cursor': 'pointer',
+              'opacity': '1'
+            });
+          }
+          if ($customPlusBtn.length) {
+            $customPlusBtn.prop('disabled', false);
+            $customPlusBtn.css({
+              'cursor': 'pointer',
+              'opacity': '1'
+            });
+          }
+          
+          // Enable block button
+          if ($blockButton.length) {
+            $blockButton.prop('disabled', false);
+            $blockButton.css({
+              'cursor': 'pointer',
+              'opacity': '1'
+            });
+            $blockButton.off('click');
+            $blockButton.removeAttr('onclick');
+          }
+          
+          // Remove warning message
+          $('#faculty-active-booking-warning').remove();
+        }
+      },
+      error: function(xhr, status, error) {
+        console.error('Error checking faculty active booking:', error);
+        // On error, don't disable buttons (fail open)
+        // But only if user is actually faculty (we can't determine this easily, so we'll just log)
+      }
+    });
+  }
+
   // Function to show styled alert modal
   function showStyledAlert(title, message, type, callback) {
     // Remove existing alert modal if any
@@ -1144,11 +1479,48 @@ function initReservePC() {
     }
   }
 
-  $blockButton.on("click", function () {
-    $("#students-booking").hide();
-    $("#legend").hide();
-    $("#faculty-booking-pc-group").prop("hidden", false);
-    $(this).prop("hidden", true);
+  $blockButton.on("click", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    var $btn = $(this);
+    
+    // Check if faculty has active booking before allowing access
+    if (window.__hasActiveFacultyBooking === true) {
+      alert('You have an active booking. Please wait for your current booking to be processed or cancelled before creating a new one.');
+      return false;
+    }
+    
+    // Also check server-side to be sure
+    $.ajax({
+      url: '/ajax/check-my-faculty-booking-status/',
+      method: 'GET',
+      success: function(data) {
+        if (data.has_active_booking === true) {
+          alert('You have an active booking (' + (data.status || 'pending') + '). Please wait for your current booking to be processed or cancelled before creating a new one.');
+          // Update the flag
+          window.__hasActiveFacultyBooking = true;
+          // Re-check and disable
+          checkAndDisableFacultyPCSelection();
+          return false;
+        } else {
+          // No active booking, proceed
+          $("#students-booking").hide();
+          $("#legend").hide();
+          $("#faculty-booking-pc-group").prop("hidden", false);
+          $btn.prop("hidden", true);
+        }
+      },
+      error: function() {
+        // On error, allow access (fail open)
+        $("#students-booking").hide();
+        $("#legend").hide();
+        $("#faculty-booking-pc-group").prop("hidden", false);
+        $btn.prop("hidden", true);
+      }
+    });
+    
+    return false;
   });
 
   $pcGroupButton.click(function () {
@@ -1204,7 +1576,223 @@ function initReservePC() {
   
   // Check on page load if user has active booking and show View QR button
   checkAndShowViewQRButton();
+  
+  // Check on page load if user has active booking and disable PC selection
+  checkAndDisablePCSelection();
+  
+  // Check on page load if faculty has active booking and disable PC selection
+  checkAndDisableFacultyPCSelection();
+  
+  // Check and show floating booking button
+  checkAndShowFloatingBookingButton();
+  
+  // Periodically check and update PC selection state (every 10 seconds)
+  setInterval(function() {
+    checkAndDisablePCSelection();
+    checkAndDisableFacultyPCSelection();
+  }, 10000);
+  
+  // Periodically update floating booking button (every second for countdown)
+  setInterval(function() {
+    updateFloatingBookingButton();
+  }, 1000);
   });
+}
+
+// Global variable to store countdown interval
+var floatingBookingCountdownInterval = null;
+
+// Check and show floating timer widget
+function checkAndShowFloatingBookingButton() {
+  $.ajax({
+    url: '/ajax/get-my-active-booking/',
+    method: 'GET',
+    success: function(data) {
+      var floatingWidget = $('#floatingTimerWidget');
+      var timeDisplay = $('#floating-time-display');
+      var timerStatus = $('#floating-timer-status');
+      var endSessionBtn = $('#floating-end-session-btn');
+      
+      if (data.has_booking === true && 
+          data.booking_id && 
+          data.booking_status !== 'cancelled' &&
+          data.time_remaining !== 'Expired') {
+        // Show floating timer widget
+        floatingWidget.show();
+        
+        // Set booking ID on end session button
+        if (endSessionBtn.length) {
+          endSessionBtn.attr('data-booking-id', data.booking_id);
+        }
+        
+        // Start countdown if booking is confirmed
+        if (data.booking_status === 'confirmed' && data.end_time) {
+          timerStatus.text('Active');
+          startFloatingCountdown(data.end_time);
+        } else {
+          // Show waiting message
+          timeDisplay.text('--:--:--');
+          var timeDisplayMini = $('#floating-time-display-mini');
+          if (timeDisplayMini.length) {
+            timeDisplayMini.text('--:--:--');
+          }
+          timerStatus.text('Waiting Approval');
+          timeDisplay.removeClass('warning danger');
+          if (timeDisplayMini.length) {
+            timeDisplayMini.removeClass('warning danger');
+          }
+        }
+        
+        // Start in minimized state by default
+        var minimized = document.getElementById('floating-timer-minimized');
+        var expanded = document.getElementById('floating-timer-expanded');
+        if (minimized && expanded) {
+          minimized.style.display = 'block';
+          expanded.style.display = 'none';
+        }
+      } else {
+        // Hide floating timer widget
+        floatingWidget.hide();
+        if (floatingBookingCountdownInterval) {
+          clearInterval(floatingBookingCountdownInterval);
+          floatingBookingCountdownInterval = null;
+        }
+      }
+    },
+    error: function(xhr, status, error) {
+      console.error('Error checking active booking for floating timer:', error);
+    }
+  });
+}
+
+// Update floating timer widget with live countdown
+function updateFloatingBookingButton() {
+  $.ajax({
+    url: '/ajax/get-my-active-booking/',
+    method: 'GET',
+    success: function(data) {
+      var floatingWidget = $('#floatingTimerWidget');
+      var timeDisplay = $('#floating-time-display');
+      var timerStatus = $('#floating-timer-status');
+      var endSessionBtn = $('#floating-end-session-btn');
+      
+      if (data.has_booking === true && 
+          data.booking_id && 
+          data.booking_status !== 'cancelled' &&
+          data.time_remaining !== 'Expired') {
+        floatingWidget.show();
+        
+        // Set booking ID on end session button
+        if (endSessionBtn.length) {
+          endSessionBtn.attr('data-booking-id', data.booking_id);
+        }
+        
+        if (data.booking_status === 'confirmed' && data.end_time) {
+          // Use the countdown function
+          var endTime = new Date(data.end_time);
+          updateFloatingTimerDisplay(endTime);
+        } else if (data.time_remaining === 'Waiting for approval') {
+          timeDisplay.text('--:--:--');
+          timerStatus.text('Waiting Approval');
+          timeDisplay.removeClass('warning danger');
+        } else {
+          timeDisplay.text('--:--:--');
+          timerStatus.text('Active');
+          timeDisplay.removeClass('warning danger');
+        }
+      } else {
+        floatingWidget.hide();
+        if (floatingBookingCountdownInterval) {
+          clearInterval(floatingBookingCountdownInterval);
+          floatingBookingCountdownInterval = null;
+        }
+      }
+    },
+    error: function(xhr, status, error) {
+      console.error('Error updating floating timer widget:', error);
+    }
+  });
+}
+
+// Start countdown for floating timer widget
+function startFloatingCountdown(endTimeStr) {
+  if (floatingBookingCountdownInterval) {
+    clearInterval(floatingBookingCountdownInterval);
+  }
+  
+  var endTime = new Date(endTimeStr);
+  
+  // Update immediately
+  updateFloatingTimerDisplay(endTime);
+  
+  floatingBookingCountdownInterval = setInterval(function() {
+    updateFloatingTimerDisplay(endTime);
+  }, 1000);
+}
+
+// Update floating timer display
+function updateFloatingTimerDisplay(endTime) {
+  var now = new Date();
+  var diff = endTime - now;
+  var timeDisplay = $('#floating-time-display');
+  var timeDisplayMini = $('#floating-time-display-mini');
+  var timerStatus = $('#floating-timer-status');
+  
+  if (diff > 0) {
+    var hours = Math.floor(diff / (1000 * 60 * 60));
+    var minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    var seconds = Math.floor((diff % (1000 * 60)) / 1000);
+    
+    // Format as HH:MM:SS
+    var timeStr = String(hours).padStart(2, '0') + ':' + 
+                  String(minutes).padStart(2, '0') + ':' + 
+                  String(seconds).padStart(2, '0');
+    
+    // Update both displays
+    timeDisplay.text(timeStr);
+    if (timeDisplayMini.length) {
+      timeDisplayMini.text(timeStr);
+    }
+    
+    // Change color based on remaining time
+    timeDisplay.removeClass('warning danger');
+    if (timeDisplayMini.length) {
+      timeDisplayMini.removeClass('warning danger');
+    }
+    
+    if (diff < 5 * 60 * 1000) {
+      // Less than 5 minutes - red/danger
+      timeDisplay.addClass('danger');
+      if (timeDisplayMini.length) {
+        timeDisplayMini.addClass('danger');
+      }
+      timerStatus.text('Ending Soon');
+    } else if (diff < 15 * 60 * 1000) {
+      // Less than 15 minutes - yellow/warning
+      timeDisplay.addClass('warning');
+      if (timeDisplayMini.length) {
+        timeDisplayMini.addClass('warning');
+      }
+      timerStatus.text('Active');
+    } else {
+      // Normal - green
+      timerStatus.text('Active');
+    }
+  } else {
+    // Session expired
+    timeDisplay.text('00:00:00');
+    timeDisplay.addClass('danger');
+    if (timeDisplayMini.length) {
+      timeDisplayMini.text('00:00:00');
+      timeDisplayMini.addClass('danger');
+    }
+    timerStatus.text('Expired');
+    $('#floatingTimerWidget').hide();
+    if (floatingBookingCountdownInterval) {
+      clearInterval(floatingBookingCountdownInterval);
+      floatingBookingCountdownInterval = null;
+    }
+  }
 }
 
 // Initialize when DOM is ready

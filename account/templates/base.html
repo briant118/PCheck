@@ -156,7 +156,7 @@
               <div class="qr-scanner-result" id="qr-result" style="display: none;"></div>
               <!-- Hidden input for QR scanner device (USB scanner acts as keyboard) -->
               <input type="text" id="qr-scanner-device-input" 
-                     style="position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; pointer-events: none;" 
+                     style="position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0;" 
                      autocomplete="off" 
                      tabindex="-1"
                      aria-hidden="true">
@@ -1251,9 +1251,14 @@
           
           // Initial focus - but only if no other input is focused
           setTimeout(function() {
-            if (!userTyping && document.activeElement.tagName !== 'INPUT' && 
-                document.activeElement.tagName !== 'TEXTAREA') {
+            const activeEl = document.activeElement;
+            if (!userTyping && activeEl && 
+                activeEl.tagName !== 'INPUT' && 
+                activeEl.tagName !== 'TEXTAREA' &&
+                activeEl.tagName !== 'BUTTON' &&
+                !activeEl.isContentEditable) {
               scannerInput.focus();
+              console.log('QR scanner input focused');
             }
           }, 500);
           
@@ -1272,11 +1277,33 @@
             }
             // Small delay to allow scanner to finish if it's scanning
             setTimeout(function() {
-              if (!userTyping && document.activeElement.tagName !== 'INPUT' && 
-                  document.activeElement.tagName !== 'TEXTAREA') {
+              const activeEl = document.activeElement;
+              if (!userTyping && activeEl && 
+                  activeEl.tagName !== 'INPUT' && 
+                  activeEl.tagName !== 'TEXTAREA' &&
+                  activeEl.tagName !== 'BUTTON' &&
+                  !activeEl.isContentEditable) {
                 scannerInput.focus();
               }
             }, 200);
+          });
+          
+          // Keep input focused when it loses focus (unless user is typing elsewhere)
+          scannerInput.addEventListener('blur', function(e) {
+            // Only refocus if user is not actively typing in another field
+            if (!userTyping) {
+              setTimeout(function() {
+                const activeEl = document.activeElement;
+                if (activeEl && 
+                    activeEl.tagName !== 'INPUT' && 
+                    activeEl.tagName !== 'TEXTAREA' &&
+                    activeEl.tagName !== 'BUTTON' &&
+                    !activeEl.isContentEditable &&
+                    activeEl !== scannerInput) {
+                  scannerInput.focus();
+                }
+              }, 100);
+            }
           });
           
           // Handle keydown events to detect Enter key (scanner completion)
@@ -2469,6 +2496,523 @@
         </div>
       </div>
     </div>
+
+    <!-- Floating Timer Widget (available on all pages) -->
+    {% if request.user.is_authenticated %}
+    <div id="floatingTimerWidget" style="display: none; position: fixed; top: 20px; right: 20px; z-index: 1050;">
+      <!-- Minimized state (shows only timer) -->
+      <div class="floating-timer-minimized" id="floating-timer-minimized">
+        <div class="timer-mini-content" onclick="window.toggleFloatingTimer()">
+          <div id="floating-time-display-mini" class="timer-countdown-mini">--:--:--</div>
+        </div>
+        <div class="timer-mini-controls">
+          <button type="button" class="btn-timer-control" onclick="window.toggleFloatingTimer(); return false;" title="Expand">
+            <i class="fa-solid fa-chevron-down"></i>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Expanded state (shows full widget) -->
+      <div class="floating-timer-container" id="floating-timer-expanded" style="display: none;">
+        <div class="floating-timer-header">
+          <i class="fa-solid fa-clock me-2"></i>
+          <span>Session Timer</span>
+          <div class="timer-header-controls">
+            <button type="button" class="btn-close-timer" onclick="window.toggleFloatingTimer(); return false;" title="Minimize">
+              <i class="fa-solid fa-chevron-up"></i>
+            </button>
+          </div>
+        </div>
+        <div class="floating-timer-display">
+          <div id="floating-time-display" class="timer-countdown">--:--:--</div>
+          <div id="floating-timer-status" class="timer-status">Active</div>
+        </div>
+        <div class="floating-timer-actions">
+          <button type="button" class="btn btn-danger btn-sm w-100" id="floating-end-session-btn" data-booking-id="" onclick="window.endMySession(this); return false;">
+            <i class="fa-solid fa-stop-circle me-2"></i> End Session
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <style>
+      /* Minimized timer (compact view) */
+      .floating-timer-minimized {
+        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+        border-radius: 12px;
+        padding: 0.5rem;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+        border: 2px solid #e9ecef;
+        transition: all 0.3s ease;
+        min-width: 140px;
+        animation: slideInRight 0.3s ease-out;
+      }
+      
+      .timer-mini-content {
+        text-align: center;
+        cursor: pointer;
+        padding: 0.25rem 0;
+      }
+      
+      .timer-mini-content:hover {
+        opacity: 0.8;
+      }
+      
+      .timer-mini-controls {
+        display: flex;
+        justify-content: center;
+        gap: 0.5rem;
+        margin-top: 0.25rem;
+        padding-top: 0.25rem;
+        border-top: 1px solid #e9ecef;
+      }
+      
+      .btn-timer-control {
+        background: none;
+        border: none;
+        color: #6c757d;
+        cursor: pointer;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        transition: all 0.2s ease;
+        font-size: 0.75rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      
+      .btn-timer-control:hover {
+        background: #f0f0f0;
+        color: #495057;
+      }
+      
+      .floating-timer-minimized:hover {
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+        transform: translateY(-2px);
+      }
+      
+      .timer-countdown-mini {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #198754;
+        font-family: 'Courier New', monospace;
+        letter-spacing: 1px;
+        margin: 0;
+      }
+      
+      .timer-countdown-mini.warning {
+        color: #ffc107;
+      }
+      
+      .timer-countdown-mini.danger {
+        color: #dc3545;
+        animation: pulse 1s infinite;
+      }
+      
+      /* Expanded timer (full widget) */
+      .floating-timer-container {
+        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+        border-radius: 16px;
+        padding: 1rem;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        border: 2px solid #e9ecef;
+        min-width: 200px;
+        animation: slideInRight 0.3s ease-out;
+      }
+      
+      @keyframes slideInRight {
+        from {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+      
+      .floating-timer-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-weight: 600;
+        color: #495057;
+        font-size: 0.9rem;
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #e9ecef;
+      }
+      
+      .timer-header-controls {
+        display: flex;
+        gap: 0.25rem;
+      }
+      
+      .btn-close-timer {
+        background: none;
+        border: none;
+        color: #6c757d;
+        cursor: pointer;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        transition: all 0.2s ease;
+        font-size: 0.8rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      
+      .btn-close-timer:hover {
+        background: #f0f0f0;
+        color: #495057;
+      }
+      
+      .floating-timer-display {
+        text-align: center;
+        margin-bottom: 0.75rem;
+      }
+      
+      .timer-countdown {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #198754;
+        font-family: 'Courier New', monospace;
+        letter-spacing: 1px;
+        margin-bottom: 0.25rem;
+      }
+      
+      .timer-countdown.warning {
+        color: #ffc107;
+      }
+      
+      .timer-countdown.danger {
+        color: #dc3545;
+        animation: pulse 1s infinite;
+      }
+      
+      .timer-status {
+        font-size: 0.75rem;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      
+      .floating-timer-actions {
+        margin-top: 0.5rem;
+      }
+      
+      .floating-timer-actions .btn {
+        border-radius: 8px;
+        font-weight: 600;
+        padding: 0.5rem 1rem;
+        transition: all 0.2s ease;
+      }
+      
+      .floating-timer-actions .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+      }
+      
+      @keyframes pulse {
+        0%, 100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.7;
+        }
+      }
+      
+      /* Responsive adjustments */
+      @media (max-width: 768px) {
+        #floatingTimerWidget {
+          top: 10px;
+          right: 10px;
+        }
+        
+        .floating-timer-container {
+          min-width: 180px;
+          padding: 0.75rem;
+        }
+        
+        .floating-timer-minimized {
+          min-width: 100px;
+          padding: 0.5rem 0.75rem;
+        }
+        
+        .timer-countdown {
+          font-size: 1.25rem;
+        }
+        
+        .timer-countdown-mini {
+          font-size: 0.95rem;
+        }
+      }
+    </style>
+    
+    <script>
+      // Global floating timer functions (available on all pages)
+      if (typeof window.floatingBookingCountdownInterval === 'undefined') {
+        window.floatingBookingCountdownInterval = null;
+      }
+      
+      // Check and show floating timer widget (global version)
+      if (typeof window.checkAndShowFloatingBookingButton === 'undefined') {
+        window.checkAndShowFloatingBookingButton = function() {
+          if (typeof $ === 'undefined') {
+            console.warn('jQuery not available for floating timer');
+            return;
+          }
+          
+          $.ajax({
+            url: '/ajax/get-my-active-booking/',
+            method: 'GET',
+            success: function(data) {
+              var floatingWidget = $('#floatingTimerWidget');
+              var timeDisplay = $('#floating-time-display');
+              var timerStatus = $('#floating-timer-status');
+              var endSessionBtn = $('#floating-end-session-btn');
+              
+              if (data.has_booking === true && 
+                  data.booking_id && 
+                  data.booking_status !== 'cancelled' &&
+                  data.time_remaining !== 'Expired') {
+                // Show floating timer widget
+                floatingWidget.show();
+                
+                // Set booking ID on end session button
+                if (endSessionBtn.length) {
+                  endSessionBtn.attr('data-booking-id', data.booking_id);
+                }
+                
+                // Start countdown if booking is confirmed
+                if (data.booking_status === 'confirmed' && data.end_time) {
+                  timerStatus.text('Active');
+                  window.startFloatingCountdown(data.end_time);
+                } else {
+                  // Show waiting message
+                  timeDisplay.text('--:--:--');
+                  var timeDisplayMini = $('#floating-time-display-mini');
+                  if (timeDisplayMini.length) {
+                    timeDisplayMini.text('--:--:--');
+                  }
+                  timerStatus.text('Waiting Approval');
+                  timeDisplay.removeClass('warning danger');
+                  if (timeDisplayMini.length) {
+                    timeDisplayMini.removeClass('warning danger');
+                  }
+                }
+                
+                // Start in minimized state by default
+                var minimized = document.getElementById('floating-timer-minimized');
+                var expanded = document.getElementById('floating-timer-expanded');
+                if (minimized && expanded) {
+                  minimized.style.display = 'block';
+                  expanded.style.display = 'none';
+                }
+              } else {
+                // Hide floating timer widget
+                floatingWidget.hide();
+                if (window.floatingBookingCountdownInterval) {
+                  clearInterval(window.floatingBookingCountdownInterval);
+                  window.floatingBookingCountdownInterval = null;
+                }
+              }
+            },
+            error: function(xhr, status, error) {
+              console.error('Error checking active booking for floating timer:', error);
+            }
+          });
+        };
+      }
+      
+      // Start countdown for floating timer widget (global version)
+      if (typeof window.startFloatingCountdown === 'undefined') {
+        window.startFloatingCountdown = function(endTimeStr) {
+          if (window.floatingBookingCountdownInterval) {
+            clearInterval(window.floatingBookingCountdownInterval);
+          }
+          
+          var endTime = new Date(endTimeStr);
+          
+          // Update immediately
+          window.updateFloatingTimerDisplay(endTime);
+          
+          window.floatingBookingCountdownInterval = setInterval(function() {
+            window.updateFloatingTimerDisplay(endTime);
+          }, 1000);
+        };
+      }
+      
+      // Toggle floating timer between minimized and expanded states
+      if (typeof window.toggleFloatingTimer === 'undefined') {
+        window.toggleFloatingTimer = function() {
+          var minimized = document.getElementById('floating-timer-minimized');
+          var expanded = document.getElementById('floating-timer-expanded');
+          
+          if (minimized && expanded) {
+            if (minimized.style.display === 'none') {
+              // Currently expanded, minimize it
+              minimized.style.display = 'block';
+              expanded.style.display = 'none';
+            } else {
+              // Currently minimized, expand it
+              minimized.style.display = 'none';
+              expanded.style.display = 'block';
+            }
+          }
+        };
+      }
+      
+      // Update floating timer display (global version)
+      if (typeof window.updateFloatingTimerDisplay === 'undefined') {
+        window.updateFloatingTimerDisplay = function(endTime) {
+          if (typeof $ === 'undefined') return;
+          
+          var now = new Date();
+          var diff = endTime - now;
+          var timeDisplay = $('#floating-time-display');
+          var timeDisplayMini = $('#floating-time-display-mini');
+          var timerStatus = $('#floating-timer-status');
+          
+          if (diff > 0) {
+            var hours = Math.floor(diff / (1000 * 60 * 60));
+            var minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            var seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            // Format as HH:MM:SS
+            var timeStr = String(hours).padStart(2, '0') + ':' + 
+                          String(minutes).padStart(2, '0') + ':' + 
+                          String(seconds).padStart(2, '0');
+            
+            // Update both displays
+            timeDisplay.text(timeStr);
+            if (timeDisplayMini.length) {
+              timeDisplayMini.text(timeStr);
+            }
+            
+            // Change color based on remaining time
+            timeDisplay.removeClass('warning danger');
+            if (timeDisplayMini.length) {
+              timeDisplayMini.removeClass('warning danger');
+            }
+            
+            if (diff < 5 * 60 * 1000) {
+              // Less than 5 minutes - red/danger
+              timeDisplay.addClass('danger');
+              if (timeDisplayMini.length) {
+                timeDisplayMini.addClass('danger');
+              }
+              timerStatus.text('Ending Soon');
+            } else if (diff < 15 * 60 * 1000) {
+              // Less than 15 minutes - yellow/warning
+              timeDisplay.addClass('warning');
+              if (timeDisplayMini.length) {
+                timeDisplayMini.addClass('warning');
+              }
+              timerStatus.text('Active');
+            } else {
+              // Normal - green
+              timerStatus.text('Active');
+            }
+          } else {
+            // Session expired
+            timeDisplay.text('00:00:00');
+            timeDisplay.addClass('danger');
+            if (timeDisplayMini.length) {
+              timeDisplayMini.text('00:00:00');
+              timeDisplayMini.addClass('danger');
+            }
+            timerStatus.text('Expired');
+            $('#floatingTimerWidget').hide();
+            if (window.floatingBookingCountdownInterval) {
+              clearInterval(window.floatingBookingCountdownInterval);
+              window.floatingBookingCountdownInterval = null;
+            }
+          }
+        };
+      }
+      
+      // End session function (global version)
+      if (typeof window.endMySession === 'undefined') {
+        window.endMySession = function(button) {
+          var bookingId = button.getAttribute('data-booking-id') || window.currentBookingId;
+          
+          console.log('endMySession called, booking_id:', bookingId);
+          
+          if (!bookingId || bookingId === '' || bookingId === 'null') {
+            alert('Error: Booking ID not found. Please refresh the page.');
+            return false;
+          }
+          
+          if (confirm('Are you sure you want to end your session early?')) {
+            var url = '/ajax/end-session/' + bookingId + '/';
+            console.log('Calling end session URL:', url);
+            
+            // Get CSRF token
+            var csrftoken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                            document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+            
+            fetch(url, {
+              method: 'POST',
+              headers: {
+                'X-CSRFToken': csrftoken,
+                'Content-Type': 'application/json'
+              }
+            })
+            .then(response => {
+              console.log('Response status:', response.status);
+              if (!response.ok) {
+                return response.text().then(text => {
+                  console.error('Error response:', text);
+                  throw new Error('HTTP error! status: ' + response.status);
+                });
+              }
+              return response.json();
+            })
+            .then(data => {
+              console.log('End session response:', data);
+              if (data.success) {
+                alert(data.message || 'Session ended successfully');
+                // Hide floating timer widget
+                var floatingWidget = document.getElementById('floatingTimerWidget');
+                if (floatingWidget) {
+                  floatingWidget.style.display = 'none';
+                }
+                // Clear countdown interval
+                if (window.floatingBookingCountdownInterval) {
+                  clearInterval(window.floatingBookingCountdownInterval);
+                  window.floatingBookingCountdownInterval = null;
+                }
+                // Reload page
+                location.reload();
+              } else {
+                alert('Error: ' + (data.error || data.message || 'Failed to end session'));
+              }
+            })
+            .catch(error => {
+              console.error('Error ending session:', error);
+              alert('Error: Failed to end session. ' + error.message + '\nPlease try again.');
+            });
+          }
+          
+          return false;
+        };
+      }
+      
+      // Initialize floating timer on page load (for all pages)
+      document.addEventListener('DOMContentLoaded', function() {
+        // Check for active booking and show timer
+        if (typeof window.checkAndShowFloatingBookingButton === 'function') {
+          window.checkAndShowFloatingBookingButton();
+          
+          // Update every 30 seconds
+          setInterval(function() {
+            window.checkAndShowFloatingBookingButton();
+          }, 30000);
+        }
+      });
+    </script>
+    {% endif %}
 
   </body>
 </html>
