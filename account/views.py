@@ -15,6 +15,8 @@ from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth.decorators import permission_required
 from django.contrib.auth.forms import SetPasswordForm
 from django.db import IntegrityError
+from django.http import JsonResponse
+from main_app.models import Course
 from . import forms
 from . import models
 
@@ -254,7 +256,19 @@ def sf_home(request):
         role = getattr(getattr(user, 'profile', None), 'role', None)
         if not role and not user.is_staff:
             return redirect('account:complete-profile')
-    return render(request, 'main/sf_home.html')
+    
+    # Get available PC count for display
+    from main_app import models
+    available_count = models.PC.objects.filter(
+        status='connected',
+        system_condition='active',
+        booking_status__in=['available', None]
+    ).count()
+    
+    context = {
+        'available_count': available_count
+    }
+    return render(request, 'main/sf_home.html', context)
 
 
 def about(request):
@@ -267,7 +281,8 @@ def custom_logout_view(request):
 
 
 def register(request):
-    colleges = models.College.objects.all()
+    from main_app.models import College
+    colleges = College.objects.all().order_by('name')
     if request.method == "POST":
         role = request.POST['role']
         first_name = request.POST['first_name']
@@ -275,9 +290,16 @@ def register(request):
         last_name = request.POST['last_name']
         last_name = last_name.capitalize()
         college_id = request.POST['college']
-        college = models.College.objects.get(id=college_id)
+        college = College.objects.get(id=college_id)
         # Only require course, year, block for students
-        course = request.POST.get('course', '')
+        course_id = request.POST.get('course', '')
+        course = ''
+        if course_id:
+            try:
+                course_obj = Course.objects.get(id=course_id)
+                course = course_obj.name
+            except Course.DoesNotExist:
+                course = request.POST.get('course', '')  # Fallback to text input if course not found
         year = request.POST.get('year', '')
         block = request.POST.get('block', '')
         email = request.POST['email_prefix']
@@ -546,3 +568,17 @@ def password_set(request):
 def password_set_done(request):
     """Confirmation page after setting password"""
     return render(request, 'registration/password_set_done.html')
+
+
+def get_courses_by_college(request):
+    """API endpoint to get courses by college ID"""
+    college_id = request.GET.get('college_id')
+    if not college_id:
+        return JsonResponse({'courses': []})
+    
+    try:
+        courses = Course.objects.filter(college_id=college_id).order_by('name')
+        courses_list = [{'id': course.id, 'name': course.name, 'duration': course.duration} for course in courses]
+        return JsonResponse({'courses': courses_list})
+    except Exception as e:
+        return JsonResponse({'courses': [], 'error': str(e)})

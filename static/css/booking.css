@@ -5,6 +5,34 @@ body {
     min-height: 100vh;
 }
 
+/* Remove extra spacing at top of student/faculty home page */
+body:not(:has(.sidebar)) .main-content .container {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+
+/* PC View Background - No Image */
+body:not(:has(.sidebar)) .main-content {
+    background: #F5F5DC;
+    min-height: 100vh;
+    position: relative;
+    width: 100% !important;
+    overflow-x: hidden;
+    margin-left: 0 !important;
+}
+
+/* Ensure background shows fully on mobile */
+@media (max-width: 991.98px) {
+    body:not(:has(.sidebar)) .main-content {
+        background: #F5F5DC;
+        width: 100% !important;
+        margin-left: 0 !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+}
+
+
 /* Page Header Modern Design */
 .page-header-modern {
     background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%);
@@ -418,7 +446,7 @@ body {
 
 /* White Card Container */
 .mobile-reservation-container {
-    padding: 1rem;
+    padding: 0 1rem 1rem 1rem;
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
@@ -427,6 +455,15 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+
+/* Ensure available-pcs-card is at the top */
+.mobile-reservation-container > .available-pcs-card {
+    order: -1;
+    margin-top: 0 !important;
+    margin-bottom: 1rem;
 }
 
 .reservation-card {
@@ -434,6 +471,7 @@ body {
     border-radius: 24px;
     padding: 0;
     margin: 0 auto;
+    margin-top: 0;
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
@@ -442,30 +480,80 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
+    transition: all 0.3s ease;
+    animation: card-fade-in 0.5s ease-out;
+}
+
+.reservation-card > .available-pcs-card {
+    order: -1;
+    margin-top: 0 !important;
+}
+
+@keyframes card-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* Available PC's Card Section - Matching Image Design */
 .available-pcs-card {
     background: #ec672a;
-    border-radius: 16px;
-    padding: 1.5rem 1.25rem;
+    border-radius: 0 0 16px 16px;
+    padding: 0.875rem 1rem;
     margin-bottom: 1rem;
+    margin-top: 0 !important;
     box-shadow: 0 4px 12px rgba(240, 140, 94, 0.3);
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    order: -1;
+}
+
+.available-pcs-card::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+    animation: card-shine 3s ease-in-out infinite;
+}
+
+.available-pcs-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(240, 140, 94, 0.4);
+}
+
+@keyframes card-shine {
+    0%, 100% {
+        transform: translate(0, 0) rotate(0deg);
+        opacity: 0.3;
+    }
+    50% {
+        transform: translate(30%, 30%) rotate(180deg);
+        opacity: 0.6;
+    }
 }
 
 .available-pcs-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
     width: 100%;
 }
 
 .available-pcs-title {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
     font-weight: bold;
     color: #ffffff;
     margin: 0;
@@ -478,26 +566,66 @@ body {
 
 .available-count-badge {
     background: #E6672E; /* Darker orange */
-    border-radius: 12px;
-    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    padding: 0.5rem 0.75rem;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-width: 80px;
+    min-width: 70px;
     box-shadow: 0 2px 8px rgba(230, 103, 46, 0.4);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.available-count-badge::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    animation: badge-shine 2s ease-in-out infinite;
+}
+
+.available-count-badge:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 16px rgba(230, 103, 46, 0.6);
+}
+
+@keyframes badge-shine {
+    0% {
+        transform: translate(-50%, -50%) rotate(0deg);
+    }
+    100% {
+        transform: translate(-50%, -50%) rotate(360deg);
+    }
 }
 
 .available-count-number {
-    font-size: 2rem;
+    font-size: 1.5rem;
     font-weight: bold;
     color: #ffffff;
     line-height: 1;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.125rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-block;
+    animation: count-pulse 2s ease-in-out infinite;
+}
+
+@keyframes count-pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
 }
 
 .available-count-label {
-    font-size: 0.75rem;
+    font-size: 0.65rem;
     color: #ffffff;
     font-weight: 600;
     text-transform: uppercase;
@@ -506,10 +634,11 @@ body {
 }
 
 .reservation-datetime {
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     color: #ffffff;
     margin: 0;
     padding: 0;
+    margin-bottom: 0.5rem;
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -524,7 +653,7 @@ body {
 
 /* Body Content */
 .reservation-body {
-    padding: 2.5rem 3rem;
+    padding: 1.5rem 1.5rem 2.5rem 1.5rem;
     background-color: #FDF5ED; /* Light beige background */
     color: #424242;
     width: 100%;
@@ -585,12 +714,38 @@ body {
     justify-content: center;
     cursor: pointer;
     padding: 0.5rem;
-    transition: all 0.2s;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.pc-button-modern::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.5);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
 }
 
 .pc-button-modern:hover:not(:disabled) {
-    transform: scale(1.05);
+    transform: scale(1.08) translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+    border-width: 3px;
+}
+
+.pc-button-modern:hover:not(:disabled)::before {
+    width: 300px;
+    height: 300px;
+}
+
+.pc-button-modern:active:not(:disabled) {
+    transform: scale(1.02) translateY(0);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
@@ -615,22 +770,54 @@ body {
 .pc-available {
     background-color: #E8F5E9; /* Light green */
     border: 2px solid #4caf50; /* Green border */
+    animation: pulse-available 2s ease-in-out infinite;
 }
 
 .pc-available .pc-icon-modern,
 .pc-available .pc-number {
     color: #4caf50; /* Green text/icon */
+    transition: all 0.3s ease;
+}
+
+.pc-available:hover:not(:disabled) {
+    background-color: #C8E6C9;
+    border-color: #66BB6A;
+    box-shadow: 0 8px 24px rgba(76, 175, 80, 0.3);
+}
+
+.pc-available:hover:not(:disabled) .pc-icon-modern {
+    transform: scale(1.2) rotate(5deg);
+}
+
+@keyframes pulse-available {
+    0%, 100% {
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 0 0 rgba(76, 175, 80, 0.4);
+    }
+    50% {
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 0 8px rgba(76, 175, 80, 0);
+    }
 }
 
 .pc-selected {
     background-color: #E8F5E9; /* Light green */
     border: 3px solid #4caf50; /* Thicker green border */
-    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.3);
+    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.3), 0 4px 16px rgba(76, 175, 80, 0.4);
+    animation: selected-glow 1.5s ease-in-out infinite;
 }
 
 .pc-selected .pc-icon-modern,
 .pc-selected .pc-number {
     color: #4caf50; /* Green text/icon */
+    font-weight: 700;
+}
+
+@keyframes selected-glow {
+    0%, 100% {
+        box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.3), 0 4px 16px rgba(76, 175, 80, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 0 4px rgba(76, 175, 80, 0.5), 0 6px 20px rgba(76, 175, 80, 0.6);
+    }
 }
 
 .pc-queue {
@@ -793,12 +980,12 @@ body {
 
 /* Status Legend Inline - Inside Available PC's Card */
 .status-legend-inline {
-    margin-top: 1rem;
-    padding-top: 1rem;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
     border-top: 1px solid rgba(255, 255, 255, 0.3);
     display: flex;
     flex-wrap: wrap;
-    gap: 0.75rem 1rem;
+    gap: 0.5rem 0.75rem;
     justify-content: flex-start;
     align-items: center;
 }
@@ -807,6 +994,16 @@ body {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 8px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+}
+
+.status-legend-inline .legend-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .status-legend-inline .legend-icon {
@@ -818,6 +1015,12 @@ body {
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.status-legend-inline .legend-item:hover .legend-icon {
+    transform: scale(1.15) rotate(5deg);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .status-legend-inline .legend-icon i {
@@ -1025,20 +1228,54 @@ body {
     text-transform: none !important;
     letter-spacing: 0.3px !important;
     box-shadow: 0 4px 12px rgba(230, 103, 46, 0.3) !important;
-    transition: all 0.2s !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
     pointer-events: auto !important;
     box-sizing: border-box !important;
+    overflow: hidden !important;
+}
+
+.next-button-modern::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
 }
 
 .next-button-modern:hover:not(:disabled) {
     background: #F08C5E !important; /* Lighter orange on hover */
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(240, 140, 94, 0.4);
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 8px 24px rgba(240, 140, 94, 0.5);
+    letter-spacing: 0.5px;
+}
+
+.next-button-modern:hover:not(:disabled)::before {
+    width: 400px;
+    height: 400px;
+}
+
+.next-button-modern:active:not(:disabled) {
+    transform: translateY(-1px) scale(0.98);
+    box-shadow: 0 4px 12px rgba(240, 140, 94, 0.4);
 }
 
 .next-button-modern:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+    transform: none !important;
+}
+
+.next-button-modern i {
+    transition: transform 0.3s ease;
+}
+
+.next-button-modern:hover:not(:disabled) i {
+    transform: translateX(4px);
 }
 
 .mobile-reservation-container {
@@ -1074,7 +1311,16 @@ body {
     }
     
     .reservation-body {
-        padding: 1.25rem;
+        padding: 1rem 1rem 1.5rem 1rem;
+    }
+    
+    .mobile-reservation-container {
+        padding: 0 0.75rem 1rem 0.75rem;
+    }
+    
+    .available-pcs-card {
+        padding: 1rem 1rem;
+        margin-bottom: 0.75rem;
     }
     
     .next-button-modern {

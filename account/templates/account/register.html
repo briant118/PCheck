@@ -10,20 +10,201 @@
   document.documentElement.classList.add("register-page");
 </script>
 <style>
-body {
-    background: #ff8c00;
-    min-height: 100vh;
-}
-
-html.register-page .mobile-header,
-html.register-page #mobile-nav,
-html.register-page #mobile-nav-overlay {
+  .mobile-header {
     display: none !important;
-}
+  }
 
-.container.mt-5.pt-5.rounded {
-    padding: 2rem 1rem;
-}
+  /* Adjust layout for register page without sidebar */
+  .main-content {
+    margin-left: 0 !important;
+    width: 100% !important;
+    display: block;
+  }
+  #content {
+    padding: 0 !important;
+    width: 100%;
+  }
+
+  body {
+    background: url("{% static 'image/backgroun-psu.png' %}");
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    min-height: 100vh;
+    min-height: 100dvh;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    position: relative;
+  }
+  
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.08) 0%, transparent 55%),
+                radial-gradient(circle at 90% 10%, rgba(255, 255, 255, 0.08) 0%, transparent 55%),
+                linear-gradient(135deg, rgba(15, 23, 42, 0.7) 0%, rgba(30, 41, 59, 0.7) 20%, rgba(49, 46, 129, 0.7) 50%, rgba(59, 130, 246, 0.7) 75%, rgba(34, 211, 238, 0.7) 100%);
+    background-size: 400% 400%;
+    background-position: 0% 50%;
+    animation: gradientShift 18s ease infinite;
+    pointer-events: none;
+    z-index: 0;
+  }
+  
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at 20% 50%, rgba(255, 107, 53, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(247, 147, 26, 0.1) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  
+  @keyframes gradientShift {
+    0% { 
+      background-position: 0% 50%; 
+    }
+    50% { 
+      background-position: 100% 50%; 
+    }
+    100% { 
+      background-position: 0% 50%; 
+    }
+  }
+  
+  html {
+    height: 100%;
+    height: 100dvh;
+    overflow-x: hidden;
+  }
+
+  html.register-page .mobile-header,
+  html.register-page #mobile-nav,
+  html.register-page #mobile-nav-overlay {
+    display: none !important;
+  }
+
+  /* Page */
+  .register-wrapper { 
+    min-height: 100vh; 
+    min-height: 100dvh;
+    display: grid; 
+    place-items: center; 
+    padding: 2rem 1rem; 
+    margin: 0;
+    width: 100%;
+    box-sizing: border-box;
+    position: relative;
+    z-index: 1;
+  }
+  
+  .register-wrapper.container {
+    max-width: 100%;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  .register-card { 
+    width: 100%; 
+    max-width: 600px; 
+    border: none !important;
+    border-radius: 24px !important; 
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3), 
+                0 0 0 1px rgba(255, 255, 255, 0.1) !important;
+    margin: 0 auto;
+    backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.95) !important;
+    animation: slideUp 0.6s ease-out;
+    position: relative;
+  }
+  
+  .register-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.35), rgba(99, 102, 241, 0.35));
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+  
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .register-header { 
+    padding: 3rem 2.5rem !important;
+    background: linear-gradient(135deg, #ff6b35 0%, #f7931e 50%, #ff8c42 100%) !important;
+    border: none;
+    position: relative;
+    overflow: hidden;
+    min-height: 180px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  
+  .register-header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+    animation: pulse 4s ease-in-out infinite;
+  }
+  
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 0.5; }
+    50% { transform: scale(1.1); opacity: 0.8; }
+  }
+  
+  .register-title { 
+    font-size: 2.25rem; 
+    line-height: 1.3; 
+    color: #ffffff;
+    font-weight: 800;
+    margin: 0;
+    word-wrap: break-word;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    position: relative;
+    z-index: 1;
+    letter-spacing: -0.5px;
+  }
+  
+  .register-subtitle {
+    margin-top: 1rem;
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.85);
+    font-weight: 500;
+    position: relative;
+    z-index: 1;
+    letter-spacing: 0.3px;
+  }
 
 .loader {
     border: 6px solid #f3f3f3;
@@ -40,38 +221,54 @@ html.register-page #mobile-nav-overlay {
     100% { transform: rotate(360deg); }
 }
 
-.card {
-    border: none !important;
-    border-radius: 20px !important;
-    overflow: hidden;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2) !important;
-}
+  /* Form Section */
+  .form-section {
+    background: rgba(255, 255, 255, 0.98);
+    padding: 3rem 2.5rem !important;
+    backdrop-filter: blur(10px);
+  }
 
-.card-body.bg-warning {
-    background: #ff8c00 !important;
-    padding: 2.5rem 2rem !important;
-    border: none;
-}
-
-.card-body.bg-warning h1 {
-    color: #2c3e50;
+  .form-label {
+    color: #1a202c;
     font-weight: 700;
-    font-size: 2rem;
-    margin: 0;
-    line-height: 1.4;
-}
+    margin-bottom: 0.75rem;
+    font-size: 0.95rem;
+    letter-spacing: 0.3px;
+    display: block;
+  }
 
-.form-section {
-    background: white;
-    padding: 2.5rem !important;
-}
-
-.step h3 {
-    color: #2c3e50;
-    font-weight: 600;
+  .step h3 {
+    color: #1a202c;
+    font-weight: 700;
     margin-bottom: 1.5rem;
     font-size: 1.5rem;
-}
+    letter-spacing: 0.3px;
+  }
+
+  /* Form Controls */
+  .form-control { 
+    padding: 1rem 1.25rem; 
+    border-radius: 12px;
+    border: 2px solid #e2e8f0;
+    font-size: 1rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background: #f8fafc;
+    color: #1a202c;
+  }
+  
+  .form-control:hover {
+    border-color: #cbd5e0;
+    background: #ffffff;
+  }
+  
+  .form-control:focus {
+    border-color: #ff6b35;
+    background: #ffffff;
+    box-shadow: 0 0 0 4px rgba(255, 107, 53, 0.1),
+                0 4px 12px rgba(255, 107, 53, 0.15);
+    outline: none;
+    transform: translateY(-1px);
+  }
 
 .user-class-button {
     border: 3px solid #ff6b35;
@@ -118,32 +315,55 @@ html.register-page #mobile-nav-overlay {
     margin: 2rem 0;
 }
 
-.next-button {
+  .next-button {
     border: none;
     border-radius: 12px;
-    background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+    background: linear-gradient(135deg, #ff6b35 0%, #f7931e 50%, #ff8c42 100%);
+    background-size: 200% 200%;
     cursor: pointer;
     margin-top: 2rem;
     margin-bottom: 1rem;
     color: white;
-    width: 80%;
-    padding: 0.875rem 2rem;
+    width: 100%;
+    padding: 1rem 2rem;
     font-size: 1.1rem;
-    font-weight: 600;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(255, 107, 53, 0.3);
-}
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 8px 24px rgba(255, 107, 53, 0.4),
+                0 4px 8px rgba(255, 107, 53, 0.2);
+    position: relative;
+    overflow: hidden;
+  }
 
-.next-button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(255, 107, 53, 0.5);
-    background: linear-gradient(135deg, #f7931e 0%, #ff6b35 100%);
+  .next-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transition: left 0.5s;
+  }
+
+  .next-button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 32px rgba(255, 107, 53, 0.5),
+                0 6px 12px rgba(255, 107, 53, 0.3);
+    background-position: 100% 50%;
+    letter-spacing: 1px;
     color: white;
-}
+  }
 
-.next-button:active {
-    transform: translateY(0);
-}
+  .next-button:hover::before {
+    left: 100%;
+  }
+
+  .next-button:active {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(255, 107, 53, 0.4);
+  }
 
 .button-row {
     display: flex;
@@ -166,83 +386,174 @@ html.register-page #mobile-nav-overlay {
     justify-content: center;
 }
 
-.back-button {
-    border: none;
+  .back-button {
+    border: 2px solid #e2e8f0;
     border-radius: 12px;
-    background: #f0f0f0;
-    color: #2c3e50;
-    padding: 0.875rem 2rem;
+    background: #ffffff;
+    color: #64748b;
+    padding: 1rem 2rem;
     font-size: 1.1rem;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08),
+                0 1px 2px rgba(0, 0, 0, 0.04);
     flex: 1;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     text-decoration: none;
-}
+  }
 
-.back-button:hover {
-    background: #e0e0e0;
-    color: #2c3e50;
-}
+  .back-button:hover {
+    background: #f8fafc;
+    border-color: #cbd5e0;
+    color: #1a202c;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12),
+                0 4px 8px rgba(0, 0, 0, 0.08);
+  }
 
-.input-group-text {
-    background: #f8f9fa;
-    border: 2px solid #e0e0e0;
+  .back-button:active {
+    transform: translateY(0);
+  }
+
+  .input-group-text {
+    background: #f1f5f9;
+    border: 2px solid #e2e8f0;
     border-left: none;
-    border-radius: 0 10px 10px 0;
-    color: #6c757d;
-    font-weight: 500;
-    padding: 0.875rem 1rem;
-}
-
-.input-group .form-control:first-child {
-    border-right: none;
-    border-radius: 10px 0 0 10px;
-}
-
-.input-group .form-control:first-child:focus {
-    border-right: none;
-}
-
-.input-group #password,
-.input-group #password2 {
-    border-right: none;
-    border-radius: 10px 0 0 10px;
-}
-
-.input-group #password:focus,
-.input-group #password2:focus {
-    border-right: none;
-}
-
-.input-group .form-control:focus ~ .input-group-text {
+    border-radius: 0 12px 12px 0;
+    color: #64748b;
+    font-weight: 600;
+    padding: 1rem 1.25rem;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .input-group:hover .input-group-text {
+    background: #ffffff;
+    border-color: #cbd5e0;
+  }
+  
+  .input-group .form-control:focus ~ .input-group-text {
+    background: #ffffff;
     border-color: #ff6b35;
-    border-left: none;
-}
+  }
 
-#togglePassword:hover,
-#togglePasswordConfirm:hover {
-    background: #e9ecef;
+  .input-group .form-control:first-child {
+    border-right: none;
+    border-radius: 12px 0 0 12px;
+  }
+
+  .input-group .form-control:first-child:focus {
+    border-right: none;
+  }
+
+  .input-group #password,
+  .input-group #password2 {
+    border-right: none;
+    border-radius: 12px 0 0 12px;
+  }
+
+  .input-group #password:focus,
+  .input-group #password2:focus {
+    border-right: none;
+  }
+
+  /* Password toggle button */
+  #togglePassword,
+  #togglePasswordConfirm {
+    background: #f1f5f9;
+    border: 2px solid #e2e8f0;
+    border-left: none;
+    border-radius: 0 12px 12px 0;
+    color: #64748b;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+  }
+
+  #togglePassword:hover,
+  #togglePasswordConfirm:hover {
+    background: #ffffff;
+    border-color: #cbd5e0;
     color: #ff6b35;
-}
+    transform: scale(1.05);
+  }
 
-.form-control {
-    border-radius: 10px;
-    border: 2px solid #e0e0e0;
-    padding: 0.75rem 1rem;
-    font-size: 1rem;
-    transition: all 0.3s ease;
-}
-
-.form-control:focus {
+  .input-group #password:focus ~ #togglePassword,
+  .input-group #password2:focus ~ #togglePasswordConfirm {
+    background: #ffffff;
     border-color: #ff6b35;
-    box-shadow: 0 0 0 0.2rem rgba(255, 107, 53, 0.25);
-    outline: none;
-}
+  }
+
+  /* Link Button */
+  .btn-link {
+    color: #ff6b35;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    padding: 0 !important;
+    position: relative;
+  }
+  
+  .btn-link::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #ff6b35, #f7931e);
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .btn-link:hover {
+    color: #f7931e;
+  }
+  
+  .btn-link:hover::after {
+    width: 100%;
+  }
+
+  .form-section .btn-link {
+    color: #ff6b35;
+    font-weight: 700;
+  }
+
+  .form-section .btn-link:hover {
+    color: #f7931e;
+  }
+
+  select.form-control {
+    background-color: #f8fafc;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    padding-right: 2.5rem;
+  }
+
+  select.form-control:hover {
+    background-color: #ffffff;
+  }
+
+  select.form-control:focus {
+    background-color: #ffffff;
+  }
+
+  select.form-control:disabled {
+    background-color: #f1f5f9;
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  select.form-control option {
+    padding: 0.5rem;
+  }
 
 input[type="password"]::-ms-reveal,
 input[type="password"]::-ms-clear {
@@ -277,46 +588,154 @@ input[type="password"]::-ms-clear {
     text-align: center;
 }
 
-@media (max-width: 768px) {
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    .register-wrapper {
+      padding: 1rem 0.5rem;
+      min-height: 100vh;
+      min-height: 100dvh;
+    }
+    
+    .register-wrapper.container {
+      padding-left: 0.5rem;
+      padding-right: 0.5rem;
+    }
+    
+    .register-title { 
+      font-size: 1.5rem; 
+      line-height: 1.3;
+    }
+    
+    .register-subtitle {
+      font-size: 0.95rem;
+    }
+    
+    .register-header {
+      padding: 2rem 1.5rem !important;
+      min-height: 160px;
+    }
+    
+    .form-section {
+      padding: 2rem 1.5rem !important;
+    }
+    
+    .register-card {
+      max-width: 100%;
+      margin: 1rem;
+      border-radius: 22px !important;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25), 
+                  0 0 0 1px rgba(255, 255, 255, 0.1) !important;
+    }
+    
+    .form-control {
+      font-size: 16px; /* Prevents zoom on iOS */
+      padding: 0.75rem 0.875rem;
+    }
+    
+    .input-group-text {
+      padding: 0.75rem 0.75rem;
+      font-size: 0.85rem;
+    }
+    
+    .next-button {
+      font-size: 1rem;
+      padding: 0.875rem 1.5rem;
+    }
+
     .user-class-button {
-        width: 120px;
-        height: 120px;
-        font-size: 1rem;
+      width: 120px;
+      height: 120px;
+      font-size: 1rem;
     }
     
     .user-class-button i {
-        font-size: 2rem;
+      font-size: 2rem;
     }
     
     .role-buttons-container {
-        gap: 1rem;
+      gap: 1rem;
+    }
+  }
+  
+  /* Extra small devices (phones, less than 480px) */
+  @media (max-width: 480px) {
+    .register-wrapper {
+      padding: 0.5rem 0.25rem;
+      align-items: flex-start;
+      padding-top: 1rem;
     }
     
-    .card-body.bg-warning h1 {
-        font-size: 1.5rem;
+    .register-wrapper.container {
+      padding-left: 0.25rem;
+      padding-right: 0.25rem;
     }
-}
+    
+    .register-title {
+      font-size: 1.25rem;
+      line-height: 1.2;
+    }
+    
+    .register-subtitle {
+      font-size: 0.9rem;
+    }
+    
+    .register-header {
+      padding: 1.25rem 1rem !important;
+      min-height: 140px;
+    }
+    
+    .form-section {
+      padding: 1.25rem 1rem !important;
+    }
+    
+    .register-card {
+      border-radius: 18px !important;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2), 
+                  0 0 0 1px rgba(255, 255, 255, 0.1) !important;
+    }
+    
+    .input-group-text {
+      font-size: 0.7rem;
+      padding: 0.75rem 0.4rem;
+    }
+    
+    .form-label {
+      font-size: 0.9rem;
+    }
+    
+    /* Ensure input group doesn't overflow */
+    .input-group {
+      flex-wrap: nowrap;
+    }
+    
+    .input-group .form-control {
+      min-width: 0; /* Allows flexbox to shrink */
+    }
+  }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container mt-5 pt-5 rounded">
-  <div class="card col-md-6 offset-md-3 border rounded shadow-lg mb-5 bg-body">
-    <div class="text-center card-body bg-warning mb-3">
-      <h1>Sign in to MISO.</h1>
+<div class="register-wrapper">
+  <div class="card border shadow-lg bg-body register-card">
+    <div class="text-center card-body register-header">
+      <div class="w-100">
+        <h1 class="register-title mb-3">Create an account</h1>
+        <p class="register-subtitle">Join MISO to manage reservations and stay connected.</p>
+      </div>
     </div>
-    <div class="form-section card-body p-4">
+    <div class="form-section">
       <form id="registrationForm" method="post">
         {% csrf_token %}
         <!-- Step 1: Role -->
         <div class="step active" id="step1">
           <h3 class="text-center mb-4">Select your role</h3>
           <div class="role-buttons-container">
-            <button type="button" class="next user-class-button" data-next="step2" data-role="student" onclick="document.getElementById('role').value='student'; document.getElementById('step1').classList.remove('active'); document.getElementById('step2').classList.add('active'); document.getElementById('student-fields').style.display='block'; console.log('Student selected');">
+            <button type="button" class="next user-class-button" data-next="step2" data-role="student">
               <i class="fa-solid fa-user-graduate"></i>
               <span>Student</span>
             </button>
-            <button type="button" class="next user-class-button" data-next="step2" data-role="faculty" onclick="document.getElementById('role').value='faculty'; document.getElementById('step1').classList.remove('active'); document.getElementById('step2').classList.add('active'); document.getElementById('student-fields').style.display='none'; console.log('Faculty selected');">
+            <button type="button" class="next user-class-button" data-next="step2" data-role="faculty">
               <i class="fa-solid fa-chalkboard-user"></i>
               <span>Faculty</span>
             </button>
@@ -343,17 +762,28 @@ input[type="password"]::-ms-clear {
         <!-- Step 3: College Info -->
         <div class="step" id="step3">
           <h3>Select your college</h3>
-          <select name="college" required class="form-control select mb-2">
+          <label for="college-select" class="form-label" style="margin-top: 0; margin-bottom: 0.5rem; display: block;">College</label>
+          <select name="college" id="college-select" required class="form-control select mb-2">
             <option value="">-- Select College --</option>
-            {% for college in colleges %}
-            <option value="{{ college.id }}">{{ college.name }}</option>
-            {% endfor %}
+            {% if colleges %}
+              {% for college in colleges %}
+              <option value="{{ college.id }}">{{ college.name }}</option>
+              {% endfor %}
+            {% else %}
+              <option value="" disabled>No colleges available. Please run migrations.</option>
+            {% endif %}
           </select>
           
           <!-- Student only fields -->
           <div id="student-fields">
-            <input type="text" name="course" placeholder="Course Name" class="form-control mb-2">
-            <input type="text" name="year" placeholder="Year" class="form-control mb-2">
+            <label for="course-select" class="form-label" style="margin-top: 1rem; margin-bottom: 0.5rem; display: block;">Select your course</label>
+            <select name="course" id="course-select" class="form-control mb-2">
+              <option value="">-- Select Course --</option>
+            </select>
+            <label for="year-select" class="form-label" style="margin-top: 1rem; margin-bottom: 0.5rem; display: block;">Year</label>
+            <select name="year" id="year-select" class="form-control mb-2">
+              <option value="">-- Select Year --</option>
+            </select>
             <input type="text" name="block" placeholder="Block (e.g., 2A)" class="form-control mb-2">
           </div>
           
@@ -366,33 +796,39 @@ input[type="password"]::-ms-clear {
         <!-- Step 4: Email -->
         <div class="step" id="step4">
           <h3>Enter your email</h3>
-          <div class="d-flex" style="max-width: 500px;">
+          <label class="form-label fw-semibold">Email</label>
+          <div class="input-group mb-3">
             <input type="text" id="email_prefix" name="email_prefix"
-              placeholder="Email Address Prefix" required class="form-control me-2"
-              pattern="[A-Za-z0-9]+" title="Only letters and numbers are allowed">
-            <input type="text" id="email_domain" value="@psu.palawan.edu.ph" disabled class="form-control" style="max-width: 220px;">
+              placeholder="Your school ID" required class="form-control"
+              pattern="[A-Za-z0-9]+" title="Only letters and numbers are allowed"
+              aria-label="School ID">
+            <span class="input-group-text">@psu.palawan.edu.ph</span>
           </div>
           <input type="hidden" name="email" id="email_full">
-          <div class="mt-2" style="max-width: auto;">
-            <div class="input-group password-group mb-2">
+          <div class="form-group mb-3">
+            <label for="password" class="form-label fw-semibold">Password</label>
+            <div class="input-group">
               <input type="password" name="password" id="password" placeholder="Create a strong password" required class="form-control"
                 pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
                 title="Use at least 8 characters with uppercase, lowercase, and a number." autocomplete="new-password">
-              <button type="button" class="input-group-text" id="togglePassword" aria-label="Toggle password visibility" style="cursor: pointer; border-left: none;" onclick="togglePasswordVisibility('password', 'passwordToggleIcon')">
+              <button type="button" class="input-group-text" id="togglePassword" aria-label="Toggle password visibility" style="cursor: pointer; border-left: none;">
                 <i class="fa-solid fa-eye" id="passwordToggleIcon"></i>
               </button>
             </div>
-            <div class="input-group password-group mb-2">
+            <small class="form-text text-muted d-block mt-2">
+              Passwords must be 8 or more characters and include uppercase, lowercase, and at least one number.
+            </small>
+          </div>
+          <div class="form-group mb-3">
+            <label for="password2" class="form-label fw-semibold">Confirm Password</label>
+            <div class="input-group">
               <input type="password" name="password2" id="password2" placeholder="Re-enter the same password" required class="form-control"
                 pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
                 title="Repeat the password. It must match and meet all strength rules." autocomplete="new-password">
-              <button type="button" class="input-group-text" id="togglePasswordConfirm" aria-label="Toggle confirm password visibility" style="cursor: pointer; border-left: none;" onclick="togglePasswordVisibility('password2', 'passwordToggleIconConfirm')">
+              <button type="button" class="input-group-text" id="togglePasswordConfirm" aria-label="Toggle confirm password visibility" style="cursor: pointer; border-left: none;">
                 <i class="fa-solid fa-eye" id="passwordToggleIconConfirm"></i>
               </button>
             </div>
-            <small class="form-text text-muted d-block">
-              Passwords must be 8 or more characters and include uppercase, lowercase, and at least one number.
-            </small>
           </div>
           <div class="form-check text-start mt-3">
             <input class="form-check-input" type="checkbox" value="1" id="termsAgreement" name="terms_agreement" required>
@@ -402,7 +838,14 @@ input[type="password"]::-ms-clear {
           </div>
           <div class="button-row mt-3">
             <button type="button" class="back back-button" data-prev="step3">Back</button>
-            <button type="submit" class="next-button">Submit</button>
+            <button type="submit" class="next-button">Create Account</button>
+          </div>
+          <div>
+            <p class="mt-3"><span class="text-muted">Already have an account? </span>
+              <a href="{% url 'account_login' %}" class="btn btn-link p-0">
+                Log in
+              </a>
+            </p>
           </div>
         </div>
 
@@ -440,23 +883,43 @@ input[type="password"]::-ms-clear {
 
 {% block scripts %}
 <script>
-function togglePasswordVisibility(inputId, iconId) {
-  const input = document.getElementById(inputId);
-  const icon = document.getElementById(iconId);
-
-  if (!input || !icon) {
-    return;
+document.addEventListener('DOMContentLoaded', function() {
+  const togglePassword = document.getElementById('togglePassword');
+  const passwordInput = document.getElementById('password');
+  const passwordToggleIcon = document.getElementById('passwordToggleIcon');
+  
+  if (togglePassword && passwordInput && passwordToggleIcon) {
+    togglePassword.addEventListener('click', function() {
+      if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        passwordToggleIcon.classList.remove('fa-eye');
+        passwordToggleIcon.classList.add('fa-eye-slash');
+      } else {
+        passwordInput.type = 'password';
+        passwordToggleIcon.classList.remove('fa-eye-slash');
+        passwordToggleIcon.classList.add('fa-eye');
+      }
+    });
   }
 
-  const isHidden = input.getAttribute('type') === 'password';
-  input.setAttribute('type', isHidden ? 'text' : 'password');
-  icon.classList.toggle('fa-eye');
-  icon.classList.toggle('fa-eye-slash');
-}
+  const togglePasswordConfirm = document.getElementById('togglePasswordConfirm');
+  const password2Input = document.getElementById('password2');
+  const passwordToggleIconConfirm = document.getElementById('passwordToggleIconConfirm');
+  
+  if (togglePasswordConfirm && password2Input && passwordToggleIconConfirm) {
+    togglePasswordConfirm.addEventListener('click', function() {
+      if (password2Input.type === 'password') {
+        password2Input.type = 'text';
+        passwordToggleIconConfirm.classList.remove('fa-eye');
+        passwordToggleIconConfirm.classList.add('fa-eye-slash');
+      } else {
+        password2Input.type = 'password';
+        passwordToggleIconConfirm.classList.remove('fa-eye-slash');
+        passwordToggleIconConfirm.classList.add('fa-eye');
+      }
+    });
+  }
 
-// Load registration script after jQuery
-$(document).ready(function () {
-  console.log("Registration.js loaded");
   document.documentElement.classList.add("register-page");
 
   const mobileHeader = document.querySelector(".mobile-header");
@@ -473,113 +936,238 @@ $(document).ready(function () {
   if (mobileNavOverlay) {
     mobileNavOverlay.remove();
   }
-  
-  // Email validation regex
-  var regex = /^[a-zA-Z0-9]+$/;
-  
-  // Registration script
-  // Handle next button clicks
-  $(".next").click(function(){
-    console.log("Next button clicked");
-    var nextStep = $(this).data("next");
-    console.log("Next step:", nextStep);
 
-    var currentStep = $(this).closest(".step");
-    var isValid = true;
+  const regex = /^[a-zA-Z0-9]+$/;
+  const roleInput = document.getElementById("role");
+  const studentFields = document.getElementById("student-fields");
+  const steps = Array.from(document.querySelectorAll(".step"));
 
-    currentStep.find('input[required], select[required], textarea[required]').each(function() {
-      if (!this.value || !this.checkValidity()) {
-        this.reportValidity();
-        isValid = false;
-        return false;
+  function updateStudentFieldsVisibility() {
+    if (!studentFields) return;
+    const role = roleInput ? roleInput.value.toLowerCase() : "";
+    studentFields.style.display = role === "student" ? "block" : "none";
+  }
+
+  function showStep(stepId) {
+    if (!stepId) {
+      return;
+    }
+
+    steps.forEach(step => step.classList.remove("active"));
+    const target = document.getElementById(stepId);
+    if (target) {
+      target.classList.add("active");
+      if (stepId === "step3") {
+        updateStudentFieldsVisibility();
+      }
+    }
+  }
+
+  document.querySelectorAll(".next").forEach(button => {
+    button.addEventListener("click", function () {
+      const currentStep = button.closest(".step");
+      if (!currentStep) {
+        return;
+      }
+
+      let isValid = true;
+      const requiredFields = currentStep.querySelectorAll("input[required], select[required], textarea[required]");
+      requiredFields.forEach(field => {
+        if (isValid && (!field.value || !field.checkValidity())) {
+          if (typeof field.reportValidity === "function") {
+            field.reportValidity();
+          } else {
+            field.focus();
+          }
+          isValid = false;
+        }
+      });
+      
+      // Validate course and year selection for students
+      if (isValid && currentStep.id === "step3") {
+        const role = roleInput ? roleInput.value : "";
+        if (role === "student") {
+          const courseSelect = document.getElementById("course-select");
+          const yearSelect = document.getElementById("year-select");
+          if (courseSelect && !courseSelect.value) {
+            alert("Please select a course.");
+            courseSelect.focus();
+            isValid = false;
+          } else if (yearSelect && !yearSelect.value) {
+            alert("Please select a year.");
+            yearSelect.focus();
+            isValid = false;
+          }
+        }
+      }
+
+      if (!isValid) {
+        return;
+      }
+
+      if (button.dataset.role && roleInput) {
+        roleInput.value = button.dataset.role;
+        updateStudentFieldsVisibility();
+      }
+
+      const nextStep = button.dataset.next;
+      if (nextStep) {
+        showStep(nextStep);
       }
     });
-
-    if (!isValid) {
-      return;
-    }
-
-    // if role button clicked, set role value
-    if($(this).data("role")){
-      var role = $(this).data("role");
-      console.log("Role selected:", role);
-      $("#role").val(role);
-    }
-
-    $(this).closest(".step").removeClass("active");
-    $("#" + nextStep).addClass("active");
-    console.log("Step changed to:", nextStep);
   });
 
-  // Handle back button clicks
-  $(document).on("click", ".back", function(e){
-    e.preventDefault();
-    var prevStep = $(this).data("prev") || $(this).attr("data-prev");
-    var prevUrl = $(this).attr("data-prev-url");
-    console.log("Back button clicked, previous step:", prevStep);
-    console.log("Previous URL:", prevUrl);
-    
-    if (prevUrl) {
-      window.location.href = prevUrl;
-      return;
-    }
+  document.querySelectorAll(".back").forEach(button => {
+    button.addEventListener("click", function (event) {
+      const prevUrl = button.dataset.prevUrl;
+      if (prevUrl) {
+        event.preventDefault();
+        window.location.href = prevUrl;
+        return;
+      }
 
-    if (!prevStep) {
-      console.log("No previous step defined");
-      return;
-    }
+      const prevStep = button.dataset.prev;
+      if (!prevStep) {
+        return;
+      }
 
-    if (prevStep === "previousPage") {
-      window.history.back();
-      return;
-    }
+      event.preventDefault();
 
-    var currentStep = $(this).closest(".step");
-    currentStep.removeClass("active");
-    $("#" + prevStep).addClass("active");
-    console.log("Returned to:", prevStep);
+      if (prevStep === "previousPage") {
+        window.history.back();
+        return;
+      }
+
+      showStep(prevStep);
+    });
   });
 
-  // Handle form submit
-  $("#registrationForm").on("submit", function(e) {
-    if (!$("#role").val()) {
-      alert("Please select your role before proceeding.");
-      e.preventDefault();
-      return false;
-    }
-
-    // Temporarily disable required on hidden steps to avoid browser blocking
-    $(".step:not(.active)").find("input, select, textarea").each(function(){
-      var el = $(this);
-      if (el.prop('required')) {
-        el.data('was-required', true);
-        el.prop('required', false);
+  // Handle college selection to update courses dropdown
+  const collegeSelect = document.getElementById('college-select');
+  const courseSelect = document.getElementById('course-select');
+  const yearSelect = document.getElementById('year-select');
+  
+  // Store course durations
+  let courseDurations = {};
+  
+  if (collegeSelect && courseSelect) {
+    collegeSelect.addEventListener('change', function() {
+      const collegeId = this.value;
+      courseSelect.innerHTML = '<option value="">-- Select Course --</option>';
+      courseSelect.disabled = !collegeId;
+      if (yearSelect) {
+        yearSelect.innerHTML = '<option value="">-- Select Year --</option>';
+        yearSelect.disabled = true;
+      }
+      courseDurations = {}; // Reset course durations
+      
+      if (collegeId) {
+        // Show loading state
+        courseSelect.innerHTML = '<option value="">Loading courses...</option>';
+        
+        // Fetch courses for selected college
+        fetch(`{% url 'account:get-courses' %}?college_id=${collegeId}`)
+          .then(response => response.json())
+          .then(data => {
+            courseSelect.innerHTML = '<option value="">-- Select Course --</option>';
+            if (data.courses && data.courses.length > 0) {
+              data.courses.forEach(course => {
+                const option = document.createElement('option');
+                option.value = course.id;
+                option.textContent = course.name;
+                courseSelect.appendChild(option);
+                // Store course duration
+                courseDurations[course.id] = course.duration || 4;
+              });
+            } else {
+              courseSelect.innerHTML = '<option value="">No courses available</option>';
+            }
+            courseSelect.disabled = false;
+          })
+          .catch(error => {
+            console.error('Error fetching courses:', error);
+            courseSelect.innerHTML = '<option value="">Error loading courses</option>';
+            courseSelect.disabled = false;
+          });
+      } else {
+        courseSelect.disabled = true;
       }
     });
-
-    // Validate email prefix
-    var prefix = $("#email_prefix").val().trim();
-    var domain = "@psu.palawan.edu.ph";
-
-    if (!regex.test(prefix)) {
-      alert("Email prefix must only contain letters and numbers (no @ or .).");
-      e.preventDefault();
-      return false;
-    }
-
-    $("#email_full").val(prefix + domain);
-
-    // Validate password match
-    var password = $('input[name="password"]').val();
-    var password2 = $('input[name="password2"]').val();
     
-    if (password !== password2) {
-      alert("Passwords do not match. Please re-enter your password.");
-      e.preventDefault();
-      return false;
+    // Handle course selection to update year dropdown
+    if (courseSelect && yearSelect) {
+      courseSelect.addEventListener('change', function() {
+        const courseId = this.value;
+        yearSelect.innerHTML = '<option value="">-- Select Year --</option>';
+        
+        if (courseId && courseDurations[courseId]) {
+          const duration = courseDurations[courseId];
+          // Populate year options based on course duration
+          for (let year = 1; year <= duration; year++) {
+            const option = document.createElement('option');
+            option.value = year;
+            option.textContent = `Year ${year}`;
+            yearSelect.appendChild(option);
+          }
+          yearSelect.disabled = false;
+        } else {
+          yearSelect.disabled = true;
+        }
+      });
     }
-  });
+    
+    // Initialize course dropdown state
+    if (!collegeSelect.value) {
+      courseSelect.disabled = true;
+      if (yearSelect) {
+        yearSelect.disabled = true;
+      }
+    }
+  }
 
+  const registrationForm = document.getElementById("registrationForm");
+  if (registrationForm) {
+    registrationForm.addEventListener("submit", function (event) {
+      if (roleInput && !roleInput.value) {
+        alert("Please select your role before proceeding.");
+        event.preventDefault();
+        return;
+      }
+
+      steps.forEach(step => {
+        if (!step.classList.contains("active")) {
+          step.querySelectorAll("input, select, textarea").forEach(field => {
+            if (field.hasAttribute("required")) {
+              field.dataset.wasRequired = "true";
+              field.removeAttribute("required");
+            }
+          });
+        }
+      });
+
+      const prefixInput = document.getElementById("email_prefix");
+      if (prefixInput) {
+        const prefix = prefixInput.value.trim();
+        if (!regex.test(prefix)) {
+          alert("Email prefix must only contain letters and numbers (no @ or .).");
+          event.preventDefault();
+          return;
+        }
+
+        const emailFull = document.getElementById("email_full");
+        if (emailFull) {
+          emailFull.value = prefix + "@psu.palawan.edu.ph";
+        }
+      }
+
+      const password = document.querySelector('input[name="password"]');
+      const password2 = document.querySelector('input[name="password2"]');
+      if (password && password2 && password.value !== password2.value) {
+        alert("Passwords do not match. Please re-enter your password.");
+        event.preventDefault();
+      }
+    });
+  }
 });
 </script>
 {% endblock %}

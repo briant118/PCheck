@@ -10,6 +10,18 @@ class College(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class Course(models.Model):
+    name = models.CharField(max_length=200)
+    college = models.ForeignKey(College, on_delete=models.CASCADE, related_name='courses')
+    duration = models.IntegerField(default=4, help_text="Duration in years")
+    
+    def __str__(self):
+        return self.name
+    
+    class Meta:
+        ordering = ['name']
     
 
 class PC(models.Model):

@@ -23,6 +23,7 @@ urlpatterns = [
     path('password-reset/complete/', auth_views.PasswordResetCompleteView.as_view(),
         name='password_reset_complete'),
     path('register/', account_views.register, name='register'),
+    path('get-courses/', account_views.get_courses_by_college, name='get-courses'),
     path('verify/<email>/', account_views.verify, name='verify'),
     path('complete-profile/', account_views.complete_profile, name='complete-profile'),
     path('profile/', account_views.ProfileDetailView.as_view(), name='profile'),

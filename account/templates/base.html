@@ -207,7 +207,6 @@
           
           <!-- Mobile Navigation Menu -->
           {% if request.user.is_authenticated and request.user.profile.role|default:'' != 'staff' %}
-          <div class="mobile-nav-overlay" id="mobile-nav-overlay"></div>
           <nav class="mobile-nav" id="mobile-nav">
             <div class="mobile-nav-header">
               <span class="mobile-nav-title">MISO</span>
@@ -245,9 +244,6 @@
                   <i class="fa-solid fa-info-circle"></i>
                   <span>About</span>
                 </a>
-              </li>
-              <li>
-                
               </li>
               <li>
                 <a href="{% url 'account:logout' %}" class="mobile-nav-item">
@@ -402,20 +398,17 @@
       (function initMobileMenu() {
         var mobileMenuToggle = document.getElementById('mobile-menu-toggle');
         var mobileNav = document.getElementById('mobile-nav');
-        var mobileNavOverlay = document.getElementById('mobile-nav-overlay');
         var mobileNavClose = document.getElementById('mobile-nav-close');
         var sidebar = document.getElementById('sidebar');
         var sidebarOverlay = document.getElementById('sidebar-overlay');
         
         function openMobileNav() {
           if (mobileNav) mobileNav.classList.add('active');
-          if (mobileNavOverlay) mobileNavOverlay.classList.add('active');
           document.body.style.overflow = 'hidden';
         }
         
         function closeMobileNav() {
           if (mobileNav) mobileNav.classList.remove('active');
-          if (mobileNavOverlay) mobileNavOverlay.classList.remove('active');
           document.body.style.overflow = '';
         }
         
@@ -464,11 +457,6 @@
           });
         }
         
-        if (mobileNavOverlay) {
-          mobileNavOverlay.addEventListener('click', function() {
-            closeMobileNav();
-          });
-        }
         
         // Close mobile nav when clicking on a link
         if (mobileNav) {
