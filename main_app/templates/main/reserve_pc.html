@@ -464,9 +464,9 @@ window.selectPCForReservation = function(pcId, button) {
       <div class="available-pcs-header">
         <h2 class="available-pcs-title">Available PC's</h2>
         <div class="available-count-badge">
-          <span class="available-count-number" id="available-count">0</span>
+          <span class="available-count-number" id="available-count">{{ available_count|default:"0" }}</span>
           <span class="available-count-label">Available</span>
-    </div>
+        </div>
       </div>
       <div class="reservation-datetime" id="current-datetime">
         <i class="fa-solid fa-clock"></i>
@@ -660,56 +660,86 @@ window.selectPCForReservation = function(pcId, button) {
       </div> <!-- end of faculty-booking-pc-group -->
 
       <!-- Faculty Form -->
-      <div class="form-section card-body p-4" id="faculty-form-section" hidden>
+      <div class="form-section card-body p-4 bulk-booking-card shadow-lg" id="faculty-form-section" hidden>
         <form method="post" id="facultyForm" enctype="multipart/form-data" action="{% url 'main_app:submit-block-booking' %}">
           {% csrf_token %}
           <!-- Step 1 -->
           <div class="step active" id="step1">
-            <h3 class="text-center">Please fill up the form</h3>
-            <br>
-            <div class="justify-content-center">
-              <input type="number" id="custNumOfPc" name="custNumOfPc" hidden>
-              <input type="number" id="numOfPc" name="numOfPc" hidden>
-              <label for="course" class="form-label">Course</label><br>
-              <input type="text" id="course" name="course" class="form-control"><br>
-              <label for="block" class="form-label">Block</label><br>
-              <input type="text" id="block" name="block" class="form-control"><br>
-              <label for="college" class="form-label">College</label><br>
-              <select id="college" name="college" class="form-control select">
-                <option value="" selected disabled hidden>Select College</option>
-                {% for college in colleges %}
-                <option value="{{ college.id }}">{{ college.name }}</option>
-                {% endfor %}
-              </select>
-              <br>
-              <label for="dateStart" class="form-label">Start date</label><br>
-              <input type="datetime-local" id="dateStart" name="dateStart" class="form-control"><br>
-              <label for="dateEnd" class="form-label">End date</label><br>
-              <input type="datetime-local" id="dateEnd" name="dateEnd" class="form-control">
+            <input type="number" id="custNumOfPc" name="custNumOfPc" hidden>
+            <input type="number" id="numOfPc" name="numOfPc" hidden>
+            <div class="bulk-step-header text-center mb-4">
+              <h3 class="bulk-step-title mb-2">Class Details</h3>
+              <p class="bulk-step-subtitle mb-0">Provide the key information for your bulk booking session.</p>
             </div>
-            <div class="text-center">
-              <button type="button" class="next next-button" data-next="step2" onclick="advanceStep('step1', 'step2')">Next</button>
+            <div class="row g-3">
+              <div class="col-12 col-md-6">
+                <label for="course" class="form-label fw-semibold">Course</label>
+                <input type="text" id="course" name="course" class="form-control bulk-input" placeholder="e.g., BSIT">
+              </div>
+              <div class="col-12 col-md-6">
+                <label for="block" class="form-label fw-semibold">Block</label>
+                <input type="text" id="block" name="block" class="form-control bulk-input" placeholder="e.g., 3A">
+              </div>
+              <div class="col-12">
+                <label for="college" class="form-label fw-semibold">College</label>
+                <select id="college" name="college" class="form-control select bulk-input">
+                  <option value="" selected disabled hidden>Select College</option>
+                  {% for college in colleges %}
+                  <option value="{{ college.id }}">{{ college.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-12 col-md-6">
+                <label for="dateStart" class="form-label fw-semibold">Start date</label>
+                <input type="datetime-local" id="dateStart" name="dateStart" class="form-control bulk-input">
+              </div>
+              <div class="col-12 col-md-6">
+                <label for="dateEnd" class="form-label fw-semibold">End date</label>
+                <input type="datetime-local" id="dateEnd" name="dateEnd" class="form-control bulk-input">
+              </div>
+            </div>
+            <div class="bulk-step-actions mt-4">
+              <button type="button" class="btn btn-outline-secondary bulk-back" onclick="backToPcSelection()">
+                <i class="fa-solid fa-arrow-left me-1"></i> PC Selection
+              </button>
+              <button type="button" class="btn btn-primary bulk-next" data-next="step2" onclick="advanceStep('step1', 'step2')">
+                Next <i class="fa-solid fa-arrow-right ms-1"></i>
+              </button>
             </div>
           </div>
 
           <!-- Step 2: Email addresses -->
           <div class="step" id="step2">
-            <h6>List of students' email - must be valid email addresses (separated by commas)</h6>
-            <div class="d-flex mb-2" style="max-width: auto;">
-              <textarea name="emailList" id="emailList" cols="40" rows="20" class="form-control" oninput="validateEmailList(this)"></textarea>
+            <div class="bulk-step-header text-center mb-3">
+              <h3 class="bulk-step-title mb-2">Invite Students</h3>
+              <p class="bulk-step-subtitle mb-0">Enter PSU email addresses separated by commas. We will notify each student.</p>
             </div>
-            <div id="result"></div>
-            <div class="text-center">
-              <button type="button" class="next next-button" data-next="step3" id="step3NextBtn" hidden onclick="advanceStep('step2', 'step3')">Next</button>
+            <textarea name="emailList" id="emailList" rows="8" class="form-control bulk-textarea" placeholder="student1@psu.palawan.edu.ph, student2@psu.palawan.edu.ph" oninput="validateEmailList(this)"></textarea>
+            <div id="result" class="bulk-validation-feedback mt-2"></div>
+            <div class="bulk-step-actions mt-4">
+              <button type="button" class="btn btn-outline-secondary bulk-back" onclick="goBackStep('step2', 'step1')">
+                <i class="fa-solid fa-arrow-left me-1"></i> Back
+              </button>
+              <button type="button" class="btn btn-primary bulk-next" data-next="step3" id="step3NextBtn" hidden onclick="advanceStep('step2', 'step3')">
+                Next <i class="fa-solid fa-arrow-right ms-1"></i>
+              </button>
             </div>
           </div>
 
           <!-- Step 3: Attachment -->
           <div class="step" id="step3">
-            <h5 class="mb-5 text-center">Kindly submit the request letter duly approved by the Dean.</h5>
-            <input type="file" name="attachment" id="attachment" class="form-control mb-2" accept=".pdf,.doc,.docx,.jpg,.png">
-            <div class="text-center">
-              <button type="submit" class="next next-button" data-next="step4" id="facultyFormSubmit">Submit</button>
+            <div class="bulk-step-header text-center mb-3">
+              <h3 class="bulk-step-title mb-2">Upload Approval Letter</h3>
+              <p class="bulk-step-subtitle mb-0">Attach the request letter signed by your Dean to complete the submission.</p>
+            </div>
+            <input type="file" name="attachment" id="attachment" class="form-control bulk-input mb-3" accept=".pdf,.doc,.docx,.jpg,.png">
+            <div class="bulk-step-actions mt-4">
+              <button type="button" class="btn btn-outline-secondary bulk-back" onclick="goBackStep('step3', 'step2')">
+                <i class="fa-solid fa-arrow-left me-1"></i> Back
+              </button>
+              <button type="submit" class="btn btn-success bulk-submit" data-next="step4" id="facultyFormSubmit">
+                Submit Request <i class="fa-solid fa-paper-plane ms-2"></i>
+              </button>
             </div>
           </div>
         </form>
@@ -1092,6 +1122,78 @@ function advanceStep(currentStep, nextStep) {
   
   if (nextStepDiv) {
     nextStepDiv.classList.add('active');
+  }
+
+  var formSection = document.getElementById('faculty-form-section');
+  if (formSection) {
+    formSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+// Function to go back to the previous step in the form
+function goBackStep(currentStep, previousStep) {
+  console.log('Going back from', currentStep, 'to', previousStep);
+  var currentStepDiv = document.getElementById(currentStep);
+  var previousStepDiv = document.getElementById(previousStep);
+
+  if (currentStepDiv) {
+    currentStepDiv.classList.remove('active');
+  }
+
+  if (previousStepDiv) {
+    previousStepDiv.classList.add('active');
+  }
+
+  if (previousStep === 'step2') {
+    var emailList = document.getElementById('emailList');
+    if (emailList) {
+      validateEmailList(emailList);
+    }
+  }
+
+  var formSection = document.getElementById('faculty-form-section');
+  if (formSection) {
+    formSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+// Return to PC selection screen from faculty form
+function backToPcSelection() {
+  console.log('Returning to PC selection');
+  var facultyFormSection = document.getElementById('faculty-form-section');
+  var facultyBookingPcGroup = document.getElementById('faculty-booking-pc-group');
+  var step3NextBtn = document.getElementById('step3NextBtn');
+
+  if (facultyFormSection) {
+    facultyFormSection.setAttribute('hidden', 'true');
+    var steps = facultyFormSection.querySelectorAll('.step');
+    steps.forEach(function(step, index) {
+      if (index === 0) {
+        step.classList.add('active');
+      } else {
+        step.classList.remove('active');
+      }
+    });
+  }
+
+  if (facultyBookingPcGroup) {
+    facultyBookingPcGroup.removeAttribute('hidden');
+    facultyBookingPcGroup.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  if (step3NextBtn) {
+    step3NextBtn.hidden = true;
+  }
+
+  var pcGroupButtons = document.querySelectorAll('.pc-group-number');
+  pcGroupButtons.forEach(function(btn) {
+    btn.disabled = false;
+    btn.classList.remove('bg-warning');
+  });
+
+  var blockButton = document.getElementById('block-button');
+  if (blockButton) {
+    blockButton.focus();
   }
 }
 

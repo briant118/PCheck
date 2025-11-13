@@ -1250,3 +1250,94 @@ body {
         width: 100% !important;
     }
 }
+
+/* Bulk booking form enhancements */
+.bulk-booking-card {
+    background: #ffffff;
+    border-radius: 18px;
+    border: 1px solid #f1f1f1;
+    padding: 2.75rem 2.5rem;
+    max-width: 780px;
+    margin: 0 auto;
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.08);
+}
+
+.bulk-step-header .bulk-step-title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #2c3e50;
+}
+
+.bulk-step-header .bulk-step-subtitle {
+    color: #6c757d;
+    font-size: 0.95rem;
+}
+
+.bulk-input,
+.bulk-textarea {
+    border-radius: 12px;
+    border: 1px solid #dfe3eb;
+    padding: 0.7rem 0.95rem;
+    background-color: #fdfdfd;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.bulk-input:focus,
+.bulk-textarea:focus {
+    border-color: #ff8c00;
+    box-shadow: 0 0 0 0.18rem rgba(255, 140, 0, 0.25);
+    background-color: #ffffff;
+}
+
+.bulk-textarea {
+    min-height: 200px;
+    resize: vertical;
+}
+
+.bulk-validation-feedback {
+    font-size: 0.9rem;
+    color: #dc3545;
+}
+
+.bulk-step-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+}
+
+.bulk-step-actions .btn {
+    min-width: 160px;
+    border-radius: 12px;
+    font-weight: 600;
+    padding: 0.65rem 1.5rem;
+}
+
+.bulk-back {
+    background: #ffffff;
+    color: #495057;
+    border: 1px solid #d9dee4;
+}
+
+.bulk-back:hover {
+    background: #f1f3f5;
+    color: #2c3e50;
+}
+
+.bulk-next {
+    background: linear-gradient(135deg, #ff8c00 0%, #ffb347 100%);
+    border: none;
+    color: #ffffff;
+}
+
+.bulk-next:hover {
+    background: linear-gradient(135deg, #ff9f1a 0%, #ffc065 100%);
+    color: #ffffff;
+}
+
+.bulk-submit {
+    padding: 0.7rem 1.9rem;
+    border-radius: 12px;
+    font-size: 1.02rem;
+}

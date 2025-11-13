@@ -37,7 +37,7 @@ urlpatterns = [
     # Main app URLs (root goes to main_app:home)
     path('', include('main_app.urls')),
     # Favicon fallback (.ico) → serve our SVG
-    path('favicon.ico', RedirectView.as_view(url=static_url('favicon.svg'), permanent=True)),
+    path('favicon.ico', RedirectView.as_view(url=static_url('image/MIS-removebg-preview.png'), permanent=True)),
 ]
 
 # Serve static files during development

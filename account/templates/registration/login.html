@@ -16,22 +16,9 @@
     width: 100%;
   }
 
-  html,
   body {
-    background: #f8f9ff;
+    background: linear-gradient(135deg, #ff6b35 0%, #f7931e 50%, #ffa500 100%);
     min-height: 100vh;
-  }
-
-  #content.content-wrapper {
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.95)),
-                url("{% static 'image/backgroun-psu.png' %}") no-repeat center center / cover;
-    min-height: 100vh;
-    backdrop-filter: blur(4px);
-  }
-
-  .wrapper,
-  .main-content {
-    background: transparent;
   }
 
   /* Page */
@@ -53,7 +40,7 @@
   
   .login-header { 
     padding: 2.5rem 2rem !important;
-    background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%) !important;
+  background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%) !important;
     border: none;
   }
   
@@ -284,8 +271,8 @@
 {% block content %}
 <div class="login-wrapper container">
   <div class="card border shadow-lg bg-body login-card mx-auto">
-    <div class="text-center card-body bg-warning login-header">
-      <h1 class="login-title mb-0">Log in to MISO and stay connected.</h1>
+    <div class="text-center card-body login-header">
+      <h1 class="login-title mb-0">Log in to MISO and stay connected</h1>
     </div>
     <div class="form-section p-4 login-form">
       {% if form.errors %}
@@ -353,7 +340,7 @@
     const togglePassword = document.getElementById('togglePassword');
     const passwordInput = document.getElementById('password');
     const passwordToggleIcon = document.getElementById('passwordToggleIcon');
-
+    
     if (togglePassword && passwordInput && passwordToggleIcon) {
       togglePassword.addEventListener('click', function() {
         if (passwordInput.type === 'password') {

@@ -5,48 +5,92 @@
 
 {% block links %}
   <link rel="stylesheet" href="{% static 'css/mystyle.css' %}">
+  <style>
+    .resend-link {
+      background: none;
+      border: none;
+      color: #0d6efd;
+      text-decoration: underline;
+      padding: 0;
+      font-size: 0.95rem;
+    }
+
+    .resend-link:disabled {
+      color: #6c757d;
+      text-decoration: none;
+      cursor: not-allowed;
+    }
+
+    .code-input {
+      border: none;
+      border-bottom: 2px solid #ff8c00;
+      border-radius: 0;
+      text-align: center;
+      font-size: 1.5rem;
+      letter-spacing: 0.4rem;
+      padding: 0.5rem 0;
+      max-width: 220px;
+      margin: 0 auto;
+      outline: none;
+      box-shadow: none;
+    }
+
+    .code-input:focus {
+      border-bottom-color: #e67700;
+      box-shadow: none;
+    }
+  </style>
 {% endblock %}
 
 {% block content %}
 <div class="container mt-5 pt-5 rounded">
   <div class="card col-md-6 offset-md-3 border rounded shadow-lg mb-5 bg-body">
-    <div class="text-center card-body bg-warning mb-3">
-      <h1>Hello, <br>Create your account</h1>
+    <div class="text-center card-body bg-warning mb-3" style="background: #ff8c00 !important;">
+      <h1>MISO</h1>
     </div>
     <div class="form-section p-4">
       <h2>Verify your account</h2>
       <form method="post">
         {% csrf_token %}
         <p>We have sent the verification code to {{ email }}</p>
-        <div class="row">
-          <div class="col">
-            <input type="text" id="code1" maxlength="1" class="form-control otp" required oninput="if(this.value.length==1)document.getElementById('code2').focus(); updateCode();">
-          </div>
-          <div class="col">
-            <input type="text" id="code2" maxlength="1" class="form-control otp" required oninput="if(this.value.length==1)document.getElementById('code3').focus(); updateCode();">
-          </div>
-          <div class="col">
-            <input type="text" id="code3" maxlength="1" class="form-control otp" required oninput="if(this.value.length==1)document.getElementById('code4').focus(); updateCode();">
-          </div>
-          <div class="col">
-            <input type="text" id="code4" maxlength="1" class="form-control otp" required oninput="updateCode();">
-          </div>
-          <input type="text" name="code" id="code" hidden>
-          <div class="col text-center">
-            <button type="submit" class="btn btn-warning" id="verify-btn" onclick="updateCode(); return true;">Verify</button>
-          </div>
+        <div class="text-center">
+          <input type="text" name="code" id="code" class="code-input" inputmode="numeric" pattern="\d{4}" maxlength="4" placeholder="____">
         </div>
-        
+        <div class="d-flex align-items-center justify-content-between mt-3 gap-3">
+          <button type="submit" class="resend-link" name="resend" value="1" id="resend-btn" disabled>Resend code (10s)</button>
+          <button type="submit" class="btn btn-warning px-4 py-2" id="verify-btn">Verify</button>
+        </div>
+
         <script>
-        function updateCode() {
-          var code1 = document.getElementById('code1').value || '';
-          var code2 = document.getElementById('code2').value || '';
-          var code3 = document.getElementById('code3').value || '';
-          var code4 = document.getElementById('code4').value || '';
-          var fullCode = code1 + code2 + code3 + code4;
-          document.getElementById('code').value = fullCode;
-          console.log('Full code:', fullCode);
-        }
+        document.addEventListener('DOMContentLoaded', function() {
+          var resendBtn = document.getElementById('resend-btn');
+          if (!resendBtn) {
+            return;
+          }
+
+          var cooldownSeconds = 10;
+          var remaining = cooldownSeconds;
+          resendBtn.disabled = true;
+
+          function updateResendLabel(seconds) {
+            resendBtn.textContent = 'Resend code (' + seconds + 's)';
+          }
+
+          updateResendLabel(remaining);
+
+          var countdown = setInterval(function() {
+            remaining -= 1;
+            if (remaining > 0) {
+              updateResendLabel(remaining);
+            } else {
+              clearInterval(countdown);
+              resendBtn.disabled = false;
+              resendBtn.textContent = 'Resend code';
+              resendBtn.style.textDecoration = 'underline';
+              resendBtn.style.color = '#0d6efd';
+            }
+          }, 1000);
+        });
         </script>
       </form>
     </div>

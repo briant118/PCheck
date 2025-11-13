@@ -310,9 +310,25 @@ def register(request):
         pending.generate_code()
 
         # email the code
+        message = (
+            "Dear User,\n\n"
+            "Thank you for using the Management Information System Office (MISO) platform. "
+            "To ensure the security of your account and verify your identity, please use the "
+            "One-Time Password (OTP) provided below:\n\n"
+            f"Your Verification Code: {pending.verification_code}\n\n"
+            "This code is valid for 5 minutes from the time it was sent. Do not share this code "
+            "with anyone for your account’s safety. MISO will never ask you for your OTP or "
+            "password through calls or messages.\n\n"
+            "If you did not request this code, please ignore this message or contact the MISO "
+            "administrator immediately.\n\n"
+            "Sincerely,\n"
+            "MISO Support Team\n"
+            "Palawan State University"
+        )
+
         send_mail(
-            "Your Verification Code",
-            f"Your code is {pending.verification_code}",
+            "MISO Account Verification Code",
+            message,
             "noreply@example.com",
             [email],
         )
@@ -324,13 +340,41 @@ def register(request):
 
 
 def verify(request, email):
+    try:
+        pending = models.PendingUser.objects.get(email=email)
+    except models.PendingUser.DoesNotExist:
+        messages.error(request, "Invalid request.")
+        return redirect("account:register")
+
     if request.method == "POST":
-        code = request.POST['code']
-        try:
-            pending = models.PendingUser.objects.get(email=email)
-        except models.PendingUser.DoesNotExist:
-            messages.error(request, "Invalid request.")
-            return redirect("account:register")
+        if 'resend' in request.POST:
+            pending.generate_code()
+            message = (
+                "Dear User,\n\n"
+                "Thank you for using the Management Information System Office (MISO) platform. "
+                "To ensure the security of your account and verify your identity, please use the "
+                "One-Time Password (OTP) provided below:\n\n"
+                f"Your Verification Code: {pending.verification_code}\n\n"
+                "This code is valid for 5 minutes from the time it was sent. Do not share this code "
+                "with anyone for your account’s safety. MISO will never ask you for your OTP or "
+                "password through calls or messages.\n\n"
+                "If you did not request this code, please ignore this message or contact the MISO "
+                "administrator immediately.\n\n"
+                "Sincerely,\n"
+                "MISO Support Team\n"
+                "Palawan State University"
+            )
+
+            send_mail(
+                "MISO Account Verification Code",
+                message,
+                "noreply@example.com",
+                [email],
+            )
+            messages.success(request, "We sent a new verification code to your email.")
+            return redirect("account:verify", email=email)
+
+        code = request.POST.get('code', '')
 
         if pending.verification_code == code:
             # Check if user already exists

@@ -6,10 +6,19 @@
 
 {% block links %}
 <link rel="stylesheet" href="{% static 'css/mystyle.css' %}">
+<script>
+  document.documentElement.classList.add("register-page");
+</script>
 <style>
 body {
-    background: linear-gradient(135deg, #ff6b35 0%, #f7931e 50%, #ffa500 100%);
+    background: #ff8c00;
     min-height: 100vh;
+}
+
+html.register-page .mobile-header,
+html.register-page #mobile-nav,
+html.register-page #mobile-nav-overlay {
+    display: none !important;
 }
 
 .container.mt-5.pt-5.rounded {
@@ -39,7 +48,7 @@ body {
 }
 
 .card-body.bg-warning {
-    background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%) !important;
+    background: #ff8c00 !important;
     padding: 2.5rem 2rem !important;
     border: none;
 }
@@ -136,15 +145,87 @@ body {
     transform: translateY(0);
 }
 
-.password-group .toggle-password {
+.button-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+}
+
+.button-row .next-button {
+    width: auto;
+    flex: 1;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+.button-row.single-button {
+    justify-content: center;
+}
+
+.back-button {
+    border: none;
+    border-radius: 12px;
+    background: #f0f0f0;
+    color: #2c3e50;
+    padding: 0.875rem 2rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+}
+
+.back-button:hover {
+    background: #e0e0e0;
+    color: #2c3e50;
+}
+
+.input-group-text {
     background: #f8f9fa;
     border: 2px solid #e0e0e0;
     border-left: none;
+    border-radius: 0 10px 10px 0;
     color: #6c757d;
-    transition: all 0.3s ease;
+    font-weight: 500;
+    padding: 0.875rem 1rem;
 }
 
-.password-group .toggle-password:hover {
+.input-group .form-control:first-child {
+    border-right: none;
+    border-radius: 10px 0 0 10px;
+}
+
+.input-group .form-control:first-child:focus {
+    border-right: none;
+}
+
+.input-group #password,
+.input-group #password2 {
+    border-right: none;
+    border-radius: 10px 0 0 10px;
+}
+
+.input-group #password:focus,
+.input-group #password2:focus {
+    border-right: none;
+}
+
+.input-group .form-control:focus ~ .input-group-text {
+    border-color: #ff6b35;
+    border-left: none;
+}
+
+#togglePassword:hover,
+#togglePasswordConfirm:hover {
     background: #e9ecef;
     color: #ff6b35;
 }
@@ -161,6 +242,11 @@ body {
     border-color: #ff6b35;
     box-shadow: 0 0 0 0.2rem rgba(255, 107, 53, 0.25);
     outline: none;
+}
+
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+    display: none;
 }
 
 .step {
@@ -217,7 +303,7 @@ body {
 <div class="container mt-5 pt-5 rounded">
   <div class="card col-md-6 offset-md-3 border rounded shadow-lg mb-5 bg-body">
     <div class="text-center card-body bg-warning mb-3">
-      <h1>Hello, <br>Create your account</h1>
+      <h1>Sign in to MISO.</h1>
     </div>
     <div class="form-section card-body p-4">
       <form id="registrationForm" method="post">
@@ -235,6 +321,9 @@ body {
               <span>Faculty</span>
             </button>
           </div>
+          <div class="button-row single-button">
+            <a href="{% url 'account_login' %}" class="back back-button" data-prev-url="{% url 'account_login' %}" role="button">Back</a>
+          </div>
           <input type="hidden" name="role" id="role">
         </div>
 
@@ -245,8 +334,9 @@ body {
             <input type="text" name="first_name" placeholder="First Name" required class="form-control" style="margin-right: 1em;">
             <input type="text" name="last_name" placeholder="Last Name" required class="form-control">
           </div>
-          <div class="text-center">
-            <button type="button" class="next next-button" data-next="step3" onclick="console.log('Next to step3'); document.getElementById('step2').classList.remove('active'); document.getElementById('step3').classList.add('active');">Next</button>
+          <div class="button-row">
+            <button type="button" class="back back-button" data-prev="step1" data-prev-label="Select your role">Back</button>
+            <button type="button" class="next next-button" data-next="step3">Next</button>
           </div>
         </div>
 
@@ -267,8 +357,9 @@ body {
             <input type="text" name="block" placeholder="Block (e.g., 2A)" class="form-control mb-2">
           </div>
           
-          <div class="text-center">
-            <button type="button" class="next next-button" data-next="step4" onclick="console.log('Next to step4'); document.getElementById('step3').classList.remove('active'); document.getElementById('step4').classList.add('active');">Next</button>
+          <div class="button-row">
+            <button type="button" class="back back-button" data-prev="step2" data-prev-label="Enter your name">Back</button>
+            <button type="button" class="next next-button" data-next="step4">Next</button>
           </div>
         </div>
 
@@ -284,26 +375,33 @@ body {
           <input type="hidden" name="email" id="email_full">
           <div class="mt-2" style="max-width: auto;">
             <div class="input-group password-group mb-2">
-              <input type="password" id="reg_password" name="password" placeholder="Create a strong password" required class="form-control"
+              <input type="password" name="password" id="password" placeholder="Create a strong password" required class="form-control"
                 pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
                 title="Use at least 8 characters with uppercase, lowercase, and a number." autocomplete="new-password">
-              <button type="button" class="toggle-password input-group-text" aria-label="Toggle password visibility" onclick="togglePasswordVisibility('reg_password', this)">
-                <i class="fa-solid fa-eye"></i>
+              <button type="button" class="input-group-text" id="togglePassword" aria-label="Toggle password visibility" style="cursor: pointer; border-left: none;" onclick="togglePasswordVisibility('password', 'passwordToggleIcon')">
+                <i class="fa-solid fa-eye" id="passwordToggleIcon"></i>
               </button>
             </div>
             <div class="input-group password-group mb-2">
-              <input type="password" id="reg_password_confirm" name="password2" placeholder="Re-enter the same password" required class="form-control"
+              <input type="password" name="password2" id="password2" placeholder="Re-enter the same password" required class="form-control"
                 pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
                 title="Repeat the password. It must match and meet all strength rules." autocomplete="new-password">
-              <button type="button" class="toggle-password input-group-text" aria-label="Toggle confirm password visibility" onclick="togglePasswordVisibility('reg_password_confirm', this)">
-                <i class="fa-solid fa-eye"></i>
+              <button type="button" class="input-group-text" id="togglePasswordConfirm" aria-label="Toggle confirm password visibility" style="cursor: pointer; border-left: none;" onclick="togglePasswordVisibility('password2', 'passwordToggleIconConfirm')">
+                <i class="fa-solid fa-eye" id="passwordToggleIconConfirm"></i>
               </button>
             </div>
             <small class="form-text text-muted d-block">
               Passwords must be 8 or more characters and include uppercase, lowercase, and at least one number.
             </small>
           </div>
-          <div class="text-center mt-1">
+          <div class="form-check text-start mt-3">
+            <input class="form-check-input" type="checkbox" value="1" id="termsAgreement" name="terms_agreement" required>
+            <label class="form-check-label" for="termsAgreement">
+              I agree to the <a href="#" data-bs-toggle="modal" data-bs-target="#termsModal">Terms and Conditions</a>.
+            </label>
+          </div>
+          <div class="button-row mt-3">
+            <button type="button" class="back back-button" data-prev="step3">Back</button>
             <button type="submit" class="next-button">Submit</button>
           </div>
         </div>
@@ -312,97 +410,176 @@ body {
     </div>
   </div>
 </div>
+
+<!-- Terms and Conditions Modal -->
+<div class="modal fade" id="termsModal" tabindex="-1" aria-labelledby="termsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="termsModalLabel">Terms and Conditions</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>By signing in to the MISO system, you confirm that you understand and accept these terms:</p>
+        <ul>
+          <li>Your account information (including name, institutional email, course or department, year, and block) will be collected to create your profile and tailor system access.</li>
+          <li>The data stored in MISO is handled according to PSU data privacy standards; only authorized personnel may review or process your information for official purposes.</li>
+          <li>The system keeps activity logs (such as sign-ins, submissions, and updates) to monitor performance, ensure security, and support audits when necessary.</li>
+          <li>You must safeguard your password and report suspected unauthorized access immediately. Actions carried out while signed in are your responsibility.</li>
+          <li>Misuse of the system, attempts to gain unauthorized access, or any activity that could compromise data integrity or service availability is prohibited and may result in disciplinary or legal action.</li>
+        </ul>
+        <p>Contact the MISO administrator if you need clarification about data handling, access rights, or your responsibilities before continuing.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-document.addEventListener("DOMContentLoaded", function () {
-  console.log("Registration form script loaded");
+function togglePasswordVisibility(inputId, iconId) {
+  const input = document.getElementById(inputId);
+  const icon = document.getElementById(iconId);
 
-  const regex = /^[a-zA-Z0-9]+$/;
-  const form = document.getElementById("registrationForm");
-  const roleInput = document.getElementById("role");
-  const studentFields = document.getElementById("student-fields");
+  if (!input || !icon) {
+    return;
+  }
 
+  const isHidden = input.getAttribute('type') === 'password';
+  input.setAttribute('type', isHidden ? 'text' : 'password');
+  icon.classList.toggle('fa-eye');
+  icon.classList.toggle('fa-eye-slash');
+}
+
+// Load registration script after jQuery
+$(document).ready(function () {
+  console.log("Registration.js loaded");
+  document.documentElement.classList.add("register-page");
+
+  const mobileHeader = document.querySelector(".mobile-header");
+  if (mobileHeader) {
+    mobileHeader.remove();
+  }
+
+  const mobileNav = document.getElementById("mobile-nav");
+  if (mobileNav) {
+    mobileNav.remove();
+  }
+
+  const mobileNavOverlay = document.getElementById("mobile-nav-overlay");
+  if (mobileNavOverlay) {
+    mobileNavOverlay.remove();
+  }
+  
+  // Email validation regex
+  var regex = /^[a-zA-Z0-9]+$/;
+  
+  // Registration script
   // Handle next button clicks
-  document.querySelectorAll(".next").forEach(function (button) {
-    button.addEventListener("click", function () {
-      const nextStep = this.dataset.next;
-      const currentStep = this.closest(".step");
+  $(".next").click(function(){
+    console.log("Next button clicked");
+    var nextStep = $(this).data("next");
+    console.log("Next step:", nextStep);
 
-      if (this.dataset.role && roleInput) {
-        roleInput.value = this.dataset.role;
-        if (this.dataset.role === "student") {
-          studentFields.style.display = "block";
-        } else {
-          studentFields.style.display = "none";
-        }
-      }
+    var currentStep = $(this).closest(".step");
+    var isValid = true;
 
-      if (currentStep && nextStep) {
-        currentStep.classList.remove("active");
-        const nextStepElement = document.getElementById(nextStep);
-        if (nextStepElement) {
-          nextStepElement.classList.add("active");
-        }
+    currentStep.find('input[required], select[required], textarea[required]').each(function() {
+      if (!this.value || !this.checkValidity()) {
+        this.reportValidity();
+        isValid = false;
+        return false;
       }
     });
-  });
 
-  window.togglePasswordVisibility = function(targetId, button) {
-    const input = document.getElementById(targetId);
-    if (!input) {
-      console.warn("Password input not found for", targetId);
+    if (!isValid) {
       return;
     }
-    const icon = button.querySelector("i");
 
-    if (input.type === "password") {
-      input.type = "text";
-      if (icon) {
-        icon.classList.remove("fa-eye");
-        icon.classList.add("fa-eye-slash");
-      }
-    } else {
-      input.type = "password";
-      if (icon) {
-        icon.classList.remove("fa-eye-slash");
-        icon.classList.add("fa-eye");
-      }
+    // if role button clicked, set role value
+    if($(this).data("role")){
+      var role = $(this).data("role");
+      console.log("Role selected:", role);
+      $("#role").val(role);
     }
-  };
 
-  if (form) {
-    form.addEventListener("submit", function (e) {
-      // Temporarily disable required on hidden steps
-      document.querySelectorAll(".step:not(.active) input, .step:not(.active) select, .step:not(.active) textarea")
-        .forEach(function (el) {
-          if (el.hasAttribute("required")) {
-            el.dataset.wasRequired = "true";
-            el.removeAttribute("required");
-          }
-        });
+    $(this).closest(".step").removeClass("active");
+    $("#" + nextStep).addClass("active");
+    console.log("Step changed to:", nextStep);
+  });
 
-      const prefixInput = document.getElementById("email_prefix");
-      const passwordInput = document.querySelector('input[name="password"]');
-      const password2Input = document.querySelector('input[name="password2"]');
+  // Handle back button clicks
+  $(document).on("click", ".back", function(e){
+    e.preventDefault();
+    var prevStep = $(this).data("prev") || $(this).attr("data-prev");
+    var prevUrl = $(this).attr("data-prev-url");
+    console.log("Back button clicked, previous step:", prevStep);
+    console.log("Previous URL:", prevUrl);
+    
+    if (prevUrl) {
+      window.location.href = prevUrl;
+      return;
+    }
 
-      if (prefixInput) {
-        const prefix = prefixInput.value.trim();
-        if (!regex.test(prefix)) {
-          alert("Email prefix must only contain letters and numbers (no @ or .).");
-          e.preventDefault();
-          return;
-        }
-      }
+    if (!prevStep) {
+      console.log("No previous step defined");
+      return;
+    }
 
-      if (passwordInput && password2Input && passwordInput.value !== password2Input.value) {
-        alert("Passwords do not match. Please re-enter your password.");
-        e.preventDefault();
-        return;
+    if (prevStep === "previousPage") {
+      window.history.back();
+      return;
+    }
+
+    var currentStep = $(this).closest(".step");
+    currentStep.removeClass("active");
+    $("#" + prevStep).addClass("active");
+    console.log("Returned to:", prevStep);
+  });
+
+  // Handle form submit
+  $("#registrationForm").on("submit", function(e) {
+    if (!$("#role").val()) {
+      alert("Please select your role before proceeding.");
+      e.preventDefault();
+      return false;
+    }
+
+    // Temporarily disable required on hidden steps to avoid browser blocking
+    $(".step:not(.active)").find("input, select, textarea").each(function(){
+      var el = $(this);
+      if (el.prop('required')) {
+        el.data('was-required', true);
+        el.prop('required', false);
       }
     });
-  }
+
+    // Validate email prefix
+    var prefix = $("#email_prefix").val().trim();
+    var domain = "@psu.palawan.edu.ph";
+
+    if (!regex.test(prefix)) {
+      alert("Email prefix must only contain letters and numbers (no @ or .).");
+      e.preventDefault();
+      return false;
+    }
+
+    $("#email_full").val(prefix + domain);
+
+    // Validate password match
+    var password = $('input[name="password"]').val();
+    var password2 = $('input[name="password2"]').val();
+    
+    if (password !== password2) {
+      alert("Passwords do not match. Please re-enter your password.");
+      e.preventDefault();
+      return false;
+    }
+  });
+
 });
 </script>
 {% endblock %}
