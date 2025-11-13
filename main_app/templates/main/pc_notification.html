@@ -1,0 +1,533 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PC Session Monitor</title>
+    <style>
+        :root {
+            color-scheme: dark;
+        }
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: radial-gradient(circle at top, #1f3b70, #0d1d3a);
+            color: #f0f6ff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .status {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            padding: 10px 18px;
+            border-radius: 999px;
+            font-size: 14px;
+            letter-spacing: 0.03em;
+            background: rgba(13, 29, 58, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+            transition: background 0.3s ease;
+        }
+        .status.connecting { background: rgba(255, 193, 7, 0.85); color: #1a1200; }
+        .status.connected { background: rgba(46, 204, 113, 0.85); color: #00190a; }
+        .status.disconnected { background: rgba(231, 76, 60, 0.85); color: #2a0500; }
+
+        .card {
+            width: min(480px, 92vw);
+            padding: 36px 32px;
+            border-radius: 24px;
+            background: rgba(2, 9, 23, 0.72);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            text-align: center;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.45);
+        }
+
+        .card h1 {
+            font-size: 28px;
+            margin: 0 0 12px;
+            letter-spacing: 0.04em;
+        }
+
+        .card p {
+            margin: 8px 0;
+            font-size: 16px;
+            color: rgba(240, 246, 255, 0.82);
+        }
+
+        .card .pc-name {
+            font-weight: 600;
+            color: #53b8ff;
+        }
+
+        .card .note {
+            margin-top: 20px;
+            padding: 12px 16px;
+            font-size: 14px;
+            border-radius: 12px;
+            background: rgba(83, 184, 255, 0.12);
+            color: rgba(212, 229, 255, 0.9);
+        }
+
+        #popupOverlay {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(2, 9, 23, 0.9);
+            z-index: 9999;
+            backdrop-filter: blur(6px);
+        }
+
+        #popupOverlay.show {
+            display: flex;
+        }
+
+        .popup {
+            width: min(560px, 90vw);
+            padding: 48px 40px;
+            border-radius: 28px;
+            background: linear-gradient(135deg, #ff6a3d 0%, #ff9240 100%);
+            color: #fff7f3;
+            text-align: center;
+            box-shadow: 0 40px 120px rgba(255, 106, 61, 0.6);
+            animation: pulse 2.4s infinite;
+        }
+
+        .popup .logo {
+            height: 120px;
+            object-fit: contain;
+            margin-bottom: 20px;
+            filter: drop-shadow(0 8px 18px rgba(0,0,0,0.35));
+        }
+
+        .popup .icon {
+            font-size: 64px;
+            margin-bottom: 12px;
+        }
+
+        .popup h2 {
+            margin: 4px 0 16px;
+            font-size: 32px;
+            letter-spacing: 0.08em;
+        }
+
+        .popup p {
+            margin: 12px 0;
+            font-size: 18px;
+            line-height: 1.5;
+        }
+
+        .minutes-badge {
+            display: inline-block;
+            margin: 18px 0;
+            padding: 14px 28px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.18);
+            font-size: 22px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+        }
+
+        .popup button {
+            margin-top: 24px;
+            padding: 14px 26px;
+            border: none;
+            border-radius: 999px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #ff6a3d;
+            background: #fff;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .popup button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 18px 35px rgba(0,0,0,0.25);
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.04); }
+        }
+
+        @media (max-width: 600px) {
+            .card { padding: 28px 22px; }
+            .popup { padding: 36px 26px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="statusBadge" class="status connecting">Connecting…</div>
+
+    <div class="card">
+        <h1>PC Session Monitor</h1>
+        <p>PC Name: <span id="pcNameValue" class="pc-name">Loading…</span></p>
+        <p id="statusText">Connecting to the server…</p>
+        <p class="note">
+            Keep this page open. A fullscreen alert will appear automatically when your session is almost over.
+        </p>
+        <p class="note">
+            PC name expected: <strong id="pcNameCheck">—</strong>
+        </p>
+    </div>
+
+    <div id="popupOverlay">
+        <div class="popup">
+            <img src="{% static 'image/PSU_logo.png' %}" alt="School Logo" class="logo" onerror="this.style.display='none';">
+            <div class="icon">⚠️</div>
+            <h2>Session Ending Soon</h2>
+            <div id="minutesBadge" class="minutes-badge">5 MINUTES LEFT</div>
+            <p id="warningMessage">Your session will end soon. Please save your work immediately.</p>
+            <button type="button" onclick="closePopup()">I Understand</button>
+        </div>
+    </div>
+
+    <script>
+        const pcNameValueEl = document.getElementById('pcNameValue');
+        const pcNameCheckEl = document.getElementById('pcNameCheck');
+        const statusBadgeEl = document.getElementById('statusBadge');
+        const statusTextEl = document.getElementById('statusText');
+        const overlayEl = document.getElementById('popupOverlay');
+        const minutesBadgeEl = document.getElementById('minutesBadge');
+        const warningMessageEl = document.getElementById('warningMessage');
+
+        const POLL_INTERVAL_MS = 30000;
+        const POLL_TIMEOUT_MS = 8000;
+        let pollTimer = null;
+        let lastWarningSignature = null;
+        let usingWebSocket = false;
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const pcName = urlParams.get('pc_name') || '';
+        pcNameValueEl.textContent = pcName || 'Unknown';
+        pcNameCheckEl.textContent = pcName || 'UNKNOWN';
+
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws/pc-notifications/?pc_name=${encodeURIComponent(pcName)}`;
+
+        let ws = null;
+        let reconnectAttempts = 0;
+        let heartbeatTimer = null;
+        let reconnectTimer = null;
+
+        function setStatus(message, state) {
+            statusBadgeEl.textContent = message;
+            statusBadgeEl.className = `status ${state}`;
+            statusTextEl.textContent = message;
+        }
+
+        if (!pcName) {
+            setStatus('PC name missing. Add ?pc_name=PCNAME to the URL.', 'disconnected');
+        } else {
+            setStatus('Connecting…', 'connecting');
+            startPolling();
+            connectWebSocket();
+            requestNotificationPermission();
+        }
+
+        function connectWebSocket() {
+            if (!pcName) return;
+            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+                return;
+            }
+
+            console.log('[PC Monitor] Connecting to', wsUrl);
+            setStatus('Connecting…', 'connecting');
+
+            try {
+                ws = new WebSocket(wsUrl);
+            } catch (error) {
+                console.error('[PC Monitor] Failed to construct WebSocket:', error);
+                scheduleReconnect();
+                return;
+            }
+
+            ws.onopen = () => {
+                console.log('[PC Monitor] WebSocket connected');
+                usingWebSocket = true;
+                setStatus('Connected – waiting for warnings', 'connected');
+                reconnectAttempts = 0;
+                startHeartbeat();
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    console.log('[PC Monitor] Message received:', data);
+                    handleMessage(data);
+                } catch (err) {
+                    console.error('[PC Monitor] Could not parse message:', err, event.data);
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('[PC Monitor] WebSocket error:', error);
+                setStatus('Connection error – retrying…', 'disconnected');
+            };
+
+            ws.onclose = () => {
+                console.warn('[PC Monitor] WebSocket closed');
+                usingWebSocket = false;
+                setStatus('Disconnected – retrying…', 'disconnected');
+                stopHeartbeat();
+                scheduleReconnect();
+            };
+        }
+
+        function handleMessage(data) {
+            if (data.type === 'session_warning') {
+                showPopup(data);
+            } else if (data.type === 'heartbeat_ack') {
+                console.debug('[PC Monitor] Heartbeat acknowledged');
+            } else {
+                console.debug('[PC Monitor] Ignoring message:', data);
+            }
+        }
+
+        function showPopup(data) {
+            const minutesLeft = Number.isFinite(data.minutes_left) ? Math.max(0, data.minutes_left) : 5;
+            const message = data.message || 'Your session will end soon. Please save your work immediately.';
+
+            minutesBadgeEl.textContent = `${minutesLeft} MINUTE${minutesLeft === 1 ? '' : 'S'} LEFT`;
+            warningMessageEl.textContent = message;
+
+            overlayEl.classList.add('show');
+            playWarningSound();
+            bringWindowToFront();
+            showBrowserNotification(minutesLeft, message);
+            if (data && data.warning_signature) {
+                lastWarningSignature = data.warning_signature;
+            } else if (data && data.booking_id) {
+                lastWarningSignature = `${data.booking_id}:${minutesLeft}`;
+            }
+
+            console.log('[PC Monitor] Warning displayed');
+        }
+
+        function closePopup() {
+            overlayEl.classList.remove('show');
+        }
+
+        function bringWindowToFront() {
+            try {
+                window.focus();
+            } catch (err) {
+                console.debug('[PC Monitor] Unable to bring window to front:', err);
+            }
+        }
+
+        function playWarningSound() {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+
+                const ctx = new AudioCtx();
+                [0, 450, 900].forEach((offset, idx) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = 760 + idx * 40;
+                    gain.gain.setValueAtTime(0.35, ctx.currentTime + offset / 1000);
+                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + offset / 1000 + 0.6);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(ctx.currentTime + offset / 1000);
+                    osc.stop(ctx.currentTime + offset / 1000 + 0.6);
+                });
+            } catch (err) {
+                console.debug('[PC Monitor] Unable to play sound:', err);
+            }
+        }
+
+        function showBrowserNotification(minutesLeft, message) {
+            if (!('Notification' in window)) return;
+
+            const secureOrigin = window.isSecureContext || ['127.0.0.1', 'localhost'].includes(window.location.hostname);
+            if (!secureOrigin || Notification.permission !== 'granted') {
+                return;
+            }
+
+            const notification = new Notification('⚠️ Session Warning', {
+                body: `Only ${minutesLeft} minute${minutesLeft === 1 ? '' : 's'} remaining. ${message}`,
+                icon: '{% static "image/PSU_logo.png" %}',
+                tag: 'pc-session-warning',
+                requireInteraction: true,
+            });
+
+            notification.onclick = () => {
+                window.focus();
+                notification.close();
+            };
+
+            setTimeout(() => notification.close(), 30000);
+        }
+
+        function requestNotificationPermission() {
+            if (!('Notification' in window)) return;
+            const secureOrigin = window.isSecureContext || ['127.0.0.1', 'localhost'].includes(window.location.hostname);
+            if (!secureOrigin) return;
+
+            if (Notification.permission === 'default') {
+                Notification.requestPermission().then((permission) => {
+                    console.log('[PC Monitor] Notification permission:', permission);
+                });
+            }
+        }
+
+        function startHeartbeat() {
+            stopHeartbeat();
+            heartbeatTimer = setInterval(() => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'heartbeat' }));
+                    console.debug('[PC Monitor] Heartbeat sent');
+                }
+            }, 30000);
+        }
+
+        function stopHeartbeat() {
+            if (heartbeatTimer) {
+                clearInterval(heartbeatTimer);
+                heartbeatTimer = null;
+            }
+        }
+
+        function scheduleReconnect() {
+            if (reconnectTimer) {
+                clearTimeout(reconnectTimer);
+            }
+
+            if (reconnectAttempts >= 10) {
+                setStatus('Unable to connect – please check the server.', 'disconnected');
+                return;
+            }
+
+            reconnectAttempts += 1;
+            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 30000);
+            console.log(`[PC Monitor] Reconnecting in ${delay}ms (attempt ${reconnectAttempts}/10)…`);
+
+            reconnectTimer = setTimeout(connectWebSocket, delay);
+        }
+
+        function startPolling() {
+            if (!pcName || pollTimer) {
+                return;
+            }
+            checkSessionStatus();
+            pollTimer = setInterval(checkSessionStatus, POLL_INTERVAL_MS);
+        }
+
+        function stopPolling() {
+            if (pollTimer) {
+                clearInterval(pollTimer);
+                pollTimer = null;
+            }
+        }
+
+        async function checkSessionStatus() {
+            if (!pcName) {
+                return;
+            }
+
+            const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+            const timeoutId = controller ? setTimeout(() => controller.abort(), POLL_TIMEOUT_MS) : null;
+
+            try {
+                const response = await fetch(`/api/pc-session-status/?pc_name=${encodeURIComponent(pcName)}`, {
+                    method: 'GET',
+                    cache: 'no-store',
+                    signal: controller ? controller.signal : undefined,
+                    headers: {
+                        'Accept': 'application/json',
+                    },
+                });
+
+                let payload = null;
+                try {
+                    payload = await response.json();
+                } catch (jsonError) {
+                    console.warn('[PC Monitor] Unable to parse polling response as JSON:', jsonError);
+                }
+
+                if (payload) {
+                    handleSessionStatusResponse(payload, response.ok);
+                }
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                console.warn('[PC Monitor] Polling error:', error);
+                if (!usingWebSocket) {
+                    setStatus('Polling error – retrying…', 'disconnected');
+                }
+            } finally {
+                if (timeoutId) {
+                    clearTimeout(timeoutId);
+                }
+            }
+        }
+
+        function handleSessionStatusResponse(data, requestSucceeded = true) {
+            if (!data) {
+                return;
+            }
+
+            if (!usingWebSocket) {
+                if (!requestSucceeded) {
+                    setStatus(data.message || 'Unable to contact server.', 'disconnected');
+                } else if (data.status === 'pc_not_found') {
+                    setStatus('PC not registered on server.', 'disconnected');
+                } else if (data.status === 'missing_pc_name') {
+                    setStatus('PC name missing. Add ?pc_name=PCNAME to the URL.', 'disconnected');
+                } else if (data.status === 'idle') {
+                    setStatus('Connected – waiting for bookings', 'connected');
+                } else {
+                    setStatus('Connected – monitoring (polling)', 'connected');
+                }
+            }
+
+            if (data.should_warn) {
+                const signature = data.warning_signature || `${data.booking_id || 'unknown'}:${data.minutes_left ?? 'unknown'}:${data.seconds_left ?? 'unknown'}`;
+                if (lastWarningSignature !== signature) {
+                    lastWarningSignature = signature;
+                    showPopup(data);
+                }
+            }
+        }
+
+        window.addEventListener('beforeunload', () => {
+            stopHeartbeat();
+            stopPolling();
+            if (ws) {
+                ws.close();
+            }
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && ws && ws.readyState !== WebSocket.OPEN) {
+                connectWebSocket();
+            }
+            if (!document.hidden) {
+                checkSessionStatus();
+            }
+        });
+
+        window.addEventListener('focus', () => {
+            checkSessionStatus();
+        });
+    </script>
+</body>
+</html>
+
+

@@ -131,23 +131,35 @@
                 <div id="qr-reader" class="qr-reader-container"></div>
                 <div class="qr-placeholder" id="qr-placeholder">
                   <div class="qr-placeholder-icon">
-                    <i class="fa-solid fa-qrcode"></i>
+                    <i class="fa-solid fa-scanner"></i>
                   </div>
-                  <div class="qr-placeholder-text">Ready to scan</div>
+                  <div class="qr-placeholder-text">Physical Scanner Ready</div>
+                  <div class="qr-placeholder-subtext" style="font-size: 11px; color: #888; margin-top: 5px;">Scan QR code with device</div>
                 </div>
                 <div class="qr-scanner-overlay" id="qr-overlay" style="display: none;">
                   <div class="qr-scanner-frame"></div>
                 </div>
               </div>
               <div class="qr-scanner-controls">
-                <button class="qr-scanner-btn" id="qr-start-btn" title="Start Scanner">
+                <!-- Camera scanner buttons disabled - using physical scanner device instead -->
+                <button class="qr-scanner-btn" id="qr-start-btn" title="Camera Scanner Disabled - Using Physical Scanner Device" style="display: none;">
                   <i class="fa-solid fa-qrcode"></i> <span>Scan</span>
                 </button>
                 <button class="qr-scanner-btn" id="qr-stop-btn" title="Stop Scanner" style="display: none;">
                   <i class="fa-solid fa-stop"></i> <span>Stop</span>
                 </button>
+                <!-- Status indicator for physical scanner -->
+                <div class="qr-scanner-status" id="qr-scanner-device-status" style="text-align: center; padding: 8px; color: #00ff00; font-size: 12px;">
+                  <i class="fa-solid fa-check-circle"></i> Scanner Ready
+                </div>
               </div>
               <div class="qr-scanner-result" id="qr-result" style="display: none;"></div>
+              <!-- Hidden input for QR scanner device (USB scanner acts as keyboard) -->
+              <input type="text" id="qr-scanner-device-input" 
+                     style="position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; pointer-events: none;" 
+                     autocomplete="off" 
+                     tabindex="-1"
+                     aria-hidden="true">
             </div>
             {% endif %}
             {% endif %}
@@ -614,6 +626,15 @@
         }
         
         function startScanner() {
+          // Camera scanner is disabled - using physical scanner device instead
+          console.log('Camera scanner disabled - using physical QR scanner device');
+          updateStatus('Using physical scanner device', '#00ff00');
+          alert('Camera scanning is disabled. Please use the attached QR scanner device to scan QR codes.');
+          return;
+          
+          // Original camera scanner code disabled - using physical scanner device instead
+          // All camera access code below is commented out to prevent accessing smartphone camera
+          /*
           if (scanning) {
             console.log('Scanner already running');
             return;
@@ -967,9 +988,16 @@
             
             alert('Scanner initialization failed: ' + err.message);
           }
+          */
         }
         
           function stopScanner() {
+            // Camera scanner is disabled - using physical scanner device instead
+            console.log('Camera scanner disabled - using physical QR scanner device');
+            return;
+            
+            // Original stop scanner code disabled below
+            /*
             if (!scanning || !html5QrCode) return;
             
             html5QrCode.stop().then(function() {
@@ -1000,6 +1028,7 @@
               startBtn.style.display = 'flex';
               stopBtn.style.display = 'none';
             });
+            */
           }
           
           // Attach event listeners
@@ -1029,6 +1058,374 @@
           document.addEventListener('DOMContentLoaded', waitForElements);
         } else {
           waitForElements();
+        }
+      })();
+    </script>
+    <!-- QR Scanner Device Handler (USB Scanner) -->
+    <script>
+      (function initQRScannerDevice() {
+        // Function to process scanned QR code (shared with camera scanner)
+        function processScannedQRCode(decodedText) {
+          if (!decodedText || !decodedText.trim()) {
+            return;
+          }
+          
+          console.log('Processing scanned QR code from device:', decodedText);
+          
+          // Normalize the decoded text - handle mobile URLs and various formats
+          let normalizedUrl = decodedText.trim();
+          
+          // Remove any trailing slashes or whitespace
+          normalizedUrl = normalizedUrl.replace(/\/+$/, '');
+          
+          // Update status if element exists
+          const statusEl = document.getElementById('qr-status');
+          const resultEl = document.getElementById('qr-result');
+          
+          function updateStatus(message, color = '#ffffff') {
+            if (statusEl) {
+              statusEl.textContent = message;
+              statusEl.style.color = color;
+            }
+            // Also update the physical scanner status indicator
+            const deviceStatus = document.getElementById('qr-scanner-device-status');
+            if (deviceStatus) {
+              if (color === '#00ff00') {
+                deviceStatus.innerHTML = '<i class="fa-solid fa-check-circle"></i> ' + message;
+                deviceStatus.style.color = '#00ff00';
+              } else {
+                deviceStatus.innerHTML = '<i class="fa-solid fa-circle"></i> Scanner Ready';
+                deviceStatus.style.color = '#00ff00';
+              }
+            }
+          }
+          
+          function showResult(text) {
+            if (resultEl) {
+              resultEl.textContent = 'Scanned: ' + text;
+              resultEl.style.display = 'block';
+              setTimeout(function() {
+                resultEl.style.display = 'none';
+              }, 5000);
+            }
+          }
+          
+          updateStatus('QR Code detected!', '#00ff00');
+          showResult(decodedText);
+          
+          // If it's a reservation URL, navigate directly (auto-approves)
+          if (normalizedUrl.includes('/reservation-approval/') || normalizedUrl.includes('reservation-approval')) {
+            console.log('Detected reservation approval URL:', normalizedUrl);
+            
+            // Extract booking ID from various URL formats
+            var bookingId = null;
+            
+            // Try to match booking ID from URL
+            var bookingIdMatch = normalizedUrl.match(/reservation-approval[\/\-](\d+)/i);
+            if (bookingIdMatch && bookingIdMatch[1]) {
+              bookingId = bookingIdMatch[1];
+            }
+            
+            // If booking ID found, navigate to approval page
+            if (bookingId) {
+              var path = '/reservation-approval/' + bookingId + '/';
+              console.log('Navigating to reservation approval:', path);
+              window.location.href = path;
+              return;
+            }
+            
+            // Try to extract path from full URL
+            try {
+              if (normalizedUrl.includes('://')) {
+                var urlObj = new URL(normalizedUrl);
+                var path = urlObj.pathname;
+                if (!path.endsWith('/')) {
+                  path = path + '/';
+                }
+                console.log('Extracted path from full URL:', path);
+                window.location.href = path;
+                return;
+              }
+            } catch (e) {
+              console.error('Error parsing URL:', e);
+            }
+            
+            // If it's a relative path, ensure it starts with /
+            if (normalizedUrl.startsWith('/')) {
+              var path = normalizedUrl + (normalizedUrl.endsWith('/') ? '' : '/');
+              console.log('Using relative path:', path);
+              window.location.href = path;
+              return;
+            }
+          } else if (normalizedUrl.includes('/reservation-approved/') || normalizedUrl.includes('reservation-approved')) {
+            // If it already has approved in URL, navigate directly
+            console.log('Detected reservation approved URL:', normalizedUrl);
+            
+            var bookingId = null;
+            var bookingIdMatch = normalizedUrl.match(/reservation-approved[\/\-](\d+)/i);
+            if (bookingIdMatch && bookingIdMatch[1]) {
+              bookingId = bookingIdMatch[1];
+            }
+            
+            if (bookingId) {
+              var path = '/reservation-approved/' + bookingId + '/';
+              console.log('Navigating to approved reservation:', path);
+              window.location.href = path;
+              return;
+            }
+            
+            // Try to extract path from full URL
+            try {
+              if (normalizedUrl.includes('://')) {
+                var urlObj = new URL(normalizedUrl);
+                var path = urlObj.pathname;
+                if (!path.endsWith('/')) {
+                  path = path + '/';
+                }
+                window.location.href = path;
+                return;
+              }
+            } catch (e) {
+              console.error('Error parsing URL:', e);
+            }
+            
+            if (normalizedUrl.startsWith('/')) {
+              var path = normalizedUrl + (normalizedUrl.endsWith('/') ? '' : '/');
+              window.location.href = path;
+              return;
+            }
+          } else if (normalizedUrl.startsWith('http://') || normalizedUrl.startsWith('https://')) {
+            // Handle full URL - navigate directly
+            console.log('Navigating to full URL:', normalizedUrl);
+            window.location.href = normalizedUrl;
+            return;
+          } else if (normalizedUrl.startsWith('/')) {
+            // Handle relative path
+            var path = normalizedUrl + (normalizedUrl.endsWith('/') ? '' : '/');
+            console.log('Navigating to relative path:', path);
+            window.location.href = path;
+            return;
+          } else {
+            // Display the scanned text if it's not a recognized format
+            console.log('Unknown QR code format:', normalizedUrl);
+            alert('Scanned QR Code: ' + normalizedUrl);
+            updateStatus('Ready to scan', '#ffffff');
+          }
+        }
+        
+        // Initialize scanner device input handler
+        function initScannerDeviceInput() {
+          const scannerInput = document.getElementById('qr-scanner-device-input');
+          
+          if (!scannerInput) {
+            console.log('QR scanner device input not found, retrying...');
+            setTimeout(initScannerDeviceInput, 500);
+            return;
+          }
+          
+          console.log('QR Scanner device input initialized');
+          
+          // Update status indicator
+          const deviceStatus = document.getElementById('qr-scanner-device-status');
+          if (deviceStatus) {
+            deviceStatus.innerHTML = '<i class="fa-solid fa-check-circle"></i> Scanner Ready';
+            deviceStatus.style.color = '#00ff00';
+          }
+          
+          let scanBuffer = '';
+          let scanTimeout = null;
+          let lastKeyTime = 0;
+          
+          // Focus management: Keep input ready but don't interfere with user typing
+          // Only focus when page loads or when user is not actively typing
+          let userTyping = false;
+          let typingTimeout = null;
+          
+          // Track when user is typing in other fields
+          document.addEventListener('keydown', function(e) {
+            const target = e.target;
+            if (target && target !== scannerInput && 
+                (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+              userTyping = true;
+              if (typingTimeout) clearTimeout(typingTimeout);
+              // Reset after 2 seconds of no typing
+              typingTimeout = setTimeout(function() {
+                userTyping = false;
+                // Refocus scanner input after user finishes typing
+                if (document.activeElement !== target) {
+                  scannerInput.focus();
+                }
+              }, 2000);
+            }
+          });
+          
+          // Initial focus - but only if no other input is focused
+          setTimeout(function() {
+            if (!userTyping && document.activeElement.tagName !== 'INPUT' && 
+                document.activeElement.tagName !== 'TEXTAREA') {
+              scannerInput.focus();
+            }
+          }, 500);
+          
+          // Re-focus when user clicks elsewhere (but only if not typing manually)
+          document.addEventListener('click', function(e) {
+            // Don't refocus if user is clicking on an input/textarea/select/button
+            if (e.target.tagName === 'INPUT' || 
+                e.target.tagName === 'TEXTAREA' || 
+                e.target.tagName === 'SELECT' ||
+                e.target.tagName === 'BUTTON' ||
+                e.target.isContentEditable ||
+                e.target.closest('button') ||
+                e.target.closest('input') ||
+                e.target.closest('textarea')) {
+              return;
+            }
+            // Small delay to allow scanner to finish if it's scanning
+            setTimeout(function() {
+              if (!userTyping && document.activeElement.tagName !== 'INPUT' && 
+                  document.activeElement.tagName !== 'TEXTAREA') {
+                scannerInput.focus();
+              }
+            }, 200);
+          });
+          
+          // Handle keydown events to detect Enter key (scanner completion)
+          scannerInput.addEventListener('keydown', function(e) {
+            const currentTime = Date.now();
+            const timeSinceLastKey = currentTime - lastKeyTime;
+            
+            // Detect if this is scanner input (fast typing, typically < 50ms between keys)
+            // Or if Enter is pressed (scanner finished)
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              e.stopPropagation();
+              
+              // Clear any pending timeout
+              if (scanTimeout) {
+                clearTimeout(scanTimeout);
+                scanTimeout = null;
+              }
+              
+              // Process the scanned code
+              const scannedText = scannerInput.value.trim();
+              if (scannedText) {
+                console.log('Scanner device detected QR code:', scannedText);
+                // Update status indicator
+                const deviceStatus = document.getElementById('qr-scanner-device-status');
+                if (deviceStatus) {
+                  deviceStatus.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...';
+                  deviceStatus.style.color = '#ffff00';
+                }
+                processScannedQRCode(scannedText);
+                scannerInput.value = '';
+                scanBuffer = '';
+                // Reset status after a moment
+                setTimeout(function() {
+                  if (deviceStatus) {
+                    deviceStatus.innerHTML = '<i class="fa-solid fa-check-circle"></i> Scanner Ready';
+                    deviceStatus.style.color = '#00ff00';
+                  }
+                }, 2000);
+              }
+            } else if (e.key === 'Tab') {
+              // Some scanners send Tab instead of Enter
+              e.preventDefault();
+              e.stopPropagation();
+              
+              if (scanTimeout) {
+                clearTimeout(scanTimeout);
+                scanTimeout = null;
+              }
+              
+              const scannedText = scannerInput.value.trim();
+              if (scannedText) {
+                console.log('Scanner device detected QR code (Tab):', scannedText);
+                // Update status indicator
+                const deviceStatus = document.getElementById('qr-scanner-device-status');
+                if (deviceStatus) {
+                  deviceStatus.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...';
+                  deviceStatus.style.color = '#ffff00';
+                }
+                processScannedQRCode(scannedText);
+                scannerInput.value = '';
+                scanBuffer = '';
+                // Reset status after a moment
+                setTimeout(function() {
+                  if (deviceStatus) {
+                    deviceStatus.innerHTML = '<i class="fa-solid fa-check-circle"></i> Scanner Ready';
+                    deviceStatus.style.color = '#00ff00';
+                  }
+                }, 2000);
+              }
+            } else {
+              // Regular character input
+              lastKeyTime = currentTime;
+              
+              // Clear any existing timeout
+              if (scanTimeout) {
+                clearTimeout(scanTimeout);
+              }
+              
+              // Set a timeout to process if no more input comes (fallback for scanners without Enter)
+              // Most scanners are very fast (< 100ms per character), so if we wait 200ms with no input,
+              // it's likely the scan is complete
+              scanTimeout = setTimeout(function() {
+                const scannedText = scannerInput.value.trim();
+                // Only process if we have text and it looks like a URL or path
+                if (scannedText && (scannedText.startsWith('http') || scannedText.startsWith('/'))) {
+                  console.log('Scanner device detected QR code (timeout):', scannedText);
+                  // Update status indicator
+                  const deviceStatus = document.getElementById('qr-scanner-device-status');
+                  if (deviceStatus) {
+                    deviceStatus.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...';
+                    deviceStatus.style.color = '#ffff00';
+                  }
+                  processScannedQRCode(scannedText);
+                  scannerInput.value = '';
+                  scanBuffer = '';
+                  // Reset status after a moment
+                  setTimeout(function() {
+                    if (deviceStatus) {
+                      deviceStatus.innerHTML = '<i class="fa-solid fa-check-circle"></i> Scanner Ready';
+                      deviceStatus.style.color = '#00ff00';
+                    }
+                  }, 2000);
+                }
+                scanTimeout = null;
+              }, 200);
+            }
+          });
+          
+          // Also handle paste events (some scanners might use paste)
+          scannerInput.addEventListener('paste', function(e) {
+            e.preventDefault();
+            const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+            if (pastedText && pastedText.trim()) {
+              console.log('Scanner device detected QR code (paste):', pastedText);
+              // Update status indicator
+              const deviceStatus = document.getElementById('qr-scanner-device-status');
+              if (deviceStatus) {
+                deviceStatus.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...';
+                deviceStatus.style.color = '#ffff00';
+              }
+              processScannedQRCode(pastedText.trim());
+              scannerInput.value = '';
+              // Reset status after a moment
+              setTimeout(function() {
+                if (deviceStatus) {
+                  deviceStatus.innerHTML = '<i class="fa-solid fa-check-circle"></i> Scanner Ready';
+                  deviceStatus.style.color = '#00ff00';
+                }
+              }, 2000);
+            }
+          });
+        }
+        
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', initScannerDeviceInput);
+        } else {
+          initScannerDeviceInput();
         }
       })();
     </script>

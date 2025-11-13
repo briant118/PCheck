@@ -17,6 +17,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.cache import never_cache
+from django.views.decorators.http import require_GET
 from django.views.generic import TemplateView, CreateView, ListView, UpdateView, DetailView
 from django.views.generic.edit import FormMixin
 from django.contrib.auth.decorators import permission_required
@@ -879,36 +880,18 @@ def reserve_pc(request):
 @login_required
 @never_cache
 def load_messages(request):
-    """Load chat rooms. For non-staff users, only show conversations with staff.
-    For staff/admin, exclude conversations with PCheck Support."""
-    is_staff = (hasattr(request.user, 'profile') and request.user.profile.role == 'staff') or request.user.is_staff
-    pcheck_support_user = get_pcheck_support_user()
-    
-    if is_staff:
-        # Staff can see all their conversations, but exclude PCheck Support conversations
-        chatrooms = models.ChatRoom.objects.filter(
-            Q(initiator=request.user) | Q(receiver=request.user)
-        ).exclude(
-            Q(initiator=pcheck_support_user) | Q(receiver=pcheck_support_user)
-        ).prefetch_related(
-            Prefetch('chats', queryset=models.Chat.objects.all().order_by('-timestamp'))
-        )
-    else:
-        # Non-staff users: show all their conversations (more robust; avoids missing rooms if staff profile role is unset)
-        chatrooms = models.ChatRoom.objects.filter(
-            Q(initiator=request.user) | Q(receiver=request.user)
-        ).prefetch_related(
-            Prefetch('chats', queryset=models.Chat.objects.all().order_by('-timestamp'))
-        )
+    """Load chat rooms. All users can see all their conversations including PCheck Support."""
+    # All users (including staff/admin) can see all their conversations including PCheck Support
+    chatrooms = models.ChatRoom.objects.filter(
+        Q(initiator=request.user) | Q(receiver=request.user)
+    ).prefetch_related(
+        Prefetch('chats', queryset=models.Chat.objects.all().order_by('-timestamp'))
+    )
 
     result = []
     for room in chatrooms:
         # Ensure both initiator and receiver exist
         if not room.initiator or not room.receiver:
-            continue
-        
-        # For staff/admin, skip PCheck Support conversations (double check)
-        if is_staff and (room.initiator == pcheck_support_user or room.receiver == pcheck_support_user):
             continue
             
         # Get role for initiator and receiver
@@ -966,15 +949,7 @@ def load_conversation(request, room_id):
                 "error": "You are not part of this conversation."
             }, status=403)
         
-        # For staff/admin, prevent access to PCheck Support conversations
-        is_staff = (hasattr(request.user, 'profile') and request.user.profile.role == 'staff') or request.user.is_staff
-        if is_staff:
-            pcheck_support_user = get_pcheck_support_user()
-            if room.initiator == pcheck_support_user or room.receiver == pcheck_support_user:
-                return JsonResponse({
-                    "success": False,
-                    "error": "PCheck Support conversations are not available for staff/admin users."
-                }, status=403)
+        # All users (including staff/admin) can load any conversation they're part of
     except models.ChatRoom.DoesNotExist:
         return JsonResponse({
             "success": False,
@@ -1031,36 +1006,75 @@ def send_init_message(request):
         pcheck_support_user = get_pcheck_support_user()
         is_pcheck_support = (request.user == pcheck_support_user or request.user.username == 'pcheck_support')
 
-        # If recipient is the special alias, broadcast to all staff/admin
+        # If recipient is the special alias "PCheck"
         if recipient_value.strip().lower() == "pcheck":
+            # Check if sender is staff/admin
+            is_sender_staff = (hasattr(request.user, 'profile') and request.user.profile.role == 'staff') or request.user.is_staff
+            
             # If PCheck Support is sending, allow it to message all staff/admin
             if is_pcheck_support:
                 staff_users = User.objects.filter(
                     Q(profile__role='staff') | Q(is_staff=True)
                 ).exclude(pk=request.user.pk)
-            else:
-                # Regular users can message staff/admin
-                staff_users = User.objects.filter(
-                    Q(profile__role='staff') | Q(is_staff=True)
-                ).exclude(pk=request.user.pk)
-            
-            broadcasted_room_ids = []
-            for staff_user in staff_users:
+                
+                broadcasted_room_ids = []
+                for staff_user in staff_users:
+                    room = models.ChatRoom.objects.filter(
+                        Q(initiator=request.user, receiver=staff_user) | Q(initiator=staff_user, receiver=request.user)
+                    ).first()
+                    if not room:
+                        room = models.ChatRoom.objects.create(initiator=request.user, receiver=staff_user)
+                    chat = models.Chat.objects.create(
+                        chatroom=room,
+                        sender=request.user,
+                        recipient=staff_user,
+                        message=message,
+                        status="sent"
+                    )
+                    broadcasted_room_ids.append(room.id)
+
+                    # Broadcast via WebSocket per room
+                    try:
+                        channel_layer = get_channel_layer()
+                        if channel_layer:
+                            async_to_sync(channel_layer.group_send)(
+                                f'chat_{room.id}',
+                                {
+                                    'type': 'chat_message',
+                                    'message': message,
+                                    'sender_id': request.user.id,
+                                    'sender_first_name': request.user.first_name or '',
+                                    'sender_last_name': request.user.last_name or '',
+                                    'recipient_id': staff_user.id,
+                                    'timestamp': chat.timestamp.isoformat() if timezone.is_aware(chat.timestamp) else timezone.make_aware(chat.timestamp).isoformat(),
+                                    'chat_id': chat.id
+                                }
+                            )
+                    except Exception:
+                        pass
+
+                return JsonResponse({
+                    "success": True,
+                    "message": message,
+                    "rooms": broadcasted_room_ids
+                })
+            # If staff/admin is sending to "PCheck", create conversation with PCheck Support system account
+            elif is_sender_staff:
+                pcheck_support_user = get_pcheck_support_user()
                 room = models.ChatRoom.objects.filter(
-                    Q(initiator=request.user, receiver=staff_user) | Q(initiator=staff_user, receiver=request.user)
+                    Q(initiator=request.user, receiver=pcheck_support_user) | Q(initiator=pcheck_support_user, receiver=request.user)
                 ).first()
                 if not room:
-                    room = models.ChatRoom.objects.create(initiator=request.user, receiver=staff_user)
+                    room = models.ChatRoom.objects.create(initiator=request.user, receiver=pcheck_support_user)
                 chat = models.Chat.objects.create(
                     chatroom=room,
                     sender=request.user,
-                    recipient=staff_user,
+                    recipient=pcheck_support_user,
                     message=message,
                     status="sent"
                 )
-                broadcasted_room_ids.append(room.id)
-
-                # Broadcast via WebSocket per room
+                
+                # Send via WebSocket
                 try:
                     channel_layer = get_channel_layer()
                     if channel_layer:
@@ -1072,19 +1086,66 @@ def send_init_message(request):
                                 'sender_id': request.user.id,
                                 'sender_first_name': request.user.first_name or '',
                                 'sender_last_name': request.user.last_name or '',
-                                'recipient_id': staff_user.id,
+                                'recipient_id': pcheck_support_user.id,
                                 'timestamp': chat.timestamp.isoformat() if timezone.is_aware(chat.timestamp) else timezone.make_aware(chat.timestamp).isoformat(),
                                 'chat_id': chat.id
                             }
                         )
                 except Exception:
                     pass
+                
+                return JsonResponse({
+                    "success": True,
+                    "message": message,
+                    "room_id": room.id
+                })
+            else:
+                # Regular users (students/faculty) can message staff/admin (broadcast)
+                staff_users = User.objects.filter(
+                    Q(profile__role='staff') | Q(is_staff=True)
+                ).exclude(pk=request.user.pk)
+                
+                broadcasted_room_ids = []
+                for staff_user in staff_users:
+                    room = models.ChatRoom.objects.filter(
+                        Q(initiator=request.user, receiver=staff_user) | Q(initiator=staff_user, receiver=request.user)
+                    ).first()
+                    if not room:
+                        room = models.ChatRoom.objects.create(initiator=request.user, receiver=staff_user)
+                    chat = models.Chat.objects.create(
+                        chatroom=room,
+                        sender=request.user,
+                        recipient=staff_user,
+                        message=message,
+                        status="sent"
+                    )
+                    broadcasted_room_ids.append(room.id)
 
-            return JsonResponse({
-                "success": True,
-                "message": message,
-                "rooms": broadcasted_room_ids
-            })
+                    # Broadcast via WebSocket per room
+                    try:
+                        channel_layer = get_channel_layer()
+                        if channel_layer:
+                            async_to_sync(channel_layer.group_send)(
+                                f'chat_{room.id}',
+                                {
+                                    'type': 'chat_message',
+                                    'message': message,
+                                    'sender_id': request.user.id,
+                                    'sender_first_name': request.user.first_name or '',
+                                    'sender_last_name': request.user.last_name or '',
+                                    'recipient_id': staff_user.id,
+                                    'timestamp': chat.timestamp.isoformat() if timezone.is_aware(chat.timestamp) else timezone.make_aware(chat.timestamp).isoformat(),
+                                    'chat_id': chat.id
+                                }
+                            )
+                    except Exception:
+                        pass
+
+                return JsonResponse({
+                    "success": True,
+                    "message": message,
+                    "rooms": broadcasted_room_ids
+                })
 
         # Otherwise, normal 1:1 init: staff can message non-staff; users may also reach staff
         # Also handle PCheck Support system account
@@ -1236,21 +1297,30 @@ def send_new_message(request, room_id):
                 }, status=403)
         
         # Rule 1: Staff/Admin can send in any conversation with faculty or students (but not other staff)
+        # Staff/Admin can also message PCheck Support
         elif is_staff:
-            staff_initiator = (
-                (hasattr(room.initiator, 'profile') and getattr(room.initiator.profile, 'role', None) == 'staff')
-                or getattr(room.initiator, 'is_staff', False)
-            )
-            staff_receiver = (
-                (hasattr(room.receiver, 'profile') and getattr(room.receiver.profile, 'role', None) == 'staff')
-                or getattr(room.receiver, 'is_staff', False)
-            )
-            # Staff cannot message other staff
-            if staff_initiator and staff_receiver:
-                return JsonResponse({
-                    "success": False,
-                    "error": "Staff can only chat with faculty and students."
-                }, status=403)
+            # Check if the conversation is with PCheck Support
+            is_pcheck_support_initiator = (room.initiator == pcheck_support_user or room.initiator.username == 'pcheck_support')
+            is_pcheck_support_receiver = (room.receiver == pcheck_support_user or room.receiver.username == 'pcheck_support')
+            
+            # Allow staff to message PCheck Support
+            if is_pcheck_support_initiator or is_pcheck_support_receiver:
+                pass  # Allow this
+            else:
+                staff_initiator = (
+                    (hasattr(room.initiator, 'profile') and getattr(room.initiator.profile, 'role', None) == 'staff')
+                    or getattr(room.initiator, 'is_staff', False)
+                )
+                staff_receiver = (
+                    (hasattr(room.receiver, 'profile') and getattr(room.receiver.profile, 'role', None) == 'staff')
+                    or getattr(room.receiver, 'is_staff', False)
+                )
+                # Staff cannot message other staff (except PCheck Support)
+                if staff_initiator and staff_receiver:
+                    return JsonResponse({
+                        "success": False,
+                        "error": "Staff can only chat with faculty and students."
+                    }, status=403)
         
         # Rule 2: Students can only reply to conversations with staff/admin
         elif is_student:
@@ -2224,6 +2294,127 @@ def peripheral_event(request):
 
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+
+def pc_notification_page(request):
+    """Serve the PC notification page for displaying session warnings"""
+    from django.templatetags.static import static
+    pc_name = request.GET.get('pc_name', '')
+    context = {
+        'pc_name': pc_name,
+        'logo_url': static('image/PSU_logo.png')
+    }
+    return render(request, 'main/pc_notification.html', context)
+
+
+@never_cache
+@require_GET
+def pc_session_status(request):
+    """Return the active booking status for a PC for polling-based warnings."""
+    now = timezone.now()
+    pc_name = (request.GET.get('pc_name') or '').strip()
+
+    if not pc_name:
+        return JsonResponse(
+            {
+                'pc_name': '',
+                'pc_found': False,
+                'has_booking': False,
+                'should_warn': False,
+                'message': 'pc_name query parameter is required.',
+                'status': 'missing_pc_name',
+                'timestamp': now.isoformat(),
+            },
+            status=400,
+        )
+
+    pc = models.PC.objects.filter(name__iexact=pc_name).first()
+    response = {
+        'pc_name': pc_name,
+        'pc_found': bool(pc),
+        'has_booking': False,
+        'should_warn': False,
+        'message': 'PC not registered.' if not pc else '',
+        'status': 'pc_not_found' if not pc else 'idle',
+        'minutes_left': None,
+        'seconds_left': None,
+        'booking_id': None,
+        'end_time': None,
+        'warning_signature': None,
+        'timestamp': now.isoformat(),
+    }
+
+    if not pc:
+        return JsonResponse(response, status=404)
+
+    booking = (
+        models.Booking.objects.filter(
+            pc=pc,
+            status='confirmed',
+            expiry__isnull=True,
+        )
+        .filter(Q(start_time__isnull=True) | Q(start_time__lte=now))
+        .filter(end_time__isnull=False, end_time__gte=now)
+        .order_by('end_time')
+        .first()
+    )
+
+    if not booking:
+        response['message'] = 'No active booking for this PC.'
+        return JsonResponse(response)
+
+    remaining = booking.end_time - now if booking.end_time else None
+    seconds_left = int(remaining.total_seconds()) if remaining is not None else None
+    if seconds_left is not None and seconds_left < 0:
+        seconds_left = 0
+
+    minutes_left = None
+    if seconds_left is not None:
+        minutes_left = max(0, (seconds_left + 59) // 60)
+
+    should_warn = False
+    status_label = 'active'
+
+    if seconds_left is None:
+        message = 'Active booking detected.'
+    elif seconds_left == 0:
+        status_label = 'expired'
+        message = 'Booking has reached its end time.'
+    elif seconds_left <= 5 * 60:
+        should_warn = True
+        status_label = 'warning'
+        display_minutes = max(1, minutes_left or 0)
+        plural = '' if display_minutes == 1 else 's'
+        message = f'Your session will end in {display_minutes} minute{plural}. Please save your work!'
+    else:
+        status_label = 'active'
+        if minutes_left is not None:
+            plural = '' if minutes_left == 1 else 's'
+            message = f'Session in progress. {minutes_left} minute{plural} remaining.'
+        else:
+            message = 'Session in progress.'
+
+    warning_signature = None
+    if should_warn:
+        # Include seconds in warning signature to allow refreshed messaging as time decreases
+        warning_signature = f'{booking.id}:{minutes_left}:{seconds_left}'
+
+    response.update(
+        {
+            'pc_found': True,
+            'has_booking': True,
+            'should_warn': should_warn,
+            'message': message,
+            'status': status_label,
+            'minutes_left': minutes_left,
+            'seconds_left': seconds_left,
+            'booking_id': booking.id,
+            'end_time': booking.end_time.isoformat() if booking.end_time else None,
+            'warning_signature': warning_signature,
+        }
+    )
+
+    return JsonResponse(response)
 
 
 @login_required

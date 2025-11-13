@@ -918,12 +918,8 @@ function createConversationItem(room, otherUser) {
   `;
 }
 
-// Create default PCheck Support item (only for students and faculty, not admin/staff)
+// Create default PCheck Support item (available for all users including staff/admin)
 function renderPCheckSupportItem(isStaff = false){
-  // Only generate for non-staff users
-  if (isStaff) {
-    return ''; // Return empty string for staff/admin - they should not see PCheck Support
-  }
   return `
     <a href="#" class="conversation-item" id="pcheckSupportItem" 
        data-receiver-id="pcheck" 
@@ -1156,33 +1152,14 @@ function loadMessages() {
         }
       });
 
-      // FORCE PCheck Support to stay at top for students and faculty only
-      // Show PCheck Support only for students and faculty (not admin/staff)
       // Remove any existing PCheck Support items first to avoid duplicates
       $("#pcheckSupportItem").remove();
       
       {% if request.user.is_staff or request.user.profile.role == 'staff' %}
-      // For admin/staff, remove any PCheck Support conversations or user items that might be in the DOM
-      $(".conversation-item").each(function() {
-        const receiverEmail = $(this).data('receiver-email');
-        const receiverName = $(this).data('receiver-name');
-        const receiverId = $(this).data('receiver-id');
-        const isPCheckSupport = (
-          receiverEmail === 'support@pcheck.psu.palawan.edu.ph' ||
-          receiverEmail === 'PCheck' ||
-          receiverName === 'PCheck Support' ||
-          String(receiverId) === 'pcheck' ||
-          String(receiverId) === '24' // PCheck Support user ID
-        );
-        if (isPCheckSupport) {
-          $(this).remove();
-        }
-      });
       {% endif %}
       
-      // Always add PCheck Support at the top (static item, not from actual conversation)
-      {% if not request.user.is_staff and request.user.profile.role|default:'' != 'staff' %}
-      // FORCE PCheck Support for students and faculty - always visible
+      // Always add PCheck Support at the top (static item, not from actual conversation) - available for all users
+      // FORCE PCheck Support for all users - always visible
       conversationsList.prepend(renderPCheckSupportItem(false));
       // Ensure click handler is attached
       $("#pcheckSupportItem").off('click').on('click', function(e) {
@@ -1192,7 +1169,6 @@ function loadMessages() {
           openPCheck();
         }
       });
-      {% endif %}
       // Hide empty state since PCheck Support is always available
       $("#emptyStateBlock").hide();
 
@@ -1242,12 +1218,11 @@ function loadMessages() {
         loadConversation(roomId);
       });
 
-      // FORCE PCheck Support to be visible for all users - especially students and faculty
+      // FORCE PCheck Support to be visible for all users
       setTimeout(function() {
         const conversationsList = $("#conversationsList");
         if (conversationsList.length > 0) {
-          {% if not request.user.is_staff and request.user.profile.role|default:'' != 'staff' %}
-          // FORCE PCheck Support for students and faculty - always show
+          // FORCE PCheck Support for all users - always show
           if ($("#pcheckSupportItem").length === 0) {
             conversationsList.prepend(renderPCheckSupportItem(false));
           } else {
@@ -1263,7 +1238,6 @@ function loadMessages() {
               openPCheck();
             }
           });
-          {% endif %}
         }
       }, 100);
       
@@ -1705,13 +1679,12 @@ function sendInitMessage() {
   // Ensure PCheck Support is always visible for non-staff users (faculty/students)
   // This is a fallback in case template conditions fail
   function ensurePCheckSupportVisible() {
-    {% if not request.user.is_staff and request.user.profile.role|default:'' != 'staff' %}
     const conversationsList = $("#conversationsList");
     if (conversationsList.length > 0) {
       // Check if PCheck Support item exists
       if ($("#pcheckSupportItem").length === 0) {
         // Add PCheck Support if it doesn't exist - FORCE IT TO SHOW
-        console.log("Adding PCheck Support item for non-staff user");
+        console.log("Adding PCheck Support item for user");
         conversationsList.prepend(renderPCheckSupportItem(false));
         $("#emptyStateBlock").hide();
         // Re-attach click handler for PCheck Support
@@ -1730,7 +1703,6 @@ function sendInitMessage() {
       // If conversations list doesn't exist yet, wait and try again
       setTimeout(ensurePCheckSupportVisible, 500);
     }
-    {% endif %}
   }
   
   // Check for PCheck Support after a short delay to ensure DOM is ready
@@ -1758,7 +1730,7 @@ function sendInitMessage() {
   });
   
 
-  // Default PCheck support item handler (for all users)
+  // Default PCheck support item handler (for all users including staff/admin)
   function openPCheck(){
     // Only enable fullscreen mode on mobile (screen width <= 768px)
     const isMobile = window.innerWidth <= 768;
@@ -1767,15 +1739,15 @@ function sendInitMessage() {
     } else {
       $(".chat-wrapper").removeClass('fullscreen');
     }
-                  $("#activeChat").show().css('display','flex');
+    $("#activeChat").show().css('display','flex');
     $("#chatHeaderName").text('PCheck Support');
     $("#chatHeaderAvatar").html(getInitials('PCheck Support'));
     
-    // For non-staff only, set receiver to PCheck (which broadcasts to all staff)
-    {% if not request.user.is_staff and request.user.profile.role|default:'' != 'staff' %}
+    // Set receiver to PCheck (for staff/admin, this creates conversation with PCheck Support system account)
+    // For students/faculty, this broadcasts to all staff
     currentReceiver = { id: null, email: 'PCheck', name: 'PCheck Support' };
     
-    // Try to find existing conversation with staff
+    // Try to find existing conversation
     $.ajax({ url: '/ajax/load-messages/?_=' + Date.now(), method: 'GET', cache: false })
       .done(function(data){
         try { if (typeof data === 'string') data = JSON.parse(data); } catch(e){}
@@ -1784,8 +1756,14 @@ function sendInitMessage() {
           for (var i=0; i<data.result.length; i++){
             var room = data.result[i];
             var other = (String(currentUserId) == String(room.receiver.id)) ? room.initiator : room.receiver;
-            // For non-staff, look for conversation with staff
-            if (other && (other.is_staff === true || other.role === 'staff')){
+            // Look for conversation with staff (for students/faculty) or PCheck Support (for staff/admin)
+            // Check if the other user is staff or if it's the PCheck Support system account
+            var isPCheckSupport = (
+              other.email === 'support@pcheck.psu.palawan.edu.ph' ||
+              (other.first_name === 'PCheck' && other.last_name === 'Support') ||
+              (other.email && other.email.toLowerCase().includes('pcheck') && other.email.toLowerCase().includes('support'))
+            );
+            if (other && ((other.is_staff === true || other.role === 'staff') || isPCheckSupport)){
               foundRoomId = room.id;
               break;
             }
@@ -1805,7 +1783,6 @@ function sendInitMessage() {
         $("#messagesContainer").html('<div class="empty-state"><p>Start the conversation with PCheck Support.</p></div>');
         $("#new_message").focus();
       });
-    {% endif %}
   }
   // Expose globally so inline onclick can access it even outside this scope
   window.openPCheck = openPCheck;
@@ -1867,9 +1844,49 @@ function sendInitMessage() {
       $("#new_message").val("");
     }
 
-    // If no room yet, start with PCheck Support (only for non-staff)
+    // If no room yet, start a new conversation
     if (!roomId) {
-      {% if not request.user.is_staff and request.user.profile.role|default:'' != 'staff' %}
+      // Check if staff/admin has selected a recipient (student or faculty)
+      {% if request.user.is_staff or request.user.profile.role|default:'' == 'staff' %}
+      // For staff/admin: allow messaging selected students/faculty
+      if (currentReceiver && currentReceiver.email && currentReceiver.email !== 'PCheck') {
+        // Staff/admin can message selected student/faculty
+        const recipient = currentReceiver.email;
+        $.ajax({
+          url: $("#send_init_message").data("send-init-message-url"),
+          type: "POST",
+          data: { recipient, message, csrfmiddlewaretoken: getCSRFToken() },
+          beforeSend: (xhr) => { const t = getCSRFToken(); if (t) xhr.setRequestHeader("X-CSRFToken", t); },
+          success: (res) => {
+            const newRoom = res && (res.room_id || (Array.isArray(res.rooms) && res.rooms[0]));
+            if (newRoom) {
+              const previousRoom = currentRoomId;
+              currentRoomId = newRoom;
+              modalRoomId = newRoom;
+              connectChatSocket(newRoom);
+              // Don't reload conversation immediately - WebSocket will handle the new message
+              // Only load if we're switching to a different room
+              if (previousRoom !== newRoom) {
+                loadConversation(newRoom);
+              }
+              loadMessages();
+            } else {
+              loadMessages();
+            }
+          },
+          error: (xhr) => {
+            let msg = "Error sending message.";
+            try { const j = JSON.parse(xhr.responseText); if (j && j.error) msg = j.error; } catch (_) {}
+            alert(msg);
+          }
+        });
+        return;
+      } else {
+        // Staff/admin needs to select a recipient first
+        alert("Please select a student or faculty member to message.");
+        return;
+      }
+      {% else %}
       // For non-staff, message PCheck (broadcasts to all staff)
       const recipient = (currentReceiver && currentReceiver.email) ? currentReceiver.email : "PCheck";
       $.ajax({
@@ -1900,10 +1917,6 @@ function sendInitMessage() {
           alert(msg);
         }
       });
-      return;
-      {% else %}
-      // Staff/admin cannot message PCheck Support
-      alert("PCheck Support is not available for staff/admin users.");
       return;
       {% endif %}
     }

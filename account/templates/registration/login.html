@@ -99,9 +99,37 @@
     border-right: none;
   }
 
+  .input-group #password {
+    border-right: none;
+    border-radius: 10px 0 0 10px;
+  }
+
+  .input-group #password:focus {
+    border-right: none;
+  }
+
   .input-group .form-control:focus ~ .input-group-text {
     border-color: #ff6b35;
     border-left: none;
+  }
+
+  /* Password toggle button */
+  #togglePassword {
+    background: #f8f9fa;
+    border: 2px solid #e0e0e0;
+    border-left: none;
+    border-radius: 0 10px 10px 0;
+    color: #6c757d;
+    transition: all 0.3s ease;
+  }
+
+  #togglePassword:hover {
+    background: #e9ecef;
+    color: #ff6b35;
+  }
+
+  .input-group #password:focus ~ #togglePassword {
+    border-color: #ff6b35;
   }
 
   /* Submit Button */
@@ -261,7 +289,12 @@
         </div>
         <div class="form-group mb-3">
           <label for="password">Password</label>
-          <input type="password" name="password" class="form-control" required>
+          <div class="input-group">
+            <input type="password" name="password" id="password" class="form-control" required>
+            <button type="button" class="input-group-text" id="togglePassword" style="cursor: pointer; border-left: none;">
+              <i class="fa-solid fa-eye" id="passwordToggleIcon"></i>
+            </button>
+          </div>
           <a class="btn btn-link p-0 mt-1" href="{% url 'account:password_reset' %}">
             forgot password?
           </a>
@@ -299,4 +332,28 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const togglePassword = document.getElementById('togglePassword');
+    const passwordInput = document.getElementById('password');
+    const passwordToggleIcon = document.getElementById('passwordToggleIcon');
+    
+    if (togglePassword && passwordInput && passwordToggleIcon) {
+      togglePassword.addEventListener('click', function() {
+        if (passwordInput.type === 'password') {
+          passwordInput.type = 'text';
+          passwordToggleIcon.classList.remove('fa-eye');
+          passwordToggleIcon.classList.add('fa-eye-slash');
+        } else {
+          passwordInput.type = 'password';
+          passwordToggleIcon.classList.remove('fa-eye-slash');
+          passwordToggleIcon.classList.add('fa-eye');
+        }
+      });
+    }
+  });
+</script>
 {% endblock %}

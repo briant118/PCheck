@@ -66,6 +66,10 @@ urlpatterns = [
     path('ajax/change-message-status/', views.change_message_status, name='change-message-status'),
     path('ajax/submit-block-booking/', views.submit_block_booking, name='submit-block-booking'),
     
+    # PC Notification Page (no login required - runs on PC)
+    path('pc-notification/', views.pc_notification_page, name='pc-notification'),
+    path('api/pc-session-status/', views.pc_session_status, name='pc-session-status'),
+    
     # Reporting
     path('booking-data/', views.bookings_by_college, name='booking-data'),
     path('chat/', views.ChatView.as_view(), name='chat'),

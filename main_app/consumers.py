@@ -94,3 +94,68 @@ class AlertsConsumer(AsyncWebsocketConsumer):
             "message": event.get("message"),
             "payload": event.get("payload", {})
         }))
+
+class PCNotificationConsumer(AsyncWebsocketConsumer):
+    """WebSocket consumer for PC notifications (session warnings, etc.)"""
+    async def connect(self):
+        # Get PC name from query string
+        query_string = self.scope.get("query_string", b"").decode()
+        pc_name = None
+        
+        # Parse query string
+        if query_string:
+            params = {}
+            for param in query_string.split("&"):
+                if "=" in param:
+                    key, value = param.split("=", 1)
+                    params[key] = value
+            pc_name = params.get("pc_name", "")
+        
+        if not pc_name:
+            print(f"❌ PC Notification WebSocket: No PC name provided")
+            await self.close()
+            return
+        
+        self.pc_name = pc_name
+        self.group = f"pc_notifications_{pc_name}"
+        await self.channel_layer.group_add(self.group, self.channel_name)
+        await self.accept()
+        print(f"✅ PC Notification WebSocket connected: {pc_name}")
+
+    async def disconnect(self, close_code):
+        if hasattr(self, 'group'):
+            await self.channel_layer.group_discard(self.group, self.channel_name)
+        print(f"❌ PC Notification WebSocket disconnected: {getattr(self, 'pc_name', 'unknown')}")
+
+    async def receive(self, text_data):
+        # PC can send heartbeat or status updates
+        try:
+            data = json.loads(text_data)
+            if data.get("type") == "heartbeat":
+                await self.send(text_data=json.dumps({"type": "heartbeat_ack"}))
+        except json.JSONDecodeError:
+            pass
+
+    async def session_warning(self, event):
+        """Send session warning notification to PC"""
+        message_data = {
+            "type": "session_warning",
+            "message": event.get("message", "Your session is about to end"),
+            "minutes_left": event.get("minutes_left", 5),
+            "end_time": event.get("end_time"),
+            "booking_id": event.get("booking_id"),
+            "pc_name": event.get("pc_name"),
+            "show_popup": event.get("show_popup", True)
+        }
+        print(f"📤 PCNotificationConsumer: Sending session warning to {self.pc_name}")
+        print(f"   Connected PC name: {self.pc_name}")
+        print(f"   Event PC name: {event.get('pc_name')}")
+        print(f"   Message data: {message_data}")
+        print(f"   JSON: {json.dumps(message_data)}")
+        try:
+            await self.send(text_data=json.dumps(message_data))
+            print(f"✅ Message sent successfully to {self.pc_name}")
+        except Exception as e:
+            print(f"❌ Error sending message to {self.pc_name}: {e}")
+            import traceback
+            traceback.print_exc()
