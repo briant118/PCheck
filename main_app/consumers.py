@@ -159,3 +159,106 @@ class PCNotificationConsumer(AsyncWebsocketConsumer):
             print(f"❌ Error sending message to {self.pc_name}: {e}")
             import traceback
             traceback.print_exc()
+
+class BookingStatusConsumer(AsyncWebsocketConsumer):
+    """WebSocket consumer for booking status updates (for students and faculty)"""
+    async def connect(self):
+        self.user = self.scope["user"]
+        
+        # Check if user is authenticated
+        if not self.user.is_authenticated:
+            print(f"❌ BookingStatusConsumer: User not authenticated, closing connection")
+            await self.close()
+            return
+        
+        # Create a group for this user's booking updates
+        self.group = f"booking_updates_{self.user.id}"
+        await self.channel_layer.group_add(self.group, self.channel_name)
+        await self.accept()
+        print(f"✅ BookingStatusConsumer: User {self.user.username} (ID: {self.user.id}) connected")
+
+    async def disconnect(self, close_code):
+        if hasattr(self, 'group'):
+            await self.channel_layer.group_discard(self.group, self.channel_name)
+        print(f"❌ BookingStatusConsumer: User {getattr(self.user, 'username', 'unknown')} disconnected")
+
+    async def receive(self, text_data):
+        # Users can send heartbeat or other messages
+        try:
+            data = json.loads(text_data)
+            if data.get("type") == "heartbeat":
+                await self.send(text_data=json.dumps({"type": "heartbeat_ack"}))
+        except json.JSONDecodeError:
+            pass
+
+    async def booking_status_update(self, event):
+        """Send booking status update to user"""
+        message_data = {
+            "type": "booking_status_update",
+            "booking_id": event.get("booking_id"),
+            "status": event.get("status"),
+            "message": event.get("message", "Your booking status has been updated"),
+            "pc_name": event.get("pc_name", ""),
+        }
+        print(f"📤 BookingStatusConsumer: Sending booking update to user {self.user.username}")
+        print(f"   Booking ID: {event.get('booking_id')}, Status: {event.get('status')}")
+        try:
+            await self.send(text_data=json.dumps(message_data))
+            print(f"✅ Booking status update sent successfully")
+        except Exception as e:
+            print(f"❌ Error sending booking status update: {e}")
+            import traceback
+            traceback.print_exc()
+
+class PCStatusBroadcastConsumer(AsyncWebsocketConsumer):
+    """WebSocket consumer for broadcasting PC status updates to all users"""
+    async def connect(self):
+        self.user = self.scope["user"]
+        
+        # Check if user is authenticated
+        if not self.user.is_authenticated:
+            print(f"❌ PCStatusBroadcastConsumer: User not authenticated, closing connection")
+            await self.close()
+            return
+        
+        # Join the global PC status broadcast group
+        self.group = "pc_status_updates"
+        await self.channel_layer.group_add(self.group, self.channel_name)
+        await self.accept()
+        print(f"✅ PCStatusBroadcastConsumer: User {self.user.username} (ID: {self.user.id}) connected")
+
+    async def disconnect(self, close_code):
+        if hasattr(self, 'group'):
+            await self.channel_layer.group_discard(self.group, self.channel_name)
+        print(f"❌ PCStatusBroadcastConsumer: User {getattr(self.user, 'username', 'unknown')} disconnected")
+
+    async def receive(self, text_data):
+        # Users can send heartbeat or other messages
+        try:
+            data = json.loads(text_data)
+            if data.get("type") == "heartbeat":
+                await self.send(text_data=json.dumps({"type": "heartbeat_ack"}))
+        except json.JSONDecodeError:
+            pass
+
+    async def pc_status_update(self, event):
+        """Broadcast PC status update to all connected users"""
+        message_data = {
+            "type": "pc_status_update",
+            "pc_id": event.get("pc_id"),
+            "pc_name": event.get("pc_name", ""),
+            "booking_status": event.get("booking_status", "available"),
+            "status": event.get("status", "connected"),  # connected/disconnected
+            "system_condition": event.get("system_condition", "active"),  # active/repair
+            "message": event.get("message", ""),
+            "available_pcs_count": event.get("available_pcs_count", 0),
+        }
+        print(f"📤 PCStatusBroadcastConsumer: Broadcasting PC status update")
+        print(f"   PC: {event.get('pc_name')}, Status: {event.get('booking_status')}")
+        try:
+            await self.send(text_data=json.dumps(message_data))
+            print(f"✅ PC status update broadcast sent successfully")
+        except Exception as e:
+            print(f"❌ Error broadcasting PC status update: {e}")
+            import traceback
+            traceback.print_exc()

@@ -6,11 +6,42 @@
 {% block title %}PC List{% endblock %}
 
 {% block links %}
-<link rel="stylesheet" href="{% static 'css/booking.css' %}?v=10">
+<link rel="stylesheet" href="{% static 'css/booking.css' %}?v=15">
 {% endblock %}
 
 {% block extra_head %}
 <script>
+// Custom Alert Function - Shows a styled modal instead of native alert
+window.showCustomAlert = function(message, currentTime) {
+  var modal = document.getElementById('customAlertModal');
+  var messageEl = document.getElementById('customAlertMessage');
+  var timeEl = document.getElementById('customAlertTime');
+  
+  if (modal && messageEl && timeEl) {
+    messageEl.textContent = message;
+    if (currentTime) {
+      timeEl.textContent = 'Current time: ' + currentTime;
+      timeEl.style.display = 'block';
+    } else {
+      timeEl.style.display = 'none';
+    }
+    
+    // Show modal using Bootstrap
+    if (typeof bootstrap !== 'undefined') {
+      var modalInstance = new bootstrap.Modal(modal);
+      modalInstance.show();
+    } else {
+      // Fallback if Bootstrap is not available
+      modal.style.display = 'block';
+      modal.classList.add('show');
+      document.body.classList.add('modal-open');
+    }
+  } else {
+    // Fallback to native alert if modal elements not found
+    alert(message + (currentTime ? '\n\nCurrent time: ' + currentTime : ''));
+  }
+};
+
 // Define showPCStatus immediately so it's available for inline onclick handlers
 // This must be defined before the HTML that uses it
 window.showPCStatus = function(pcId, button) {
@@ -358,18 +389,15 @@ window.selectPCForReservation = function(pcId, button) {
     return;
   }
   
-  // Check if user has active booking (quick check via data attribute or cached value)
-  // This is a client-side check, server-side validation will also prevent booking
+  // Check if user has active individual PC booking (student booking)
+  // If they have an active individual PC booking, block all new bookings
   if (window.__hasActiveBooking === true) {
-    alert('You already have an active booking. Please wait for your current booking to end before booking another PC.');
+    alert('You already have an active individual PC booking. Please wait for your current booking to end before booking another PC.');
     return;
   }
   
-  // Check if faculty has active booking
-  if (window.__hasActiveFacultyBooking === true) {
-    alert('You have an active faculty booking. Please wait for your current booking to be processed or cancelled before booking another PC.');
-    return;
-  }
+  // Note: We allow individual PC booking even if user has active faculty booking
+  // Faculty booking doesn't block individual PC booking
   
   // Get PC status from button data attributes
   const pcStatus = button.getAttribute('data-pc-status');
@@ -433,8 +461,8 @@ window.selectPCForReservation = function(pcId, button) {
       if (isSelected) {
         btn.disabled = true;
       } else {
-        // Only re-enable if user doesn't have active booking
-        if (!window.__hasActiveBooking) {
+        // Only re-enable if user doesn't have active booking (student or faculty)
+        if (!window.__hasActiveBooking && !window.__hasActiveFacultyBooking) {
           // Still check for repair/offline/booking status
           var pcCondition = btn.getAttribute('data-pc-condition');
           var pcStatus = btn.getAttribute('data-pc-status');
@@ -497,6 +525,288 @@ window.selectPCForReservation = function(pcId, button) {
   }
 
   console.log('PC selection complete. Selected:', isSelected);
+};
+
+// Function to close modal and scroll to reservation container
+// Define it in extra_head so it's available before the HTML that uses it
+function closeModalAndScrollToReservation() {
+  console.log('Cancel button clicked - closing modal and scrolling to reservation');
+  // Close the PC selection modal
+  var pcSelectionModal = document.getElementById('pcSelectionModal');
+  if (pcSelectionModal && typeof bootstrap !== 'undefined') {
+    var modalInstance = bootstrap.Modal.getInstance(pcSelectionModal);
+    if (modalInstance) {
+      modalInstance.hide();
+    } else {
+      // If no instance exists, create one and hide it
+      var modal = new bootstrap.Modal(pcSelectionModal);
+      modal.hide();
+    }
+  }
+  
+  // Wait for modal to close, then scroll to reservation container
+  setTimeout(function() {
+    var reservationContainer = document.querySelector('.mobile-reservation-container');
+    if (reservationContainer) {
+      reservationContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Also ensure it's visible
+      if (typeof window.ensureReservationBodyVisible === 'function') {
+        window.ensureReservationBodyVisible();
+      }
+    }
+  }, 300);
+}
+
+// Also assign to window for global access
+window.closeModalAndScrollToReservation = closeModalAndScrollToReservation;
+
+function closeModalAndScrollToReservationCard() {
+  console.log('Back button clicked - closing modal and refreshing page');
+  // Close the PC selection modal
+  var pcSelectionModal = document.getElementById('pcSelectionModal');
+  if (pcSelectionModal && typeof bootstrap !== 'undefined') {
+    var modalInstance = bootstrap.Modal.getInstance(pcSelectionModal);
+    if (modalInstance) {
+      modalInstance.hide();
+    } else {
+      // If no instance exists, create one and hide it
+      var modal = new bootstrap.Modal(pcSelectionModal);
+      modal.hide();
+    }
+  }
+  
+  // Wait for modal to close, then refresh the page
+  setTimeout(function() {
+    location.reload();
+  }, 300);
+}
+
+// Also assign to window for global access
+window.closeModalAndScrollToReservationCard = closeModalAndScrollToReservationCard;
+
+// Define validateStep1 early so it's available for onclick handlers
+// This ensures the function exists before the button is rendered
+window.validateStep1 = function validateStep1() {
+  console.log('validateStep1 called');
+  var course = document.getElementById('course');
+  var block = document.getElementById('block');
+  var college = document.getElementById('college');
+  var dateStart = document.getElementById('dateStart');
+  var dateEnd = document.getElementById('dateEnd');
+  var numOfPc = document.getElementById('numOfPc');
+  var custNumOfPc = document.getElementById('custNumOfPc');
+  var customNumOfPc = document.getElementById('customNumOfPc'); // Visible input field
+  
+  // Get the form element
+  var form = document.getElementById('facultyForm');
+  var step1 = document.getElementById('step1');
+  
+  // Clear previous invalid states
+  var allInputs = step1 ? step1.querySelectorAll('.form-control, .select') : [];
+  allInputs.forEach(function(input) {
+    input.classList.remove('is-invalid');
+  });
+  
+  var errors = [];
+  var firstInvalidField = null;
+  
+  // Validate Course (required)
+  if (!course || !course.value.trim()) {
+    errors.push('Please enter a course');
+    if (course) {
+      course.classList.add('is-invalid');
+      if (!firstInvalidField) firstInvalidField = course;
+    }
+  } else {
+    if (course) course.classList.remove('is-invalid');
+  }
+  
+  // Validate Block (required)
+  if (!block || !block.value.trim()) {
+    errors.push('Please enter a block');
+    if (block) {
+      block.classList.add('is-invalid');
+      if (!firstInvalidField) firstInvalidField = block;
+    }
+  } else {
+    if (block) block.classList.remove('is-invalid');
+  }
+  
+  // Validate College (required)
+  if (!college || !college.value || college.value === '') {
+    errors.push('Please select a college');
+    if (college) {
+      college.classList.add('is-invalid');
+      if (!firstInvalidField) firstInvalidField = college;
+    }
+  } else {
+    if (college) college.classList.remove('is-invalid');
+  }
+  
+  // Validate Start Date (required)
+  if (!dateStart || !dateStart.value) {
+    errors.push('Please select a start date and time');
+    if (dateStart) {
+      dateStart.classList.add('is-invalid');
+      if (!firstInvalidField) firstInvalidField = dateStart;
+    }
+  } else {
+    if (dateStart) dateStart.classList.remove('is-invalid');
+  }
+  
+  // Validate End Date (required)
+  if (!dateEnd || !dateEnd.value) {
+    errors.push('Please select an end date and time');
+    if (dateEnd) {
+      dateEnd.classList.add('is-invalid');
+      if (!firstInvalidField) firstInvalidField = dateEnd;
+    }
+  } else {
+    if (dateEnd) dateEnd.classList.remove('is-invalid');
+  }
+  
+  // Validate date range (end must be after start)
+  if (dateStart && dateStart.value && dateEnd && dateEnd.value) {
+    var startDate = new Date(dateStart.value);
+    var endDate = new Date(dateEnd.value);
+    if (endDate <= startDate) {
+      errors.push('End date must be after start date');
+      if (dateEnd) {
+        dateEnd.classList.add('is-invalid');
+        if (!firstInvalidField) firstInvalidField = dateEnd;
+      }
+    }
+  }
+  
+  // Check if PC quantity is selected (required)
+  // Check visible customNumOfPc field first, then hidden fields
+  var pcQty = 0;
+  if (customNumOfPc && parseInt(customNumOfPc.value) > 0) {
+    pcQty = parseInt(customNumOfPc.value);
+    // Sync to hidden field if needed
+    if (custNumOfPc) {
+      custNumOfPc.value = pcQty;
+    }
+  } else if (custNumOfPc && parseInt(custNumOfPc.value) > 0) {
+    pcQty = parseInt(custNumOfPc.value);
+  } else if (numOfPc && parseInt(numOfPc.value) > 0) {
+    pcQty = parseInt(numOfPc.value);
+  }
+  
+  if (pcQty <= 0) {
+    errors.push('Please select the number of PCs needed from the PC selection modal');
+  } else if (pcQty < 2) {
+    // Minimum is 2 PCs
+    errors.push('Minimum booking is 2 PCs. Please add more PCs to continue.');
+    // Show popup alert
+    alert('Minimum booking is 2 PCs. Please add more PCs to continue.');
+    // Focus on the PC input field
+    if (customNumOfPc) {
+      customNumOfPc.focus();
+      customNumOfPc.select();
+    }
+  }
+  
+  // If there are errors, show them and focus on first invalid field
+  if (errors.length > 0) {
+    // Scroll to first invalid field
+    if (firstInvalidField) {
+      firstInvalidField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(function() {
+        firstInvalidField.focus();
+      }, 300);
+    }
+    
+    // Show error message
+    var errorMessage = 'Please fix the following errors:\n\n' + errors.join('\n');
+    alert(errorMessage);
+    return false;
+  }
+  
+  // All validations passed, advance to next step
+  console.log('All validations passed, advancing to step2');
+  if (typeof window.advanceStep === 'function') {
+    console.log('Calling window.advanceStep');
+    window.advanceStep('step1', 'step2');
+  } else if (typeof advanceStep === 'function') {
+    console.log('Calling advanceStep');
+    advanceStep('step1', 'step2');
+  } else {
+    console.error('advanceStep function not found!');
+    // Fallback: manually toggle steps
+    var step1Div = document.getElementById('step1');
+    var step2Div = document.getElementById('step2');
+    if (step1Div) step1Div.classList.remove('active');
+    if (step2Div) step2Div.classList.add('active');
+  }
+  return false;
+};
+
+// Initialize MAX_AVAILABLE_PCS early from template value
+window.MAX_AVAILABLE_PCS = {{ available_count|default:total_pc }};
+
+// Define incrementCustomPc and decrementCustomPc early so they're available for onclick handlers
+window.incrementCustomPc = function() {
+  var customInput = document.getElementById('customNumOfPc');
+  if (customInput) {
+    var current = parseInt(customInput.value) || 2;
+    // Try to get max from DOM element first, then fallback to window variable, then template value
+    var maxElement = document.getElementById('max-available-pcs');
+    var maxAvailable = 0;
+    if (maxElement) {
+      maxAvailable = parseInt(maxElement.textContent) || 0;
+    }
+    if (!maxAvailable || maxAvailable === 0) {
+      maxAvailable = window.MAX_AVAILABLE_PCS || {{ available_count|default:total_pc }};
+    }
+    
+    // Only block if maxAvailable is 0 (no PCs available at all)
+    if (maxAvailable < 1) {
+      var errorMsg = document.getElementById('pc-limit-error');
+      if (errorMsg) {
+        errorMsg.style.display = 'block';
+        errorMsg.innerHTML = '<small><i class="fa-solid fa-triangle-exclamation"></i> No PCs available. Maximum available: ' + maxAvailable + ' PC(s)</small>';
+      }
+      alert('No PCs available. Please check the PC availability.');
+      return false;
+    }
+    
+    // If maxAvailable < 2, allow incrementing anyway (don't enforce the limit strictly)
+    // Only enforce limit if maxAvailable >= 2
+    if (maxAvailable >= 2 && current >= maxAvailable) {
+      var errorMsg = document.getElementById('pc-limit-error');
+      if (errorMsg) {
+        errorMsg.style.display = 'block';
+        errorMsg.innerHTML = '<small><i class="fa-solid fa-triangle-exclamation"></i> Maximum available: ' + maxAvailable + ' PC(s)</small>';
+      }
+      alert('Cannot exceed ' + maxAvailable + ' available PC(s)');
+      return false;
+    }
+    
+    // Allow incrementing if maxAvailable < 2 (even if current >= maxAvailable)
+    // or if maxAvailable >= 2 and current < maxAvailable
+    customInput.value = current + 1;
+    if (typeof window.handleCustomPcInput === 'function') {
+      window.handleCustomPcInput();
+    }
+  }
+};
+
+window.decrementCustomPc = function() {
+  var customInput = document.getElementById('customNumOfPc');
+  if (customInput) {
+    var current = parseInt(customInput.value) || 2;
+    // Minimum is 2, so only allow decrementing if current > 2
+    if (current > 2) {
+      customInput.value = current - 1;
+      if (typeof window.handleCustomPcInput === 'function') {
+        window.handleCustomPcInput();
+      }
+    } else if (current === 2) {
+      // Already at minimum, show alert
+      alert('Minimum booking is 2 PCs. You cannot reduce below 2 PCs.');
+    }
+  }
 };
 </script>
 {% endblock %}
@@ -610,7 +920,7 @@ window.selectPCForReservation = function(pcId, button) {
                   onclick="showPCStatus({{ pc.id }}, this); return false;"
                   style="cursor: pointer;"
                 {% else %}
-                  onclick="selectPCForReservation({{ pc.id }}, this);"
+                  onclick="selectPCForReservation({{ pc.id }}, this); return false;"
                 {% endif %}>
                 <i class="fa-solid fa-desktop pc-icon-modern"></i>
                 <span class="pc-number">{{ pc.name|get_int }}</span>
@@ -942,119 +1252,186 @@ window.selectPCForReservation = function(pcId, button) {
 
       {% if request.user.is_authenticated and request.user.profile.role|default:'' == 'faculty' %}
       <div class="text-center my-3">
-        <button type="button" class="btn btn-success" id="block-button" onclick="showBlockBooking()">
+        <button type="button" class="btn btn-success" id="block-button">
           Bulk booking for class
         </button>
       </div>
       {% endif %}
 
-      <div id="faculty-booking-pc-group" hidden> <!-- faculty-booking-pc-group -->
-        <div class="text-center h6">Select Number of PCs</div>
-        <div class="row justify-content-center text-center">
-          <div class="mb-2 pc-container text-black">
-          {% for i in total_pc|divide:5|integer|to_range %}
-            {% if i|multiply:5 != total_pc %}
-            <button class="pc-group-number" id="pcs-{{ i|multiply:5 }}" data-qty="{{ i|multiply:5 }}" onclick="handlePcGroupClick(this)">
-              <span>{{ i|multiply:5 }}</span>
-            </button>
-            {% endif %}
-          {% endfor %}
-            <button class="pc-group-number" id="pcs-{{ total_pc }}" data-qty="{{ total_pc}}" onclick="handlePcGroupClick(this)">
-              <span>{{ total_pc }}</span>
-            </button>
-          </div>
-          <div class="input-group justify-content-center mb-3" style="max-width:250px; margin:auto;">
-            <span class="input-group-text" id="basic-addon1">Custom</span>
-            <input type="text" id="customNumOfPc" name="customNumOfPc" class="form-control text-center" value="0" min="0">
-              <button class="btn btn-outline-secondary" type="button" id="fb-minusBtn" onclick="decrementCustomPc()">−</button>
-            <button class="btn btn-outline-secondary" type="button" id="fb-plusBtn" onclick="incrementCustomPc()">+</button>
-          </div>
-          <div class="text-center mt-3">
-            <button type="button" class="btn btn-success" id="block-button-next" hidden onclick="goToBlockBookingForm()">Next <i class="fa-solid fa-chevron-right"></i></button>
+      <!-- PC Selection Modal -->
+      <div class="modal fade" id="pcSelectionModal" tabindex="-1" aria-labelledby="pcSelectionModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="pcSelectionModalLabel">
+                <i class="fa-solid fa-desktop me-2"></i>Select Number of PCs
+              </h5>
+            </div>
+            <div class="modal-body">
+              <div id="faculty-booking-pc-group">
+                <div class="text-center mb-3">
+                  <small class="text-muted">Maximum available: <strong id="max-available-pcs">{{ available_count|default:total_pc }}</strong> PC(s)</small>
+                </div>
+                <div class="row justify-content-center text-center">
+                  <div class="mb-3 pc-container text-black">
+                  {% with max_available=available_count|default:total_pc %}
+                  {% for i in total_pc|divide:5|integer|to_range %}
+                    {% if i|multiply:5 != total_pc and i|multiply:5 <= max_available %}
+                    <button class="pc-group-number" id="pcs-{{ i|multiply:5 }}" data-qty="{{ i|multiply:5 }}" onclick="handlePcGroupClick(this)">
+                      <span>{{ i|multiply:5 }}</span>
+                    </button>
+                    {% elif i|multiply:5 > max_available %}
+                    <button class="pc-group-number" id="pcs-{{ i|multiply:5 }}" data-qty="{{ i|multiply:5 }}" disabled style="opacity: 0.5; cursor: not-allowed;" title="Exceeds available PCs">
+                      <span>{{ i|multiply:5 }}</span>
+                    </button>
+                    {% endif %}
+                  {% endfor %}
+                    {% if total_pc <= max_available %}
+                    <button class="pc-group-number" id="pcs-{{ total_pc }}" data-qty="{{ total_pc}}" onclick="handlePcGroupClick(this)">
+                      <span>{{ total_pc }}</span>
+                    </button>
+                    {% else %}
+                    <button class="pc-group-number" id="pcs-{{ total_pc }}" data-qty="{{ total_pc}}" disabled style="opacity: 0.5; cursor: not-allowed;" title="Exceeds available PCs">
+                      <span>{{ total_pc }}</span>
+                    </button>
+                    {% endif %}
+                  {% endwith %}
+                  </div>
+                  <div class="text-center mb-3" style="max-width:250px; margin:auto;">
+                    <label for="customNumOfPc" class="form-label mb-2">Number Of PC</label>
+                    <div class="input-group justify-content-center">
+                      <button class="btn btn-outline-secondary" type="button" id="fb-minusBtn" onclick="decrementCustomPc()">−</button>
+                      <input type="number" id="customNumOfPc" name="customNumOfPc" class="form-control text-center" value="2" min="2" max="{{ available_count|default:total_pc }}" oninput="if (typeof handleCustomPcInput === 'function') handleCustomPcInput()" required>
+                      <button class="btn btn-outline-secondary" type="button" id="fb-plusBtn" onclick="incrementCustomPc()">+</button>
+                    </div>
+                  </div>
+                  <div id="pc-limit-error" class="text-center text-danger mb-2" style="display: none;">
+                    <small><i class="fa-solid fa-triangle-exclamation"></i> Cannot exceed available PCs</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer d-flex justify-content-between align-items-center">
+              <button type="button" id="pc-selection-cancel-btn" class="btn btn-secondary" onclick="closeModalAndScrollToReservationCard()">
+                <i class="fa-solid fa-chevron-left me-2"></i> Back
+              </button>
+              <button type="button" class="btn btn-success" id="block-button-next" onclick="if (typeof goToBlockBookingForm === 'function') goToBlockBookingForm()">
+                Next <i class="fa-solid fa-chevron-right ms-2"></i>
+              </button>
+            </div>
           </div>
         </div>
-      </div> <!-- end of faculty-booking-pc-group -->
+      </div>
 
       <!-- Faculty Form -->
       <div class="form-section card-body p-4 bulk-booking-card shadow-lg" id="faculty-form-section" hidden>
         <form method="post" id="facultyForm" enctype="multipart/form-data" action="{% url 'main_app:submit-block-booking' %}">
           {% csrf_token %}
-          <!-- Step 1 -->
+          <input type="number" id="custNumOfPc" name="custNumOfPc" hidden>
+          <input type="number" id="numOfPc" name="numOfPc" hidden>
+          
+          <!-- Step 1: Class Details -->
           <div class="step active" id="step1">
-            <input type="number" id="custNumOfPc" name="custNumOfPc" hidden>
-            <input type="number" id="numOfPc" name="numOfPc" hidden>
             <div class="bulk-step-header text-center mb-4">
               <h3 class="bulk-step-title mb-2">Class Details</h3>
               <p class="bulk-step-subtitle mb-0">Provide the key information for your bulk booking session.</p>
             </div>
-            <div class="row g-3">
+            
+            <div class="row g-3 mb-4">
               <div class="col-12 col-md-6">
-                <label for="course" class="form-label fw-semibold">Course</label>
-                <input type="text" id="course" name="course" class="form-control bulk-input" placeholder="e.g., BSIT">
+                <label for="course" class="form-label fw-semibold">Course <span class="text-danger">*</span></label>
+                <input type="text" id="course" name="course" class="form-control bulk-input" placeholder="e.g., BSIT" required>
+                <div class="invalid-feedback">Please enter a course.</div>
               </div>
               <div class="col-12 col-md-6">
-                <label for="block" class="form-label fw-semibold">Block</label>
-                <input type="text" id="block" name="block" class="form-control bulk-input" placeholder="e.g., 3A">
+                <label for="block" class="form-label fw-semibold">Block <span class="text-danger">*</span></label>
+                <input type="text" id="block" name="block" class="form-control bulk-input" placeholder="e.g., 3A" required>
+                <div class="invalid-feedback">Please enter a block.</div>
               </div>
               <div class="col-12">
-                <label for="college" class="form-label fw-semibold">College</label>
-                <select id="college" name="college" class="form-control select bulk-input">
+                <label for="college" class="form-label fw-semibold">College <span class="text-danger">*</span></label>
+                <select id="college" name="college" class="form-control select bulk-input" required>
                   <option value="" selected disabled hidden>Select College</option>
                   {% for college in colleges %}
                   <option value="{{ college.id }}">{{ college.name }}</option>
                   {% endfor %}
                 </select>
+                <div class="invalid-feedback">Please select a college.</div>
               </div>
               <div class="col-12 col-md-6">
-                <label for="dateStart" class="form-label fw-semibold">Start date</label>
-                <input type="datetime-local" id="dateStart" name="dateStart" class="form-control bulk-input">
+                <label for="dateStart" class="form-label fw-semibold">Start Date & Time <span class="text-danger">*</span></label>
+                <input type="datetime-local" id="dateStart" name="dateStart" class="form-control bulk-input" required>
+                <div class="invalid-feedback">Please select a start date and time.</div>
               </div>
               <div class="col-12 col-md-6">
-                <label for="dateEnd" class="form-label fw-semibold">End date</label>
-                <input type="datetime-local" id="dateEnd" name="dateEnd" class="form-control bulk-input">
+                <label for="dateEnd" class="form-label fw-semibold">End Date & Time <span class="text-danger">*</span></label>
+                <input type="datetime-local" id="dateEnd" name="dateEnd" class="form-control bulk-input" required>
+                <div class="invalid-feedback">Please select an end date and time.</div>
               </div>
             </div>
+            
+            <!-- Navigation Buttons -->
             <div class="bulk-step-actions mt-4">
-              <button type="button" class="btn btn-outline-secondary bulk-back" onclick="backToPcSelection()">
-                <i class="fa-solid fa-arrow-left me-1"></i> PC Selection
+              <button type="button" class="btn btn-outline-secondary bulk-back" id="step1BackBtn" data-bs-toggle="modal" data-bs-target="#pcSelectionModal" onclick="backToPcSelection(); return false;">
+                Back
               </button>
-              <button type="button" class="btn btn-primary bulk-next" data-next="step2" onclick="advanceStep('step1', 'step2')">
-                Next <i class="fa-solid fa-arrow-right ms-1"></i>
+              <button type="button" class="btn btn-primary bulk-next" id="step1NextBtn" onclick="if (typeof window.validateStep1 === 'function') { window.validateStep1(); } else { console.error('validateStep1 function not found'); } return false;">
+                Next
               </button>
             </div>
           </div>
 
           <!-- Step 2: Email addresses -->
           <div class="step" id="step2">
-            <div class="bulk-step-header text-center mb-3">
+            <div class="bulk-step-header text-center mb-4">
               <h3 class="bulk-step-title mb-2">Invite Students</h3>
               <p class="bulk-step-subtitle mb-0">Enter PSU email addresses separated by commas. We will notify each student.</p>
             </div>
-            <textarea name="emailList" id="emailList" rows="8" class="form-control bulk-textarea" placeholder="student1@psu.palawan.edu.ph, student2@psu.palawan.edu.ph" oninput="validateEmailList(this)"></textarea>
-            <div id="result" class="bulk-validation-feedback mt-2"></div>
+            
+            <div class="mb-4">
+              <label for="emailList" class="form-label fw-semibold">Student Email Addresses <span class="text-danger">*</span></label>
+              <textarea name="emailList" id="emailList" rows="8" class="form-control bulk-textarea" placeholder="student1@psu.palawan.edu.ph, student2@psu.palawan.edu.ph" oninput="validateEmailList(this)" required></textarea>
+              <div id="result" class="bulk-validation-feedback mt-2"></div>
+              <small class="form-text text-muted">Separate multiple emails with commas.</small>
+            </div>
+            
+            <div class="mb-4">
+              <label for="attachment" class="form-label fw-semibold">Approval Letter <span class="text-muted">(Optional)</span></label>
+              <input type="file" name="attachment" id="attachment" class="form-control bulk-input" accept=".pdf,.doc,.docx,.jpg,.png">
+              <small class="form-text text-muted">Accepted formats: PDF, DOC, DOCX, JPG, PNG</small>
+            </div>
+            
+            <!-- Navigation Buttons -->
             <div class="bulk-step-actions mt-4">
               <button type="button" class="btn btn-outline-secondary bulk-back" onclick="goBackStep('step2', 'step1')">
-                <i class="fa-solid fa-arrow-left me-1"></i> Back
+                <i class="fa-solid fa-arrow-left me-2"></i> Back
               </button>
-              <button type="button" class="btn btn-primary bulk-next" data-next="step3" id="step3NextBtn" hidden onclick="advanceStep('step2', 'step3')">
-                Next <i class="fa-solid fa-arrow-right ms-1"></i>
+              <button type="submit" class="btn btn-success bulk-submit" id="step2SubmitBtn" hidden onclick="return submitFacultyForm(event);">
+                <i class="fa-solid fa-paper-plane me-2"></i> Submit Request
               </button>
             </div>
           </div>
 
           <!-- Step 3: Attachment -->
           <div class="step" id="step3">
-            <div class="bulk-step-header text-center mb-3">
+            <div class="bulk-step-header text-center mb-4">
               <h3 class="bulk-step-title mb-2">Upload Approval Letter</h3>
               <p class="bulk-step-subtitle mb-0">Attach the request letter signed by your Dean to complete the submission.</p>
             </div>
-            <input type="file" name="attachment" id="attachment" class="form-control bulk-input mb-3" accept=".pdf,.doc,.docx,.jpg,.png">
+            
+            <div class="mb-4">
+              <label for="attachment" class="form-label fw-semibold">Approval Letter <span class="text-muted">(Optional)</span></label>
+              <input type="file" name="attachment" id="attachment" class="form-control bulk-input" accept=".pdf,.doc,.docx,.jpg,.png">
+              <small class="form-text text-muted">Accepted formats: PDF, DOC, DOCX, JPG, PNG</small>
+            </div>
+            
+            <!-- Navigation Buttons -->
             <div class="bulk-step-actions mt-4">
               <button type="button" class="btn btn-outline-secondary bulk-back" onclick="goBackStep('step3', 'step2')">
-                <i class="fa-solid fa-arrow-left me-1"></i> Back
+                <i class="fa-solid fa-arrow-left me-2"></i> Back
               </button>
-              <button type="submit" class="btn btn-success bulk-submit" data-next="step4" id="facultyFormSubmit">
-                Submit Request <i class="fa-solid fa-paper-plane ms-2"></i>
+              <button type="submit" class="btn btn-success bulk-submit" id="facultyFormSubmit">
+                <i class="fa-solid fa-paper-plane me-2"></i> Submit Request
               </button>
             </div>
           </div>
@@ -1070,13 +1447,13 @@ window.selectPCForReservation = function(pcId, button) {
               <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body text-center">
-              <div class="input-group justify-content-center" style="max-width:200px; margin:auto;">
+              <div class="input-group justify-content-center" style="max-width:300px; margin:auto;">
                 <button class="btn btn-outline-secondary" type="button" id="minusBtn">−</button>
-                <input type="number" id="durationInput" class="form-control text-center" value="30" min="1" max="180">
+                <input type="text" id="durationInput" class="form-control text-center" value="00:30:00" pattern="^([0-1][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$" placeholder="00:00:00" maxlength="8">
                 <button class="btn btn-outline-secondary" type="button" id="plusBtn">+</button>
               </div>
-              <small class="text-muted">Duration in minutes</small>
-              <P class="mark" style="font-size: xx-small;">Note: You can only use a PC for a maximum of 3 hours</P>
+              <small class="text-muted">Time format: HH:MM:SS (Minimum 00:30:00, Maximum 03:00:00)</small>
+              <P class="mark" style="font-size: xx-small;">Note: PC booking is only available from 7:00 AM to 7:00 PM</P>
             </div>
             <div class="modal-footer">
               <input type="number" name="" id="pc_id" hidden>
@@ -1153,7 +1530,6 @@ window.selectPCForReservation = function(pcId, button) {
             </div>
             <div class="modal-body text-center bg-dark text-white ps-2 pt-10 pe-2 pb-10">
               <i class="fa-solid fa-desktop mb-2" style="font-size: xx-large;"></i>
-              <p>Your booking is confirmed ✅</p>
               <p>Time remaining 
                 <br> 
                 <span class="fw-bold" id="timeRemaining"></span>
@@ -1194,6 +1570,29 @@ window.selectPCForReservation = function(pcId, button) {
               <button type="button" class="btn btn-danger" id="pc-status-end-session-btn" style="display: none;" data-booking-id="">
                 <i class="fa-solid fa-stop-circle"></i> End Session Early
               </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Custom Alert Modal -->
+      <div class="modal fade" id="customAlertModal" tabindex="-1" aria-labelledby="customAlertModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content custom-alert-content">
+            <div class="modal-header custom-alert-header">
+              <h5 class="modal-title custom-alert-title" id="customAlertModalLabel">
+                <i class="fa-solid fa-clock"></i> Time Restriction
+              </h5>
+            </div>
+            <div class="modal-body custom-alert-body">
+              <div class="custom-alert-icon">
+                <i class="fa-solid fa-exclamation-triangle"></i>
+              </div>
+              <p class="custom-alert-message" id="customAlertMessage"></p>
+              <p class="custom-alert-time" id="customAlertTime"></p>
+            </div>
+            <div class="modal-footer custom-alert-footer">
+              <button type="button" class="btn custom-alert-btn" data-bs-dismiss="modal" id="customAlertOkBtn">OK</button>
             </div>
           </div>
         </div>
@@ -1261,6 +1660,126 @@ window.selectPCForReservation = function(pcId, button) {
 
 {% block scripts %}
 <script>
+// Define PC selection functions immediately to ensure they're available for onclick handlers
+(function() {
+  // Function to handle custom PC number input
+  window.handleCustomPcInput = function() {
+    var customInput = document.getElementById('customNumOfPc');
+    var custNumOfPcHidden = document.getElementById('custNumOfPc');
+    var blockButtonNext = document.getElementById('block-button-next');
+    var errorMsg = document.getElementById('pc-limit-error');
+    
+    if (!customInput) return;
+    
+    var value = parseInt(customInput.value) || 2;
+    var maxAvailable = window.MAX_AVAILABLE_PCS || 0;
+    
+    // Enforce minimum of 2 PCs
+    if (value < 2) {
+      value = 2;
+      customInput.value = 2;
+      alert('Minimum booking is 2 PCs. Value has been set to 2.');
+    }
+    
+    // Validate against max available
+    if (value > maxAvailable) {
+      value = maxAvailable;
+      customInput.value = maxAvailable;
+      if (errorMsg) {
+        errorMsg.style.display = 'block';
+        errorMsg.innerHTML = '<small><i class="fa-solid fa-triangle-exclamation"></i> Maximum available: ' + maxAvailable + ' PC(s)</small>';
+      }
+      customInput.classList.add('is-invalid');
+    } else if (value < 2) {
+      value = 2;
+      customInput.value = 2;
+      customInput.classList.remove('is-invalid');
+    } else {
+      if (errorMsg) {
+        errorMsg.style.display = 'none';
+      }
+      customInput.classList.remove('is-invalid');
+    }
+    
+    if (custNumOfPcHidden) {
+      custNumOfPcHidden.value = value;
+    }
+    
+    // Clear any selected PC group buttons when using custom input
+    if (value > 0) {
+      var allPcGroupButtons = document.querySelectorAll('.pc-group-number');
+      allPcGroupButtons.forEach(function(btn) {
+        btn.classList.remove('bg-warning');
+        btn.disabled = false;
+      });
+    }
+    
+    // Show next button if value >= 2 and valid
+    if (blockButtonNext) {
+      var shouldShow = (value >= 2 && value <= maxAvailable && customInput.value.trim() !== '');
+      blockButtonNext.hidden = !shouldShow;
+      if (shouldShow) {
+        blockButtonNext.style.display = 'inline-block';
+        blockButtonNext.removeAttribute('hidden');
+      } else {
+        blockButtonNext.hidden = true;
+        blockButtonNext.setAttribute('hidden', 'true');
+      }
+    }
+    
+    // Update button states
+    if (typeof updateCustomPcButtons === 'function') {
+      updateCustomPcButtons();
+    }
+  };
+
+  // Plus button for custom PC count
+  window.incrementCustomPc = function() {
+    var customInput = document.getElementById('customNumOfPc');
+    if (customInput) {
+      var current = parseInt(customInput.value) || 2;
+      var maxAvailable = window.MAX_AVAILABLE_PCS || 0;
+      
+      if (current >= maxAvailable) {
+        var errorMsg = document.getElementById('pc-limit-error');
+        if (errorMsg) {
+          errorMsg.style.display = 'block';
+          errorMsg.innerHTML = '<small><i class="fa-solid fa-triangle-exclamation"></i> Maximum available: ' + maxAvailable + ' PC(s)</small>';
+        }
+        alert('Cannot exceed ' + maxAvailable + ' available PC(s)');
+        return false;
+      }
+      
+      customInput.value = current + 1;
+      window.handleCustomPcInput();
+    }
+  };
+
+  // Minus button for custom PC count
+  window.decrementCustomPc = function() {
+    var customInput = document.getElementById('customNumOfPc');
+    if (customInput) {
+      var current = parseInt(customInput.value) || 2;
+      if (current > 1) {
+        customInput.value = current - 1;
+        window.handleCustomPcInput();
+      }
+    }
+  };
+
+  // Max button - sets value to all available PCs
+  window.setMaxPcs = function() {
+    var customInput = document.getElementById('customNumOfPc');
+    if (customInput) {
+      var maxAvailable = window.MAX_AVAILABLE_PCS || 0;
+      if (maxAvailable > 0) {
+        customInput.value = maxAvailable;
+        window.handleCustomPcInput();
+      }
+    }
+  };
+})();
+
 // Count available PCs and update the count badge
 function updateAvailableCount() {
   var availableCount = 0;
@@ -1290,6 +1809,31 @@ function updateAvailableCount() {
 function initReservationPage() {
   updateAvailableCount();
   
+  // Disable available PCs if faculty has active booking
+  if (window.__hasActiveFacultyBooking) {
+    var pcButtons = document.querySelectorAll('.pc-button-modern');
+    pcButtons.forEach(function(button) {
+      var pcBookingStatus = button.getAttribute('data-booking-status');
+      var pcCondition = button.getAttribute('data-pc-condition');
+      var pcStatus = button.getAttribute('data-pc-status');
+      
+      // Only disable available PCs (not repair, offline, in_use, or in_queue)
+      if (pcBookingStatus !== 'in_use' && 
+          pcBookingStatus !== 'in_queue' && 
+          pcCondition !== 'repair' && 
+          pcStatus !== 'disconnected') {
+        button.disabled = true;
+        button.style.cursor = 'not-allowed';
+        button.style.opacity = '0.6';
+        button.style.pointerEvents = 'none';
+        button.onclick = function() {
+          alert('You have an active faculty booking. Please wait for your current booking to be processed or cancelled before booking another PC.');
+          return false;
+        };
+      }
+    });
+  }
+  
   // Update available count when PC selection changes
   var pcButtons = document.querySelectorAll('.pc-button-modern');
   pcButtons.forEach(function(button) {
@@ -1310,13 +1854,25 @@ if (document.readyState === 'loading') {
 // showPCStatus and selectPCForReservation are now defined in the extra_head block section above
 // so they're available before the HTML that uses them
 
-// Function to show block booking form
+// Function to show block booking form (vanilla JS fallback)
 function showBlockBooking() {
-  console.log('Block booking button clicked');
+  console.log('Block booking button clicked (vanilla JS)');
   var studentsBooking = document.getElementById('students-booking');
   var legend = document.getElementById('legend');
   var blockPcGroup = document.getElementById('faculty-booking-pc-group');
   var blockButton = document.getElementById('block-button');
+  
+  // Check if button is disabled
+  if (blockButton && (blockButton.disabled || blockButton.getAttribute('disabled'))) {
+    console.log('Block button is disabled');
+    return false;
+  }
+  
+  // Check if faculty has active booking (if flag is set)
+  if (window.__hasActiveFacultyBooking === true) {
+    alert('You have an active booking. Please wait for your current booking to be processed or cancelled before creating a new one.');
+    return false;
+  }
   
   if (studentsBooking) studentsBooking.style.display = 'none';
   if (legend) legend.style.display = 'none';
@@ -1324,15 +1880,91 @@ function showBlockBooking() {
   if (blockButton) blockButton.style.display = 'none';
   
   console.log('Block booking form shown');
+  return true;
+}
+
+// Also set up vanilla JS event listener as fallback
+document.addEventListener('DOMContentLoaded', function() {
+  var blockButton = document.getElementById('block-button');
+  if (blockButton && !blockButton.hasAttribute('data-handler-attached')) {
+    blockButton.setAttribute('data-handler-attached', 'true');
+    blockButton.addEventListener('click', function(e) {
+      // Only use vanilla JS handler if jQuery handler didn't run
+      // Check if jQuery is available and if the handler already processed this
+      if (typeof jQuery === 'undefined' || typeof $ === 'undefined') {
+        e.preventDefault();
+        showBlockBooking();
+      }
+    });
+  }
+});
+
+// Get max available PCs (set from template)
+// Initialize when DOM is ready
+var MAX_AVAILABLE_PCS = 0;
+window.MAX_AVAILABLE_PCS = 0;
+function initMaxAvailablePCs() {
+  var maxElement = document.getElementById('max-available-pcs');
+  if (maxElement) {
+    MAX_AVAILABLE_PCS = parseInt(maxElement.textContent) || {{ available_count|default:total_pc }};
+  } else {
+    MAX_AVAILABLE_PCS = {{ available_count|default:total_pc }};
+  }
+  window.MAX_AVAILABLE_PCS = MAX_AVAILABLE_PCS;
+  console.log('Max available PCs:', MAX_AVAILABLE_PCS);
+  
+  // Initialize button states
+  if (document.getElementById('customNumOfPc')) {
+    updateCustomPcButtons();
+    // Validate and set Next button state
+    if (typeof window.handleCustomPcInput === 'function') {
+      window.handleCustomPcInput();
+    }
+  }
+  
+  // Add event listener for when modal is shown to validate button state
+  var pcSelectionModal = document.getElementById('pcSelectionModal');
+  if (pcSelectionModal) {
+    pcSelectionModal.addEventListener('shown.bs.modal', function() {
+      // Validate Next button state when modal opens
+      var customInput = document.getElementById('customNumOfPc');
+      if (customInput && typeof window.handleCustomPcInput === 'function') {
+        window.handleCustomPcInput();
+      }
+    });
+  }
+}
+
+// Initialize on DOM ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initMaxAvailablePCs);
+} else {
+  initMaxAvailablePCs();
 }
 
 // Function to handle PC group button click
 function handlePcGroupClick(button) {
   console.log('PC group button clicked');
-  var qty = button.getAttribute('data-qty');
+  var qty = parseInt(button.getAttribute('data-qty'));
   var numOfPcInput = document.getElementById('numOfPc');
   var custNumOfPcInput = document.getElementById('custNumOfPc');
   var blockButtonNext = document.getElementById('block-button-next');
+  var errorMsg = document.getElementById('pc-limit-error');
+  
+  // Check if quantity exceeds available PCs
+  if (qty > MAX_AVAILABLE_PCS) {
+    if (errorMsg) {
+      errorMsg.style.display = 'block';
+      errorMsg.textContent = 'Cannot select ' + qty + ' PCs. Maximum available: ' + MAX_AVAILABLE_PCS + ' PC(s)';
+    }
+    alert('Cannot select ' + qty + ' PCs. Maximum available: ' + MAX_AVAILABLE_PCS + ' PC(s)');
+    return false;
+  }
+  
+  // Hide error message
+  if (errorMsg) {
+    errorMsg.style.display = 'none';
+  }
   
   console.log('Selected quantity:', qty);
   
@@ -1360,65 +1992,146 @@ function handlePcGroupClick(button) {
   // Clear custom input if a button is selected
   var customInput = document.getElementById('customNumOfPc');
   if (customInput && isSelected) {
-    customInput.value = 0;
+    customInput.value = qty;
   }
   
   // Show/hide next button
   if (blockButtonNext) {
-    blockButtonNext.hidden = !isSelected;
+    if (isSelected) {
+      blockButtonNext.hidden = false;
+      blockButtonNext.style.display = 'inline-block';
+      blockButtonNext.removeAttribute('hidden');
+    } else {
+      blockButtonNext.hidden = true;
+      blockButtonNext.setAttribute('hidden', 'true');
+    }
     console.log('Next button hidden:', blockButtonNext.hidden);
   }
+  
+  // Update increment/decrement button states
+  updateCustomPcButtons();
 }
 
 // Function to go to next step in block booking
-function goToBlockBookingForm() {
+window.goToBlockBookingForm = function goToBlockBookingForm() {
+  // Validate that a PC is selected
+  var customInput = document.getElementById('customNumOfPc');
+  var selectedPcButton = document.querySelector('.pc-group-number.bg-warning');
+  var errorMsg = document.getElementById('pc-limit-error');
+  
+  var pcCount = 0;
+  
+  // Check if a PC group button is selected
+  if (selectedPcButton) {
+    pcCount = parseInt(selectedPcButton.getAttribute('data-qty')) || 0;
+  }
+  
+  // Check custom input value
+  if (customInput) {
+    var inputValue = customInput.value.trim();
+    if (inputValue !== '') {
+      var customValue = parseInt(inputValue) || 0;
+      if (customValue >= 1) {
+        pcCount = customValue;
+      }
+    }
+  }
+  
+  // Validate that at least 1 PC is selected
+  if (pcCount < 1) {
+    // Show error message
+    if (errorMsg) {
+      errorMsg.style.display = 'block';
+      errorMsg.innerHTML = '<small><i class="fa-solid fa-triangle-exclamation"></i> Please select at least 1 PC</small>';
+    }
+    // Highlight the input field
+    if (customInput) {
+      customInput.classList.add('is-invalid');
+      customInput.focus();
+    }
+    alert('Please select at least 1 PC before proceeding.');
+    return false;
+  }
+  
+  // Hide error message if validation passes
+  if (errorMsg) {
+    errorMsg.style.display = 'none';
+  }
+  if (customInput) {
+    customInput.classList.remove('is-invalid');
+  }
+  
+  // Close the PC selection modal
+  var pcSelectionModal = document.getElementById('pcSelectionModal');
+  if (pcSelectionModal && typeof bootstrap !== 'undefined') {
+    var modalInstance = bootstrap.Modal.getInstance(pcSelectionModal);
+    if (modalInstance) {
+      modalInstance.hide();
+    }
+  }
+  
   var legendAndControl = document.getElementById('legend-and-control');
-  var facultyBookingPcGroup = document.getElementById('faculty-booking-pc-group');
   var facultyFormSection = document.getElementById('faculty-form-section');
   
   if (legendAndControl) legendAndControl.setAttribute('hidden', 'true');
-  if (facultyBookingPcGroup) facultyBookingPcGroup.setAttribute('hidden', 'true');
-  if (facultyFormSection) facultyFormSection.removeAttribute('hidden');
+  if (facultyFormSection) {
+    facultyFormSection.removeAttribute('hidden');
+    // Scroll to form
+    setTimeout(function() {
+      facultyFormSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 300);
+  }
   
   console.log('Showing faculty block booking form');
 }
 
-// Function to handle custom PC number input
-function handleCustomPcInput() {
+// Function to update custom PC increment/decrement button states
+function updateCustomPcButtons() {
   var customInput = document.getElementById('customNumOfPc');
-  var custNumOfPcHidden = document.getElementById('custNumOfPc');
-  var blockButtonNext = document.getElementById('block-button-next');
+  var plusBtn = document.getElementById('fb-plusBtn');
+  var minusBtn = document.getElementById('fb-minusBtn');
+  var errorMsg = document.getElementById('pc-limit-error');
   
-  if (customInput && custNumOfPcHidden) {
-    custNumOfPcHidden.value = customInput.value;
+  if (!customInput) return;
+  
+  var value = parseInt(customInput.value) || 2;
+  var maxAvailable = window.MAX_AVAILABLE_PCS || MAX_AVAILABLE_PCS || 0;
+  
+  // Update plus button (disable if at max)
+  if (plusBtn) {
+    if (value >= maxAvailable) {
+      plusBtn.disabled = true;
+      plusBtn.style.opacity = '0.5';
+      plusBtn.style.cursor = 'not-allowed';
+    } else {
+      plusBtn.disabled = false;
+      plusBtn.style.opacity = '1';
+      plusBtn.style.cursor = 'pointer';
+    }
   }
   
-  // Show next button if value > 0
-  if (blockButtonNext && customInput) {
-    var value = parseInt(customInput.value) || 0;
-    blockButtonNext.hidden = (value <= 0);
-    console.log('Custom PC input:', value, 'Next button hidden:', blockButtonNext.hidden);
+  // Update minus button (disable if at 2, minimum)
+  if (minusBtn) {
+    if (value <= 2) {
+      minusBtn.disabled = true;
+      minusBtn.style.opacity = '0.5';
+      minusBtn.style.cursor = 'not-allowed';
+    } else {
+      minusBtn.disabled = false;
+      minusBtn.style.opacity = '1';
+      minusBtn.style.cursor = 'pointer';
+    }
   }
-}
-
-// Plus button for custom PC count
-function incrementCustomPc() {
-  var customInput = document.getElementById('customNumOfPc');
-  if (customInput) {
-    var current = parseInt(customInput.value) || 0;
-    customInput.value = current + 1;
-    handleCustomPcInput();
-  }
-}
-
-// Minus button for custom PC count
-function decrementCustomPc() {
-  var customInput = document.getElementById('customNumOfPc');
-  if (customInput) {
-    var current = parseInt(customInput.value) || 0;
-    if (current > 0) {
-      customInput.value = current - 1;
-      handleCustomPcInput();
+  
+  // Show/hide error message
+  if (errorMsg) {
+    if (value > maxAvailable) {
+      errorMsg.style.display = 'block';
+      errorMsg.innerHTML = '<small><i class="fa-solid fa-triangle-exclamation"></i> Cannot exceed ' + maxAvailable + ' available PC(s)</small>';
+      customInput.classList.add('is-invalid');
+    } else {
+      errorMsg.style.display = 'none';
+      customInput.classList.remove('is-invalid');
     }
   }
 }
@@ -1428,35 +2141,169 @@ function validateEmailList(textarea) {
   var input = textarea.value;
   var emails = input.split(',').map(e => e.trim()).filter(e => e.length > 0);
   var emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  var step3NextBtn = document.getElementById('step3NextBtn');
+  var step2SubmitBtn = document.getElementById('step2SubmitBtn');
   
   // Check if all emails are valid
   var allValid = emails.length > 0 && emails.every(email => emailPattern.test(email));
   
-  if (step3NextBtn) {
-    step3NextBtn.hidden = !allValid;
+  if (step2SubmitBtn) {
+    step2SubmitBtn.hidden = !allValid;
     console.log('Email validation - Valid emails:', allValid, 'Total:', emails.length);
   }
 }
 
+// Function to validate Step 1 before advancing
+// Note: validateStep1 is now defined in the extra_head block to ensure it's available early
+// This comment is kept for reference
+
+// Function to submit the faculty form
+window.submitFacultyForm = function(event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  
+  console.log('Submitting faculty form');
+  
+  // Validate Step 1 fields manually (without calling validateStep1 to avoid step navigation)
+  var course = document.getElementById('course');
+  var block = document.getElementById('block');
+  var college = document.getElementById('college');
+  var dateStart = document.getElementById('dateStart');
+  var dateEnd = document.getElementById('dateEnd');
+  var numOfPc = document.getElementById('numOfPc');
+  var custNumOfPc = document.getElementById('custNumOfPc');
+  var customNumOfPc = document.getElementById('customNumOfPc');
+  
+  var errors = [];
+  
+  // Validate Course (required)
+  if (!course || !course.value.trim()) {
+    errors.push('Please enter a course');
+  }
+  
+  // Validate Block (required)
+  if (!block || !block.value.trim()) {
+    errors.push('Please enter a block');
+  }
+  
+  // Validate College (required)
+  if (!college || !college.value || college.value === '') {
+    errors.push('Please select a college');
+  }
+  
+  // Validate Start Date (required)
+  if (!dateStart || !dateStart.value) {
+    errors.push('Please select a start date and time');
+  }
+  
+  // Validate End Date (required)
+  if (!dateEnd || !dateEnd.value) {
+    errors.push('Please select an end date and time');
+  }
+  
+  // Validate date range (end must be after start)
+  if (dateStart && dateStart.value && dateEnd && dateEnd.value) {
+    var startDate = new Date(dateStart.value);
+    var endDate = new Date(dateEnd.value);
+    if (endDate <= startDate) {
+      errors.push('End date must be after start date');
+    }
+  }
+  
+  // Check if PC quantity is selected (required)
+  var pcQty = 0;
+  if (customNumOfPc && parseInt(customNumOfPc.value) > 0) {
+    pcQty = parseInt(customNumOfPc.value);
+    if (custNumOfPc) {
+      custNumOfPc.value = pcQty;
+    }
+  } else if (custNumOfPc && parseInt(custNumOfPc.value) > 0) {
+    pcQty = parseInt(custNumOfPc.value);
+  } else if (numOfPc && parseInt(numOfPc.value) > 0) {
+    pcQty = parseInt(numOfPc.value);
+  }
+  
+  if (pcQty <= 0) {
+    errors.push('Please select the number of PCs needed from the PC selection modal');
+  } else if (pcQty < 2) {
+    errors.push('Minimum booking is 2 PCs. Please add more PCs to continue.');
+  }
+  
+  // Validate email list
+  var emailList = document.getElementById('emailList');
+  if (!emailList || !emailList.value.trim()) {
+    errors.push('Please enter at least one student email address');
+  } else {
+    var input = emailList.value;
+    var emails = input.split(',').map(e => e.trim()).filter(e => e.length > 0);
+    var emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    var allValid = emails.length > 0 && emails.every(email => emailPattern.test(email));
+    
+    if (!allValid) {
+      errors.push('Please enter valid email addresses. All emails must be in the correct format.');
+    }
+  }
+  
+  // If there are errors, show them
+  if (errors.length > 0) {
+    var errorMessage = 'Please fix the following errors before submitting:\n\n' + errors.join('\n');
+    alert(errorMessage);
+    return false;
+  }
+  
+  // All validations passed, submit the form
+  var form = document.getElementById('facultyForm');
+  if (form) {
+    console.log('All validations passed. Submitting form...');
+    // Show loading state
+    var submitBtn = document.getElementById('step2SubmitBtn');
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> Submitting...';
+    }
+    form.submit();
+  } else {
+    alert('Form not found. Please refresh the page and try again.');
+    return false;
+  }
+  
+  return false;
+};
+
 // Function to advance to next step in the form
-function advanceStep(currentStep, nextStep) {
+window.advanceStep = function advanceStep(currentStep, nextStep) {
   console.log('Advancing from', currentStep, 'to', nextStep);
   var currentStepDiv = document.getElementById(currentStep);
   var nextStepDiv = document.getElementById(nextStep);
   
+  console.log('Step elements:', {
+    currentStep: !!currentStepDiv,
+    nextStep: !!nextStepDiv
+  });
+  
   if (currentStepDiv) {
     currentStepDiv.classList.remove('active');
+    console.log('Removed active from', currentStep);
+  } else {
+    console.error('Current step not found:', currentStep);
   }
   
   if (nextStepDiv) {
     nextStepDiv.classList.add('active');
+    console.log('Added active to', nextStep);
+    // Force display in case CSS isn't working
+    nextStepDiv.style.display = 'block';
+  } else {
+    console.error('Next step not found:', nextStep);
   }
 
   var formSection = document.getElementById('faculty-form-section');
   if (formSection) {
     formSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+  
+  console.log('Step transition complete');
 }
 
 // Function to go back to the previous step in the form
@@ -1487,14 +2334,17 @@ function goBackStep(currentStep, previousStep) {
 }
 
 // Return to PC selection screen from faculty form
-function backToPcSelection() {
+window.backToPcSelection = function backToPcSelection() {
   console.log('Returning to PC selection');
   var facultyFormSection = document.getElementById('faculty-form-section');
-  var facultyBookingPcGroup = document.getElementById('faculty-booking-pc-group');
   var step3NextBtn = document.getElementById('step3NextBtn');
+  var legendAndControl = document.getElementById('legend-and-control');
 
+  // Hide the faculty form section
   if (facultyFormSection) {
     facultyFormSection.setAttribute('hidden', 'true');
+    facultyFormSection.style.display = 'none';
+    // Reset all steps to initial state
     var steps = facultyFormSection.querySelectorAll('.step');
     steps.forEach(function(step, index) {
       if (index === 0) {
@@ -1505,29 +2355,329 @@ function backToPcSelection() {
     });
   }
 
-  if (facultyBookingPcGroup) {
-    facultyBookingPcGroup.removeAttribute('hidden');
-    facultyBookingPcGroup.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Show legend and control section
+  if (legendAndControl) {
+    legendAndControl.removeAttribute('hidden');
+    legendAndControl.style.display = '';
   }
 
-  if (step3NextBtn) {
-    step3NextBtn.hidden = true;
+  // Show the PC selection modal again
+  var pcSelectionModal = document.getElementById('pcSelectionModal');
+  if (pcSelectionModal && typeof bootstrap !== 'undefined') {
+    // Get existing modal instance or create new one
+    var modalInstance = bootstrap.Modal.getInstance(pcSelectionModal);
+    if (modalInstance) {
+      modalInstance.show();
+    } else {
+      var modal = new bootstrap.Modal(pcSelectionModal, {
+        backdrop: true,
+        keyboard: true
+      });
+      modal.show();
+    }
+  } else {
+    console.error('PC Selection Modal not found or Bootstrap not available');
   }
 
+  var step2SubmitBtn = document.getElementById('step2SubmitBtn');
+  if (step2SubmitBtn) {
+    step2SubmitBtn.hidden = true;
+  }
+
+  // Reset PC group button selections
   var pcGroupButtons = document.querySelectorAll('.pc-group-number');
   pcGroupButtons.forEach(function(btn) {
     btn.disabled = false;
     btn.classList.remove('bg-warning');
   });
 
+  // Reset custom PC input
+  var customInput = document.getElementById('customNumOfPc');
+  if (customInput) {
+    customInput.value = 2;
+  }
+  var custNumOfPcHidden = document.getElementById('custNumOfPc');
+  if (custNumOfPcHidden) {
+    custNumOfPcHidden.value = '';
+  }
+  var numOfPc = document.getElementById('numOfPc');
+  if (numOfPc) {
+    numOfPc.value = '';
+  }
+
+  // Hide the block-button-next
+  var blockButtonNext = document.getElementById('block-button-next');
+  if (blockButtonNext) {
+    blockButtonNext.hidden = true;
+  }
+
   var blockButton = document.getElementById('block-button');
   if (blockButton) {
-    blockButton.focus();
+    blockButton.removeAttribute('hidden');
+    blockButton.style.display = '';
   }
+  
+  console.log('Returned to PC selection');
 }
 
 document.addEventListener('DOMContentLoaded', function() {
   console.log("Reserve PC page loaded");
+  
+  // Add real-time validation - clear invalid state when user starts typing/selecting
+  var course = document.getElementById('course');
+  var block = document.getElementById('block');
+  var college = document.getElementById('college');
+  var dateStart = document.getElementById('dateStart');
+  var dateEnd = document.getElementById('dateEnd');
+  
+  if (course) {
+    course.addEventListener('input', function() {
+      if (this.value.trim()) {
+        this.classList.remove('is-invalid');
+      }
+    });
+  }
+  
+  if (block) {
+    block.addEventListener('input', function() {
+      if (this.value.trim()) {
+        this.classList.remove('is-invalid');
+      }
+    });
+  }
+  
+  if (college) {
+    college.addEventListener('change', function() {
+      if (this.value && this.value !== '') {
+        this.classList.remove('is-invalid');
+      }
+    });
+  }
+  
+  if (dateStart) {
+    dateStart.addEventListener('change', function() {
+      if (this.value) {
+        this.classList.remove('is-invalid');
+        // Also validate date range if end date is set
+        if (dateEnd && dateEnd.value) {
+          var start = new Date(this.value);
+          var end = new Date(dateEnd.value);
+          if (end > start) {
+            dateEnd.classList.remove('is-invalid');
+          }
+        }
+      }
+    });
+  }
+  
+  if (dateEnd) {
+    dateEnd.addEventListener('change', function() {
+      if (this.value) {
+        // Validate date range
+        if (dateStart && dateStart.value) {
+          var start = new Date(dateStart.value);
+          var end = new Date(this.value);
+          if (end > start) {
+            this.classList.remove('is-invalid');
+          }
+        } else {
+          this.classList.remove('is-invalid');
+        }
+      }
+    });
+  }
+  
+  // Add event listener for step1 Back button as backup
+  var step1BackBtn = document.getElementById('step1BackBtn');
+  if (step1BackBtn) {
+    step1BackBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('Step1 Back button clicked via event listener');
+      if (typeof window.backToPcSelection === 'function') {
+        window.backToPcSelection();
+      } else {
+        console.error('backToPcSelection function not found');
+      }
+      return false;
+    });
+  }
+  
+  // Global handler to ensure reservation-body stays visible when any modal closes
+  // Make it globally accessible
+  window.ensureReservationBodyVisible = function() {
+    // Ensure reservation-body and all parent containers are visible
+    var reservationBody = document.querySelector('.reservation-body');
+    if (reservationBody) {
+      // Force visibility on the element itself
+      reservationBody.style.display = '';
+      reservationBody.style.visibility = 'visible';
+      reservationBody.style.opacity = '1';
+      reservationBody.removeAttribute('hidden');
+      reservationBody.hidden = false;
+      
+      // Also ensure parent containers are visible
+      var reservationCard = reservationBody.closest('.reservation-card');
+      if (reservationCard) {
+        reservationCard.style.display = '';
+        reservationCard.style.visibility = 'visible';
+        reservationCard.removeAttribute('hidden');
+        reservationCard.hidden = false;
+      }
+      
+      var mobileContainer = reservationBody.closest('.mobile-reservation-container');
+      if (mobileContainer) {
+        mobileContainer.style.display = '';
+        mobileContainer.style.visibility = 'visible';
+        mobileContainer.removeAttribute('hidden');
+        mobileContainer.hidden = false;
+      }
+      
+      console.log('Ensured reservation-body and parent containers are visible');
+    }
+    
+    // Also ensure students-booking is visible
+    var studentsBooking = document.getElementById('students-booking');
+    if (studentsBooking) {
+      studentsBooking.style.display = '';
+      studentsBooking.style.visibility = 'visible';
+      studentsBooking.removeAttribute('hidden');
+      studentsBooking.hidden = false;
+    }
+  };
+  
+  // Alias for easier access
+  var ensureReservationBodyVisible = window.ensureReservationBodyVisible;
+  
+  // Listen to all modal close events
+  document.addEventListener('hidden.bs.modal', function(event) {
+    console.log('Modal closed:', event.target.id);
+    // Use setTimeout to ensure this runs after Bootstrap's cleanup
+    setTimeout(ensureReservationBodyVisible, 100);
+  }, true); // Use capture phase to catch all modal close events
+  
+  // Also listen for when modal backdrop is removed
+  var observer = new MutationObserver(function(mutations) {
+    mutations.forEach(function(mutation) {
+      if (mutation.type === 'childList') {
+        var removedNodes = Array.from(mutation.removedNodes);
+        var backdropRemoved = removedNodes.some(function(node) {
+          return node.nodeType === 1 && node.classList && node.classList.contains('modal-backdrop');
+        });
+        if (backdropRemoved) {
+          console.log('Modal backdrop removed, ensuring reservation-body is visible');
+          setTimeout(ensureReservationBodyVisible, 50);
+        }
+      }
+    });
+  });
+  
+  // Observe body for backdrop removal
+  if (document.body) {
+    observer.observe(document.body, {
+      childList: true,
+      subtree: false
+    });
+  }
+  
+  // Periodic check as fallback - ensure reservation-body is visible every 500ms
+  // This catches any edge cases where the event handlers might miss something
+  setInterval(function() {
+    var reservationBody = document.querySelector('.reservation-body');
+    if (reservationBody) {
+      var computedStyle = window.getComputedStyle(reservationBody);
+      var isHidden = reservationBody.hidden || 
+                     reservationBody.hasAttribute('hidden') ||
+                     computedStyle.display === 'none' ||
+                     computedStyle.visibility === 'hidden' ||
+                     computedStyle.opacity === '0';
+      
+      if (isHidden) {
+        console.warn('Reservation-body was hidden, restoring visibility');
+        ensureReservationBodyVisible();
+      }
+    }
+  }, 500);
+
+  // Also add event listener for Cancel button as backup
+  var cancelButton = document.getElementById('pc-selection-cancel-btn');
+  if (cancelButton) {
+    cancelButton.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('Cancel button clicked via event listener');
+      if (typeof window.closeModalAndScrollToReservation === 'function') {
+        window.closeModalAndScrollToReservation();
+      } else {
+        console.error('closeModalAndScrollToReservation function not found');
+      }
+    });
+  } else {
+    console.warn('Cancel button not found');
+  }
+
+  // Handle PC selection modal close - restore PC list visibility
+  var pcSelectionModal = document.getElementById('pcSelectionModal');
+  if (pcSelectionModal && typeof bootstrap !== 'undefined') {
+    pcSelectionModal.addEventListener('hidden.bs.modal', function() {
+      console.log('PC selection modal closed - restoring PC list');
+      
+      // Ensure reservation-body is visible
+      setTimeout(ensureReservationBodyVisible, 100);
+      
+      // Show the students booking section and legend again using jQuery for consistency
+      if (typeof jQuery !== 'undefined' && typeof $ !== 'undefined') {
+        $("#students-booking").show();
+        $("#legend").show();
+        $("#block-button").show().prop("hidden", false);
+      } else {
+        // Fallback to vanilla JS
+        var studentsBooking = document.getElementById('students-booking');
+        var legend = document.getElementById('legend');
+        var blockButton = document.getElementById('block-button');
+        
+        if (studentsBooking) {
+          studentsBooking.style.display = '';
+          studentsBooking.removeAttribute('hidden');
+        }
+        
+        if (legend) {
+          legend.style.display = '';
+          legend.removeAttribute('hidden');
+        }
+        
+        if (blockButton) {
+          blockButton.style.display = '';
+          blockButton.removeAttribute('hidden');
+          blockButton.hidden = false;
+        }
+      }
+      
+      // Reset PC selection in modal
+      var pcGroupButtons = document.querySelectorAll('.pc-group-number');
+      pcGroupButtons.forEach(function(btn) {
+        btn.disabled = false;
+        btn.classList.remove('bg-warning');
+      });
+      
+      var customInput = document.getElementById('customNumOfPc');
+      if (customInput) {
+        customInput.value = 0;
+      }
+      
+      var blockButtonNext = document.getElementById('block-button-next');
+      if (blockButtonNext) {
+        blockButtonNext.hidden = true;
+        blockButtonNext.setAttribute('hidden', 'true');
+      }
+      
+      // Clear any error messages
+      var errorMsg = document.getElementById('pc-limit-error');
+      if (errorMsg) {
+        errorMsg.style.display = 'none';
+      }
+    });
+  }
   
   // Ensure offline/repair PCs are always disabled and unclickable
   // Also ensure used/queued PCs are clickable
@@ -1567,8 +2717,8 @@ document.addEventListener('DOMContentLoaded', function() {
          };
        }
      } else {
-       // Available PC - check if user has active booking
-       if (window.__hasActiveBooking) {
+       // Available PC - check if user has active booking (student or faculty)
+       if (window.__hasActiveBooking || window.__hasActiveFacultyBooking) {
          button.disabled = true;
          button.style.cursor = 'not-allowed';
          button.style.opacity = '0.6';
@@ -1657,20 +2807,94 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
   
+  // Helper function to convert time string (HH:MM:SS) to total seconds
+  function timeToSeconds(timeStr) {
+    var parts = timeStr.split(':');
+    var hours = parseInt(parts[0]) || 0;
+    var minutes = parseInt(parts[1]) || 0;
+    var seconds = parseInt(parts[2]) || 0;
+    return hours * 3600 + minutes * 60 + seconds;
+  }
+  
+  // Helper function to convert total seconds to time string (HH:MM:SS)
+  function secondsToTime(totalSeconds) {
+    totalSeconds = Math.max(0, Math.min(totalSeconds, 10800)); // Max 3 hours (10800 seconds)
+    var hours = Math.floor(totalSeconds / 3600);
+    var minutes = Math.floor((totalSeconds % 3600) / 60);
+    var seconds = totalSeconds % 60;
+    return String(hours).padStart(2, '0') + ':' + 
+           String(minutes).padStart(2, '0') + ':' + 
+           String(seconds).padStart(2, '0');
+  }
+  
+  // Helper function to convert time string to minutes (for backend)
+  function timeToMinutes(timeStr) {
+    var totalSeconds = timeToSeconds(timeStr);
+    return Math.floor(totalSeconds / 60);
+  }
+  
   // Add handlers for duration +/- buttons
   var plusBtn = document.getElementById('plusBtn');
   var minusBtn = document.getElementById('minusBtn');
   var durationInput = document.getElementById('durationInput');
   
+  // Format time input on change to ensure HH:MM:SS format
+  if (durationInput) {
+    durationInput.addEventListener('blur', function() {
+      var value = this.value;
+      if (value) {
+        // Validate and format the time
+        var parts = value.split(':');
+        if (parts.length === 3) {
+          var hours = Math.min(parseInt(parts[0]) || 0, 3); // Max 3 hours
+          var minutes = Math.min(parseInt(parts[1]) || 0, 59);
+          var seconds = Math.min(parseInt(parts[2]) || 0, 59);
+          
+          // Ensure total doesn't exceed 3 hours
+          var totalSeconds = hours * 3600 + minutes * 60 + seconds;
+          if (totalSeconds > 10800) {
+            totalSeconds = 10800;
+            hours = 3;
+            minutes = 0;
+            seconds = 0;
+          }
+          
+          // Ensure minimum is 30 minutes
+          if (totalSeconds < 1800) {
+            totalSeconds = 1800;
+            hours = 0;
+            minutes = 30;
+            seconds = 0;
+          }
+          
+          this.value = String(hours).padStart(2, '0') + ':' + 
+                      String(minutes).padStart(2, '0') + ':' + 
+                      String(seconds).padStart(2, '0');
+        } else {
+          // If format is wrong, reset to default (30 minutes)
+          this.value = '00:30:00';
+        }
+      }
+    });
+    
+    durationInput.addEventListener('input', function() {
+      // Auto-format as user types
+      var value = this.value.replace(/[^\d:]/g, ''); // Remove non-digit, non-colon characters
+      this.value = value;
+    });
+  }
+  
   if (plusBtn && durationInput) {
     plusBtn.addEventListener('click', function() {
-      var current = parseInt(durationInput.value) || 0;
-      var newValue = Math.min(current + 5, 180);
-      durationInput.value = newValue;
-      console.log('Duration increased to:', newValue);
+      var currentTime = durationInput.value || '00:00:00';
+      var currentSeconds = timeToSeconds(currentTime);
+      var newSeconds = Math.min(currentSeconds + 300, 10800); // Add 5 minutes (300 seconds), max 3 hours
+      var newTime = secondsToTime(newSeconds);
+      durationInput.value = newTime;
+      console.log('Duration increased to:', newTime);
       
-      // Disable plus button if at max
-      if (newValue >= 180) {
+      // Disable plus button if at max (3 hours)
+      if (newSeconds >= 10800) {
         plusBtn.disabled = true;
       }
       // Enable minus button
@@ -1680,13 +2904,15 @@ document.addEventListener('DOMContentLoaded', function() {
   
   if (minusBtn && durationInput) {
     minusBtn.addEventListener('click', function() {
-      var current = parseInt(durationInput.value) || 0;
-      var newValue = Math.max(current - 5, 1);
-      durationInput.value = newValue;
-      console.log('Duration decreased to:', newValue);
+      var currentTime = durationInput.value || '00:30:00';
+      var currentSeconds = timeToSeconds(currentTime);
+      var newSeconds = Math.max(currentSeconds - 300, 1800); // Subtract 5 minutes (300 seconds), min 30 minutes (1800 seconds)
+      var newTime = secondsToTime(newSeconds);
+      durationInput.value = newTime;
+      console.log('Duration decreased to:', newTime);
       
-      // Disable minus button if at min
-      if (newValue <= 1) {
+      // Disable minus button if at min (30 minutes)
+      if (newSeconds <= 1800) {
         minusBtn.disabled = true;
       }
       // Enable plus button
@@ -1699,13 +2925,43 @@ document.addEventListener('DOMContentLoaded', function() {
   if (generateQRBtn) {
     generateQRBtn.addEventListener('click', function() {
       console.log('Generate QR Code button clicked');
-      var duration = durationInput ? durationInput.value : null;
+      var timeValue = durationInput ? durationInput.value : null;
       var selectedPC = document.getElementById('pc_id') ? document.getElementById('pc_id').value : null;
       
-      console.log('Duration:', duration, 'PC:', selectedPC);
+      console.log('Time value:', timeValue, 'PC:', selectedPC);
       
-      if (!duration || duration <= 0) {
-        alert("Please enter a valid duration.");
+      // Validate time input
+      if (!timeValue || timeValue === '00:00:00') {
+        alert("Please enter a valid time duration.");
+        return;
+      }
+      
+      // Check if time is below 30 minutes
+      var totalSeconds = timeToSeconds(timeValue);
+      if (totalSeconds < 1800) { // 30 minutes = 1800 seconds
+        alert("Minimum booking duration is 30 minutes (00:30:00).");
+        return;
+      }
+      
+      // Check if time exceeds 3 hours
+      if (totalSeconds > 10800) { // 3 hours = 10800 seconds
+        alert("Maximum booking duration is 3 hours (03:00:00).");
+        return;
+      }
+      
+      // Check current time - booking only available from 7am to 7pm
+      var now = new Date();
+      var currentHour = now.getHours();
+      if (currentHour < 7 || currentHour >= 19) {
+        window.showCustomAlert("PC booking is only available from 7:00 AM to 7:00 PM.", now.toLocaleTimeString());
+        return;
+      }
+      
+      // Convert time to minutes for backend
+      var duration = timeToMinutes(timeValue);
+      
+      if (duration < 30) {
+        alert("Please enter a valid duration (minimum 30 minutes).");
         return;
       }
       
@@ -1748,7 +3004,7 @@ document.addEventListener('DOMContentLoaded', function() {
       // Send AJAX request with form data
       var formData = new URLSearchParams();
       formData.append('pc_id', selectedPC);
-      formData.append('duration', duration);
+      formData.append('duration', duration); // Send duration in minutes to backend
       
       fetch(reserveUrl, {
         method: 'POST',
@@ -1775,11 +3031,41 @@ document.addEventListener('DOMContentLoaded', function() {
           return;
         }
         
+        // Immediately update the selected PC button to show "in_queue" status (yellow)
+        var selectedButton = document.querySelector('.pc-button-modern.pc-selected, .pc-button-modern.selected, .pc-button.text-success');
+        if (selectedButton) {
+          // Remove selected classes
+          selectedButton.classList.remove('pc-selected', 'selected', 'text-success');
+          // Update booking status attribute
+          selectedButton.setAttribute('data-booking-status', 'in_queue');
+          // Update visual classes - remove all status classes and add queue
+          selectedButton.classList.remove('pc-available', 'pc-used', 'pc-queue');
+          selectedButton.classList.add('pc-queue');
+          // Make sure it's clickable to show status
+          selectedButton.disabled = false;
+          selectedButton.style.cursor = 'pointer';
+          selectedButton.style.opacity = '1';
+          selectedButton.style.pointerEvents = 'auto';
+          // Update onclick handler
+          var pcId = selectedButton.getAttribute('data-pc-id');
+          selectedButton.onclick = function() {
+            if (typeof showPCStatus === 'function') {
+              showPCStatus(pcId, selectedButton);
+            }
+            return false;
+          };
+        }
+        
         // Hide duration modal
         var durationModal = document.getElementById('durationModal');
         if (durationModal && typeof bootstrap !== 'undefined') {
           var modal = bootstrap.Modal.getInstance(durationModal);
           if (modal) modal.hide();
+        }
+        
+        // Immediately refresh PC status to show updated status
+        if (typeof window.refreshPCStatusForReservation === 'function') {
+          window.refreshPCStatusForReservation();
         }
         
         // Show QR code modal
@@ -1827,6 +3113,16 @@ document.addEventListener('DOMContentLoaded', function() {
           setTimeout(function() {
             checkMyActiveSession();
           }, 2000);
+          
+          // Start auto-refresh checker for QR code scanning immediately after generation
+          if (data.booking_id) {
+            console.log('Starting QR approval checker (vanilla) for booking ID:', data.booking_id);
+            if (typeof startQRApprovalCheckerVanilla === 'function') {
+              startQRApprovalCheckerVanilla(data.booking_id);
+            } else {
+              console.warn('startQRApprovalCheckerVanilla function not found');
+            }
+          }
         }
         
         // Set booking ID
@@ -2341,24 +3637,84 @@ if (document.readyState === 'loading') {
     });
   }
   
-  // Handle QR modal close event to pause timers and clean up
+  // Handle duration modal close event - ensure reservation-body stays visible
+  var durationModal = document.getElementById('durationModal');
+  if (durationModal) {
+    durationModal.addEventListener('hidden.bs.modal', function() {
+      console.log('Duration modal closed - ensuring reservation-body is visible');
+      setTimeout(ensureReservationBodyVisible, 100);
+    });
+  }
+
+  // Handle QR modal close event to pause timers and preserve queue status
   var qrModal = document.getElementById('qrModal');
   if (qrModal) {
     qrModal.addEventListener('hidden.bs.modal', function() {
+      // Ensure reservation-body is visible
+      setTimeout(ensureReservationBodyVisible, 100);
+      
       // Pause the timers when modal is closed
       window.qrModalPaused = true;
       console.log('QR modal closed, timers paused');
-    
-    // Clean up modal backdrop and body styles
-    setTimeout(function() {
-      var backdrop = document.querySelector('.modal-backdrop');
-      if (backdrop) {
-        backdrop.remove();
+      
+      // Get the PC ID from the form and ensure it stays yellow (in_queue)
+      var pcIdInput = document.getElementById('pc_id');
+      if (pcIdInput && pcIdInput.value) {
+        var pcId = pcIdInput.value;
+        // Find the PC button and ensure it shows in_queue status (yellow)
+        var pcButton = document.querySelector('.pc-button-modern[data-pc-id="' + pcId + '"]');
+        if (pcButton) {
+          // Update booking status attribute
+          pcButton.setAttribute('data-booking-status', 'in_queue');
+          // Remove all status classes
+          pcButton.classList.remove('pc-available', 'pc-used', 'pc-selected', 'selected', 'text-success');
+          // Add queue class (yellow) - use !important via inline style to override
+          pcButton.classList.add('pc-queue');
+          // Force yellow color with inline styles to ensure it stays
+          pcButton.style.backgroundColor = '#FFF9C4';
+          pcButton.style.borderColor = '#FFC107';
+          // Make sure it's clickable
+          pcButton.disabled = false;
+          pcButton.style.cursor = 'pointer';
+          pcButton.style.opacity = '1';
+          pcButton.style.pointerEvents = 'auto';
+          console.log('PC status preserved as in_queue (yellow) after modal close');
+          
+          // Set a flag to prevent refresh from changing it back
+          pcButton.setAttribute('data-preserve-queue', 'true');
+        }
       }
-      document.body.classList.remove('modal-open');
-      document.body.style.overflow = '';
-      document.body.style.paddingRight = '';
-    }, 100);
+      
+      // Refresh PC status to ensure consistency (but don't reload page)
+      // Use a longer delay to ensure the status is set first
+      if (typeof window.refreshPCStatusForReservation === 'function') {
+        setTimeout(function() {
+          window.refreshPCStatusForReservation();
+          // After refresh, ensure queue status is preserved again
+          if (pcIdInput && pcIdInput.value) {
+            var pcId = pcIdInput.value;
+            var pcButton = document.querySelector('.pc-button-modern[data-pc-id="' + pcId + '"]');
+            if (pcButton && pcButton.getAttribute('data-preserve-queue') === 'true') {
+              pcButton.setAttribute('data-booking-status', 'in_queue');
+              pcButton.classList.remove('pc-available', 'pc-used');
+              pcButton.classList.add('pc-queue');
+              pcButton.style.backgroundColor = '#FFF9C4';
+              pcButton.style.borderColor = '#FFC107';
+            }
+          }
+        }, 1000);
+      }
+    
+      // Clean up modal backdrop and body styles
+      setTimeout(function() {
+        var backdrop = document.querySelector('.modal-backdrop');
+        if (backdrop) {
+          backdrop.remove();
+        }
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+      }, 100);
     });
   }
   
@@ -2480,6 +3836,11 @@ window.checkMyActiveSession = function() {
           viewQRContainer.style.opacity = '1';
           viewQRContainer.removeAttribute('hidden');
           console.log('Main My Session button container shown');
+          
+          // Start auto-refresh checker for QR code scanning if booking is pending
+          if (data.booking_id && data.booking_status !== 'confirmed') {
+            startQRApprovalCheckerVanilla(data.booking_id);
+          }
         } else {
           console.warn('viewQRContainer element not found');
         }
@@ -3133,6 +4494,11 @@ document.addEventListener('DOMContentLoaded', function() {
               var oldBookingStatus = pcButton.getAttribute('data-booking-status');
               var newBookingStatus = pcData.booking_status || 'available';
               
+              // Debug logging for queue status
+              if (newBookingStatus === 'in_queue') {
+                console.log('🔵 Server returned in_queue for PC:', pcData.name, 'PC ID:', pcData.id, 'Old status:', oldBookingStatus);
+              }
+              
               // Always update data attributes to ensure they're current
               pcButton.setAttribute('data-booking-status', newBookingStatus);
               pcButton.setAttribute('data-pc-status', pcData.status || 'connected');
@@ -3145,8 +4511,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.log('PC status changed:', pcData.name, 'from', oldBookingStatus, 'to', newBookingStatus);
               }
               
+              // IMPORTANT: Always trust the server status for all users
+              // The server should correctly return 'in_queue' if there's a pending booking
+              // Don't override the server status - it should be correct for all users
+              
               // Always update button classes and styling
-              pcButton.classList.remove('pc-available', 'pc-queue', 'pc-used', 'pc-repair', 'pc-offline', 'selected', 'pc-selected');
+              // IMPORTANT: Remove ALL status classes first, especially pc-available
+              pcButton.classList.remove('pc-available', 'pc-queue', 'pc-used', 'pc-repair', 'pc-offline', 'selected', 'pc-selected', 'text-success');
+              
+              // Also remove any inline styles that might conflict (but keep our important ones)
+              // Only remove if not in_queue (we'll set them for in_queue)
+              if (newBookingStatus !== 'in_queue') {
+                pcButton.style.removeProperty('background-color');
+                pcButton.style.removeProperty('border-color');
+              }
               
               // Remove selection if PC is no longer available
               if (newBookingStatus !== 'available') {
@@ -3191,7 +4569,54 @@ document.addEventListener('DOMContentLoaded', function() {
                   return false;
                 };
               } else if (newBookingStatus === 'in_queue') {
+                // PC is in queue - show yellow color for ALL users
+                console.log('🟡 Setting PC', pcData.name, '(ID:', pcData.id, ') to in_queue (yellow) for ALL users');
+                
+                // CRITICAL: Remove ALL status classes first - be very aggressive
+                pcButton.classList.remove('pc-available', 'pc-used', 'pc-selected', 'selected', 'text-success', 'bg-success', 'bg-warning', 'bg-danger');
+                
+                // Add queue class
                 pcButton.classList.add('pc-queue');
+                
+                // Force yellow color with inline styles - use multiple methods to ensure it sticks
+                // Method 1: setProperty with important
+                pcButton.style.setProperty('background-color', '#FFF9C4', 'important');
+                pcButton.style.setProperty('border-color', '#FFC107', 'important');
+                pcButton.style.setProperty('border-width', '2px', 'important');
+                pcButton.style.setProperty('border-style', 'solid', 'important');
+                
+                // Method 2: Also set directly as fallback
+                pcButton.style.backgroundColor = '#FFF9C4';
+                pcButton.style.borderColor = '#FFC107';
+                pcButton.style.borderWidth = '2px';
+                pcButton.style.borderStyle = 'solid';
+                
+                // Remove any conflicting inline styles
+                pcButton.style.removeProperty('color');
+                
+                // Also update icon and text colors - be very explicit
+                var iconEl = pcButton.querySelector('.pc-icon-modern');
+                var numberEl = pcButton.querySelector('.pc-number');
+                if (iconEl) {
+                  iconEl.style.setProperty('color', '#F57C00', 'important');
+                  iconEl.style.color = '#F57C00';
+                  console.log('🟡 Icon color set to orange for PC:', pcData.name);
+                }
+                if (numberEl) {
+                  numberEl.style.setProperty('color', '#F57C00', 'important');
+                  numberEl.style.color = '#F57C00';
+                  console.log('🟡 Number color set to orange for PC:', pcData.name);
+                }
+                
+                // Also check for any nested elements
+                var allChildren = pcButton.querySelectorAll('*');
+                allChildren.forEach(function(child) {
+                  if (child.classList.contains('pc-icon-modern') || child.classList.contains('pc-number')) {
+                    child.style.setProperty('color', '#F57C00', 'important');
+                    child.style.color = '#F57C00';
+                  }
+                });
+                
                 pcButton.disabled = false;
                 pcButton.style.cursor = 'pointer';
                 pcButton.style.opacity = '1';
@@ -3200,25 +4625,63 @@ document.addEventListener('DOMContentLoaded', function() {
                   showPCStatus(pcData.id, pcButton);
                   return false;
                 };
+                
+                // Verify the color was applied
+                setTimeout(function() {
+                  var computedBg = window.getComputedStyle(pcButton).backgroundColor;
+                  var computedBorder = window.getComputedStyle(pcButton).borderColor;
+                  console.log('🔍 Verification for PC', pcData.name, '- Background:', computedBg, 'Border:', computedBorder);
+                  if (computedBg !== 'rgb(255, 249, 196)' && !computedBg.includes('255, 249, 196')) {
+                    console.error('❌ Background color NOT applied! Expected #FFF9C4, got:', computedBg);
+                    // Force it again
+                    pcButton.style.setProperty('background-color', '#FFF9C4', 'important');
+                    pcButton.style.backgroundColor = '#FFF9C4';
+                  } else {
+                    console.log('✅ Background color verified for PC', pcData.name);
+                  }
+                }, 50);
+                
+                console.log('✅ PC', pcData.name, 'successfully set to yellow (in_queue)');
               } else {
-                pcButton.classList.add('pc-available');
-                // Check if user has active booking - if so, disable selection
-                if (window.__hasActiveBooking) {
-                  pcButton.disabled = true;
-                  pcButton.style.cursor = 'not-allowed';
-                  pcButton.style.opacity = '0.6';
-                  pcButton.style.pointerEvents = 'none';
-                  pcButton.onclick = function() {
-                    return false;
-                  };
+                // Only set to available if status is actually 'available'
+                // Make sure we're not overriding in_queue status
+                if (newBookingStatus === 'available') {
+                  pcButton.classList.add('pc-available');
+                  // Remove any inline styles that might conflict
+                  pcButton.style.removeProperty('background-color');
+                  pcButton.style.removeProperty('border-color');
+                  // Check if user has active booking (student or faculty) - if so, disable selection
+                  if (window.__hasActiveBooking || window.__hasActiveFacultyBooking) {
+                    pcButton.disabled = true;
+                    pcButton.style.cursor = 'not-allowed';
+                    pcButton.style.opacity = '0.6';
+                    pcButton.style.pointerEvents = 'none';
+                    // Set onclick to show alert for faculty bookings
+                    if (window.__hasActiveFacultyBooking) {
+                      pcButton.onclick = function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        alert('You have an active faculty booking. Please wait for your current booking to be processed or cancelled before booking another PC.');
+                        return false;
+                      };
+                    } else {
+                      pcButton.onclick = function() {
+                        return false;
+                      };
+                    }
+                  } else {
+                    pcButton.disabled = false;
+                    pcButton.style.cursor = 'pointer';
+                    pcButton.style.opacity = '1';
+                    pcButton.style.pointerEvents = 'auto';
+                    var pcId = pcData.id;
+                    pcButton.onclick = function() {
+                      selectPCForReservation(pcId, pcButton);
+                    };
+                  }
                 } else {
-                  pcButton.disabled = false;
-                  pcButton.style.cursor = 'pointer';
-                  pcButton.style.opacity = '1';
-                  pcButton.style.pointerEvents = 'auto';
-                  pcButton.onclick = function() {
-                    selectPCForReservation(pcData.id, pcButton);
-                  };
+                  // Status is not available and not in_queue or in_use - log for debugging
+                  console.warn('Unexpected booking status for PC', pcData.name, ':', newBookingStatus);
                 }
               }
             }
@@ -3243,6 +4706,14 @@ document.addEventListener('DOMContentLoaded', function() {
           } else if (typeof checkAndDisablePCSelection === 'function') {
             checkAndDisablePCSelection();
           }
+          
+          // Also check and disable if faculty has active booking
+          // This ensures faculty PC buttons stay disabled even after refresh
+          if (typeof window.checkAndDisableFacultyPCSelection === 'function') {
+            window.checkAndDisableFacultyPCSelection();
+          } else if (typeof checkAndDisableFacultyPCSelection === 'function') {
+            checkAndDisableFacultyPCSelection();
+          }
         }
       })
       .catch(error => {
@@ -3253,10 +4724,214 @@ document.addEventListener('DOMContentLoaded', function() {
   // Make it globally accessible
   window.refreshPCStatusForReservation = refreshPCStatusForReservation;
   
-  // Refresh PC status every 2 seconds for faster updates
-  setInterval(refreshPCStatusForReservation, 2000);
-  // Also refresh immediately on page load
+  // Global variable to store approval checker interval (vanilla JS version)
+  var qrApprovalCheckerIntervalVanilla = null;
+  
+  // Function to start checking for QR code approval (when scanned) - vanilla JS version
+  function startQRApprovalCheckerVanilla(bookingId) {
+    // Clear any existing checker
+    if (qrApprovalCheckerIntervalVanilla) {
+      clearInterval(qrApprovalCheckerIntervalVanilla);
+      qrApprovalCheckerIntervalVanilla = null;
+    }
+    
+    if (!bookingId) return;
+    
+    // Check every 2 seconds if QR code has been scanned (booking confirmed)
+    qrApprovalCheckerIntervalVanilla = setInterval(function() {
+      // Only check if View QR button is still visible
+      var viewQRContainer = document.getElementById('viewQRButtonContainer');
+      var viewQRCodeBtnNext = document.getElementById('viewQRCodeButtonNext');
+      var isVisible = (viewQRContainer && viewQRContainer.style.display !== 'none' && viewQRContainer.style.visibility !== 'hidden') ||
+                      (viewQRCodeBtnNext && viewQRCodeBtnNext.style.display !== 'none');
+      
+      if (!isVisible) {
+        clearInterval(qrApprovalCheckerIntervalVanilla);
+        qrApprovalCheckerIntervalVanilla = null;
+        return;
+      }
+      
+      // Check booking status
+      fetch('/ajax/waiting-approval/' + bookingId + '/')
+        .then(response => response.json())
+        .then(function(data) {
+          if (data.status === 'confirmed') {
+            console.log('QR code scanned! Booking confirmed. Refreshing page...');
+            
+            // Clear the checker
+            clearInterval(qrApprovalCheckerIntervalVanilla);
+            qrApprovalCheckerIntervalVanilla = null;
+            
+            // Clear QR code data
+            try {
+              localStorage.removeItem('qrCodeData');
+              localStorage.removeItem('qrBookingId');
+              localStorage.removeItem('qrPCId');
+              localStorage.removeItem('qrCodeTimestamp');
+            } catch (e) {
+              console.error('Error clearing localStorage:', e);
+            }
+            
+            // Refresh the page to show updated status
+            setTimeout(function() {
+              window.location.reload();
+            }, 500);
+          } else if (data.status === 'cancelled') {
+            console.log('Booking cancelled. Refreshing page...');
+            
+            // Clear the checker
+            clearInterval(qrApprovalCheckerIntervalVanilla);
+            qrApprovalCheckerIntervalVanilla = null;
+            
+            // Clear QR code data
+            try {
+              localStorage.removeItem('qrCodeData');
+              localStorage.removeItem('qrBookingId');
+              localStorage.removeItem('qrPCId');
+              localStorage.removeItem('qrCodeTimestamp');
+            } catch (e) {
+              console.error('Error clearing localStorage:', e);
+            }
+            
+            // Refresh the page
+            setTimeout(function() {
+              window.location.reload();
+            }, 500);
+          }
+        })
+        .catch(function(error) {
+          console.error('Error checking approval status:', error);
+        });
+    }, 2000); // Check every 2 seconds
+  }
+  
+  // Make it globally accessible
+  window.startQRApprovalCheckerVanilla = startQRApprovalCheckerVanilla;
+  
+  // WebSocket connection for real-time PC status updates
+  var pcStatusWebSocket = null;
+  var pcStatusReconnectInterval = null;
+  
+  function connectPCStatusWebSocket() {
+    // Get WebSocket URL - use wss:// for HTTPS, ws:// for HTTP
+    var protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    var wsUrl = protocol + '//' + window.location.host + '/ws/pc-status-updates/';
+    
+    try {
+      pcStatusWebSocket = new WebSocket(wsUrl);
+      
+      pcStatusWebSocket.onopen = function() {
+        console.log('✅ PC Status WebSocket connected');
+        // Clear reconnect interval if connection is successful
+        if (pcStatusReconnectInterval) {
+          clearInterval(pcStatusReconnectInterval);
+          pcStatusReconnectInterval = null;
+        }
+        // Send heartbeat
+        if (pcStatusWebSocket.readyState === WebSocket.OPEN) {
+          pcStatusWebSocket.send(JSON.stringify({type: 'heartbeat'}));
+        }
+      };
+      
+      pcStatusWebSocket.onmessage = function(event) {
+        try {
+          var data = JSON.parse(event.data);
+          
+          if (data.type === 'pc_status_update') {
+            console.log('📥 Received PC status update:', data);
+            
+            // Find the PC button by data-pc-id
+            var pcButton = document.querySelector('.pc-button-modern[data-pc-id="' + data.pc_id + '"]');
+            if (pcButton) {
+              // Update data attributes
+              pcButton.setAttribute('data-booking-status', data.booking_status || 'available');
+              pcButton.setAttribute('data-pc-status', data.status || 'connected');
+              pcButton.setAttribute('data-pc-condition', data.system_condition || 'active');
+              
+              // Update button classes
+              pcButton.classList.remove('pc-available', 'pc-queue', 'pc-used', 'pc-repair', 'pc-offline', 'selected', 'pc-selected', 'text-success');
+              
+              // Apply appropriate classes based on status
+              if (data.system_condition === 'repair') {
+                pcButton.classList.add('pc-repair');
+              } else if (data.status === 'disconnected') {
+                pcButton.classList.add('pc-offline');
+              } else if (data.booking_status === 'in_use') {
+                pcButton.classList.add('pc-used');
+              } else if (data.booking_status === 'in_queue') {
+                pcButton.classList.add('pc-queue');
+                // Set yellow color for queue status
+                pcButton.style.backgroundColor = '#FFF9C4';
+                pcButton.style.borderColor = '#FFC107';
+              } else {
+                pcButton.classList.add('pc-available');
+                // Remove inline styles for available status
+                pcButton.style.removeProperty('background-color');
+                pcButton.style.removeProperty('border-color');
+              }
+              
+              // Show notification if message is provided
+              if (data.message) {
+                console.log('📢 PC Status Update:', data.message);
+                // Show a subtle notification
+                if (data.booking_status === 'available' && data.available_pcs_count > 0) {
+                  // Show success notification for available PCs
+                  if (typeof showSuccessNotification === 'function') {
+                    showSuccessNotification(data.message + ' (' + data.available_pcs_count + ' PC(s) available)');
+                  }
+                }
+              }
+            } else {
+              console.warn('PC button not found for PC ID:', data.pc_id);
+            }
+          } else if (data.type === 'heartbeat_ack') {
+            // Heartbeat acknowledged, connection is alive
+            console.log('💓 WebSocket heartbeat acknowledged');
+          }
+        } catch (e) {
+          console.error('Error parsing WebSocket message:', e);
+        }
+      };
+      
+      pcStatusWebSocket.onerror = function(error) {
+        console.error('❌ PC Status WebSocket error:', error);
+      };
+      
+      pcStatusWebSocket.onclose = function() {
+        console.log('❌ PC Status WebSocket closed, attempting to reconnect...');
+        // Attempt to reconnect after 3 seconds
+        if (!pcStatusReconnectInterval) {
+          pcStatusReconnectInterval = setInterval(function() {
+            if (!pcStatusWebSocket || pcStatusWebSocket.readyState === WebSocket.CLOSED) {
+              console.log('🔄 Attempting to reconnect PC Status WebSocket...');
+              connectPCStatusWebSocket();
+            }
+          }, 3000);
+        }
+      };
+    } catch (e) {
+      console.error('Error creating PC Status WebSocket:', e);
+    }
+  }
+  
+  // Connect WebSocket when page loads
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', connectPCStatusWebSocket);
+  } else {
+    connectPCStatusWebSocket();
+  }
+  
+  // Refresh PC status every 5 seconds as fallback (less frequent since WebSocket handles real-time)
+  setInterval(refreshPCStatusForReservation, 5000);
+  
+  // Also refresh immediately on page load - multiple times to catch any missed updates
+  // This is critical for other users who load the page after a booking is created
+  setTimeout(refreshPCStatusForReservation, 100);
   setTimeout(refreshPCStatusForReservation, 500);
+  setTimeout(refreshPCStatusForReservation, 1000);
+  setTimeout(refreshPCStatusForReservation, 2000);
+  
+  console.log('✅ PC status refresh started - WebSocket for real-time updates, polling every 5 seconds as fallback');
   
   // Also check when page becomes visible (user switches tabs back)
   document.addEventListener('visibilitychange', function() {
@@ -3337,6 +5012,106 @@ document.addEventListener('DOMContentLoaded', function() {
   initMobileMenuToggleReservation();
   setTimeout(initMobileMenuToggleReservation, 100);
   setTimeout(initMobileMenuToggleReservation, 500);
+  
+  // WebSocket connection for booking status updates (auto-refresh when QR is scanned)
+  (function initBookingStatusWS() {
+    var bookingWS = null;
+    var reconnectAttempts = 0;
+    var maxReconnectAttempts = 5;
+    var reconnectDelay = 3000;
+    var shouldReconnect = true;
+    
+    function connect() {
+      try {
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsPath = `${wsProtocol}//${window.location.host}/ws/booking-status/`;
+        bookingWS = new WebSocket(wsPath);
+        
+        bookingWS.onopen = function() {
+          console.log('✅ Booking status WebSocket connected');
+          reconnectAttempts = 0;
+          // Send heartbeat periodically
+          setInterval(function() {
+            if (bookingWS && bookingWS.readyState === WebSocket.OPEN) {
+              bookingWS.send(JSON.stringify({type: 'heartbeat'}));
+            }
+          }, 30000); // Every 30 seconds
+        };
+        
+        bookingWS.onmessage = function(event) {
+          try {
+            const data = JSON.parse(event.data);
+            console.log('📨 Booking status update received:', data);
+            
+            if (data.type === 'booking_status_update') {
+              if (data.status === 'confirmed') {
+                console.log('✅ Booking confirmed via QR scan! Refreshing page...');
+                
+                // Show notification if possible
+                if ('Notification' in window && Notification.permission === 'granted') {
+                  new Notification('Booking Approved!', {
+                    body: data.message || 'Your reservation has been approved!',
+                    icon: '/static/favicon.svg'
+                  });
+                }
+                
+                // Hard refresh - redirect to home page with cache-busting parameter
+                // Use a small delay to ensure the backend has processed the update
+                setTimeout(function() {
+                  // Add timestamp to force hard refresh (bypass cache)
+                  const timestamp = new Date().getTime();
+                  window.location.replace('/?_refresh=' + timestamp);
+                }, 500);
+              }
+            } else if (data.type === 'heartbeat_ack') {
+              // Heartbeat acknowledged, connection is alive
+              console.debug('💓 Booking status WebSocket heartbeat acknowledged');
+            }
+          } catch (error) {
+            console.error('❌ Error parsing booking status message:', error);
+          }
+        };
+        
+        bookingWS.onerror = function(error) {
+          console.error('❌ Booking status WebSocket error:', error);
+          if (reconnectAttempts >= maxReconnectAttempts) {
+            shouldReconnect = false;
+          }
+        };
+        
+        bookingWS.onclose = function() {
+          console.log('❌ Booking status WebSocket closed');
+          if (shouldReconnect && reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts++;
+            setTimeout(function() {
+              if (shouldReconnect) {
+                console.log(`🔄 Reconnecting booking status WebSocket (attempt ${reconnectAttempts})...`);
+                connect();
+              }
+            }, reconnectDelay);
+          }
+        };
+      } catch (error) {
+        console.error('❌ Error creating booking status WebSocket:', error);
+        // Silently fail - polling will still work
+      }
+    }
+    
+    // Connect when page loads
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', connect);
+    } else {
+      connect();
+    }
+    
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', function() {
+      shouldReconnect = false;
+      if (bookingWS) {
+        bookingWS.close();
+      }
+    });
+  })();
 });
 </script>
 <script src="{% static 'js/reserve_pc.js' %}"></script>

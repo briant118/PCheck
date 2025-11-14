@@ -211,7 +211,7 @@ body {
 .analytics-card {
     background: linear-gradient(180deg, #ffc107 0%, #ff9800 50%, #ff5722 100%) !important;
     border-radius: 20px !important;
-    padding: 1.25rem 1.5rem !important;
+    padding: 0.875rem 1.25rem !important;
     display: flex !important;
     flex-direction: row !important;
     align-items: center !important;
@@ -222,7 +222,8 @@ body {
     border: 3px solid rgba(255, 255, 255, 0.5) !important;
     width: 100% !important;
     max-width: 220px !important;
-    min-height: 120px !important;
+    height: 80px !important;
+    min-height: 80px !important;
     margin: 0 !important;
     position: relative !important;
     overflow: visible !important;
@@ -253,9 +254,9 @@ body {
 }
 
 .analytics-card-icon {
-    width: 56px;
-    height: 56px;
-    border-radius: 16px;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
     background: rgba(255, 255, 255, 0.25);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
@@ -268,7 +269,7 @@ body {
 }
 
 .analytics-card-icon i {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
     color: #ffffff;
     filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
 }
@@ -285,7 +286,7 @@ body {
 }
 
 .analytics-card-number {
-    font-size: 2rem;
+    font-size: 1.75rem;
     font-weight: 700;
     color: #ffffff;
     line-height: 1;
@@ -377,8 +378,9 @@ body {
 }
 
 .modern-pc-card .pc-list-button.pc-repair {
-    background: rgba(244, 67, 54, 0.1);
-    border-color: #f44336;
+    background: #FFEBEE; /* Light red */
+    border-color: #F44336; /* Red border */
+    color: #F44336; /* Red text */
 }
 
 /* Table on Orange Background */
@@ -613,54 +615,95 @@ body {
 
 /* PC Status Colors - Matching Image Design */
 .pc-available {
-    background-color: #E8F5E9; /* Light green */
-    border: 2px solid #4caf50; /* Green border */
+    background-color: #E8F5E9 !important; /* Light green */
+    border: 2px solid #4caf50 !important; /* Green border */
 }
 
 .pc-available .pc-icon-modern,
 .pc-available .pc-number {
-    color: #4caf50; /* Green text/icon */
+    color: #4caf50 !important; /* Green text/icon */
+}
+
+.pc-button-modern.pc-available {
+    background-color: #E8F5E9 !important; /* Light green */
+    border: 2px solid #4caf50 !important; /* Green border */
+}
+
+.pc-button-modern.pc-available .pc-icon-modern,
+.pc-button-modern.pc-available .pc-number {
+    color: #4caf50 !important; /* Green text/icon */
 }
 
 .pc-selected {
-    background-color: #E8F5E9; /* Light green */
-    border: 3px solid #4caf50; /* Thicker green border */
-    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.3);
+    background-color: #E3F2FD !important; /* Light blue */
+    border: 3px solid #2196F3 !important; /* Thicker blue border */
+    box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.3) !important;
 }
 
 .pc-selected .pc-icon-modern,
 .pc-selected .pc-number {
-    color: #4caf50; /* Green text/icon */
+    color: #2196F3 !important; /* Blue text/icon */
+}
+
+.pc-button-modern.pc-selected {
+    background-color: #E3F2FD !important; /* Light blue */
+    border: 3px solid #2196F3 !important; /* Thicker blue border */
+    box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.3) !important;
+}
+
+.pc-button-modern.pc-selected .pc-icon-modern,
+.pc-button-modern.pc-selected .pc-number {
+    color: #2196F3 !important; /* Blue text/icon */
 }
 
 .pc-queue {
-    background-color: #F5F5F5; /* Light gray */
-    border: 2px solid #9E9E9E; /* Gray border */
+    background-color: #FFF9C4 !important; /* Light yellow */
+    border: 2px solid #FFC107 !important; /* Yellow/Orange border */
 }
 
 .pc-queue .pc-icon-modern,
 .pc-queue .pc-number {
-    color: #9E9E9E; /* Gray text/icon */
+    color: #F57C00 !important; /* Orange text/icon */
+}
+
+.pc-button-modern.pc-queue {
+    background-color: #FFF9C4 !important; /* Light yellow */
+    border: 2px solid #FFC107 !important; /* Yellow/Orange border */
+}
+
+.pc-button-modern.pc-queue .pc-icon-modern,
+.pc-button-modern.pc-queue .pc-number {
+    color: #F57C00 !important; /* Orange text/icon */
 }
 
 .pc-used {
-    background-color: #E3F2FD; /* Light blue */
-    border: 2px solid #2196F3; /* Blue border */
+    background-color: #FF5722 !important; /* Solid red-orange */
+    border: 2px solid #FF5722 !important; /* Red-orange border */
 }
 
 .pc-used .pc-icon-modern,
 .pc-used .pc-number {
-    color: #2196F3; /* Blue text/icon */
+    color: #FFFFFF !important; /* White text/icon */
+}
+
+.pc-button-modern.pc-used {
+    background-color: #FF5722 !important; /* Solid red-orange */
+    border: 2px solid #FF5722 !important; /* Red-orange border */
+}
+
+.pc-button-modern.pc-used .pc-icon-modern,
+.pc-button-modern.pc-used .pc-number {
+    color: #FFFFFF !important; /* White text/icon */
 }
 
 .pc-repair {
-    background-color: #F5F5F5 !important; /* Light gray for unavailable */
-    border: 2px solid #9E9E9E !important; /* Gray border */
+    background-color: #FFEBEE !important; /* Light red */
+    border: 2px solid #F44336 !important; /* Red border */
 }
 
 .pc-repair .pc-icon-modern,
 .pc-repair .pc-number {
-    color: #9E9E9E !important; /* Gray text/icon */
+    color: #F44336 !important; /* Red text/icon */
 }
 
 .pc-offline {
@@ -758,21 +801,21 @@ body {
 }
 
 .legend-item.queue .legend-icon {
-    background-color: #F5F5F5; /* Light gray */
-    border-color: #9E9E9E; /* Gray */
+    background-color: #FFF9C4; /* Light yellow */
+    border-color: #FFC107; /* Yellow/Orange */
 }
 
 .legend-item.queue .legend-icon i {
-    color: #9E9E9E; /* Gray */
+    color: #F57C00; /* Orange */
 }
 
 .legend-item.used .legend-icon {
-    background-color: #757575; /* Darker gray */
-    border-color: #616161; /* Darker gray border */
+    background-color: #FF5722; /* Solid red-orange */
+    border-color: #FF5722; /* Red-orange */
 }
 
 .legend-item.used .legend-icon i {
-    color: #ffffff; /* White icon on dark gray */
+    color: #FFFFFF; /* White */
 }
 
 .legend-item.repair .legend-icon {
@@ -852,21 +895,21 @@ body {
 }
 
 .status-legend-inline .legend-item.queue .legend-icon {
-    background-color: #F5F5F5; /* Light gray */
-    border-color: #9E9E9E; /* Gray */
+    background-color: #FFF9C4; /* Light yellow */
+    border-color: #FFC107; /* Yellow/Orange */
 }
 
 .status-legend-inline .legend-item.queue .legend-icon i {
-    color: #9E9E9E; /* Gray */
+    color: #F57C00; /* Orange */
 }
 
 .status-legend-inline .legend-item.used .legend-icon {
-    background-color: #757575; /* Darker gray */
-    border-color: #616161; /* Darker gray border */
+    background-color: #FF5722; /* Solid red-orange */
+    border-color: #FF5722; /* Red-orange */
 }
 
 .status-legend-inline .legend-item.used .legend-icon i {
-    color: #ffffff; /* White icon on dark gray */
+    color: #FFFFFF; /* White */
 }
 
 .status-legend-inline .legend-item.repair .legend-icon {
@@ -1300,18 +1343,89 @@ body {
 }
 
 .bulk-step-actions {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: center !important;
     gap: 1.25rem;
-    flex-wrap: wrap;
+    flex-wrap: nowrap !important;
+    padding: 1rem 0;
+    border-top: 1px solid #e9ecef;
+    margin-top: 2rem;
+}
+
+.bulk-step-actions .bulk-back {
+    order: 1;
+}
+
+.bulk-step-actions .bulk-next,
+.bulk-step-actions .bulk-submit {
+    order: 2;
 }
 
 .bulk-step-actions .btn {
-    min-width: 160px;
-    border-radius: 12px;
+    width: 48px !important;
+    height: 48px !important;
+    min-width: 48px !important;
+    max-width: 48px !important;
+    border-radius: 8px;
     font-weight: 600;
-    padding: 0.65rem 1.5rem;
+    padding: 0 !important;
+    font-size: 0.875rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+}
+
+.bulk-step-actions .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.bulk-step-actions .btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Responsive design for bulk step actions - keep buttons on same line at all sizes */
+@media (max-width: 576px) {
+    .bulk-step-actions {
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 0.75rem !important;
+        justify-content: space-between !important;
+    }
+    
+    .bulk-step-actions .btn {
+        width: 48px !important;
+        height: 48px !important;
+        min-width: 48px !important;
+        max-width: 48px !important;
+        flex: none !important;
+        flex-shrink: 0 !important;
+    }
+}
+
+/* Extra small screens - still keep on same line */
+@media (max-width: 320px) {
+    .bulk-step-actions {
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 0.5rem !important;
+        justify-content: space-between !important;
+    }
+    
+    .bulk-step-actions .btn {
+        width: 44px !important;
+        height: 44px !important;
+        min-width: 44px !important;
+        max-width: 44px !important;
+        font-size: 0.75rem !important;
+    }
 }
 
 .bulk-back {
@@ -1337,7 +1451,252 @@ body {
 }
 
 .bulk-submit {
-    padding: 0.7rem 1.9rem;
-    border-radius: 12px;
-    font-size: 1.02rem;
+    padding: 0;
+    border-radius: 8px;
+    font-size: 0.875rem;
+}
+
+/* Step visibility - hide non-active steps */
+.step {
+    display: none !important;
+}
+
+.step.active {
+    display: block !important;
+}
+
+/* PC Selection Modal Styling */
+#pcSelectionModal .modal-dialog {
+    max-width: 600px;
+}
+
+#pcSelectionModal .modal-content {
+    border-radius: 16px;
+    border: none;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+#pcSelectionModal .modal-header {
+    border-bottom: 2px solid #e9ecef;
+    padding: 1.5rem;
+}
+
+#pcSelectionModal .modal-title {
+    font-weight: 700;
+    color: #2c3e50;
+    font-size: 1.4rem;
+}
+
+#pcSelectionModal .modal-body {
+    padding: 2rem 1.5rem;
+}
+
+#pcSelectionModal .modal-footer {
+    border-top: 2px solid #e9ecef;
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#pcSelectionModal #block-button-next {
+    min-width: 120px;
+    font-weight: 600;
+    padding: 0.65rem 1.5rem;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+#pcSelectionModal #block-button-next[hidden] {
+    display: none !important;
+}
+
+#pcSelectionModal #block-button-next:not([hidden]) {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+#pcSelectionModal .pc-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+/* Ensure navigation buttons are always visible and on same line */
+.bulk-step-actions {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    justify-content: space-between !important;
+    visibility: visible !important;
+}
+
+.bulk-step-actions .btn {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    flex-shrink: 0 !important;
+}
+
+/* Custom Alert Modal Styling */
+.custom-alert-content {
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    border: none;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    animation: slideInScale 0.3s ease-out;
+}
+
+@keyframes slideInScale {
+    0% {
+        transform: scale(0.8) translateY(-20px);
+        opacity: 0;
+    }
+    100% {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+    }
+}
+
+.custom-alert-header {
+    background: rgba(0, 0, 0, 0.3);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 1.25rem 1.5rem;
+    text-align: center;
+}
+
+.custom-alert-title {
+    color: #ffffff;
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.custom-alert-title i {
+    color: #ff9800;
+    font-size: 1.5rem;
+}
+
+.custom-alert-body {
+    background: #2c3e50;
+    padding: 2rem 1.5rem;
+    text-align: center;
+    color: #ffffff;
+}
+
+.custom-alert-icon {
+    margin-bottom: 1.5rem;
+    animation: pulse 2s infinite;
+}
+
+.custom-alert-icon i {
+    font-size: 3.5rem;
+    color: #ff9800;
+    text-shadow: 0 0 20px rgba(255, 152, 0, 0.5);
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 0.9;
+    }
+}
+
+.custom-alert-message {
+    font-size: 1.1rem;
+    color: #ffffff;
+    margin-bottom: 1rem;
+    line-height: 1.6;
+    font-weight: 500;
+}
+
+.custom-alert-time {
+    font-size: 0.95rem;
+    color: #bdc3c7;
+    margin: 0;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.custom-alert-footer {
+    background: rgba(0, 0, 0, 0.3);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 1rem 1.5rem;
+    justify-content: center;
+}
+
+.custom-alert-btn {
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    color: #ffffff;
+    border: none;
+    padding: 0.75rem 2.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+    min-width: 120px;
+}
+
+.custom-alert-btn:hover {
+    background: linear-gradient(135deg, #2980b9 0%, #1f6391 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
+    color: #ffffff;
+}
+
+.custom-alert-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 10px rgba(52, 152, 219, 0.3);
+}
+
+.custom-alert-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.3);
+}
+
+/* Modal backdrop styling */
+#customAlertModal.show ~ .modal-backdrop,
+.modal-backdrop.show {
+    background-color: rgba(0, 0, 0, 0.6) !important;
+    backdrop-filter: blur(4px);
+}
+
+/* Ensure modal is centered */
+#customAlertModal .modal-dialog {
+    margin: 1.75rem auto;
+}
+
+/* Responsive adjustments */
+@media (max-width: 576px) {
+    .custom-alert-content {
+        margin: 1rem;
+    }
+    
+    .custom-alert-body {
+        padding: 1.5rem 1rem;
+    }
+    
+    .custom-alert-icon i {
+        font-size: 2.5rem;
+    }
+    
+    .custom-alert-message {
+        font-size: 1rem;
+    }
 }

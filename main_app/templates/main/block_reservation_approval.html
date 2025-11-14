@@ -31,9 +31,13 @@
           <strong>From: </strong>{{ reservation.start_datetime }} <br>
           <strong>To: </strong>{{ reservation.end_datetime }} <br>
           <strong>Attached file: </strong>
+          {% if reservation.file and reservation.file.name %}
           <a href="{% url 'main_app:view_file' filename=reservation.file.name %}" class="btn btn-sm btn-outline-secondary">
             view attachment
           </a>
+          {% else %}
+          <span class="text-muted">No attachment</span>
+          {% endif %}
           <br>
           <strong>Number of PC: </strong>{{ reservation.num_of_devices }}
         </p>

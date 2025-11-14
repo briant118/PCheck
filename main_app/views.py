@@ -38,6 +38,37 @@ from asgiref.sync import async_to_sync
 
 today = timezone.now()
 
+def broadcast_pc_status_update(pc, message=""):
+    """Helper function to broadcast PC status updates to all connected users"""
+    try:
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            # Count available PCs
+            available_pcs_count = models.PC.objects.filter(
+                booking_status='available',
+                system_condition='active',
+                status='connected'
+            ).count()
+            
+            async_to_sync(channel_layer.group_send)(
+                'pc_status_updates',
+                {
+                    'type': 'pc_status_update',
+                    'pc_id': pc.id,
+                    'pc_name': pc.name,
+                    'booking_status': pc.booking_status or 'available',
+                    'status': pc.status,
+                    'system_condition': pc.system_condition,
+                    'message': message,
+                    'available_pcs_count': available_pcs_count,
+                }
+            )
+            print(f"📤 Broadcasted PC status update: {pc.name} -> {pc.booking_status}")
+    except Exception as e:
+        print(f"❌ Error broadcasting PC status update: {e}")
+        import traceback
+        traceback.print_exc()
+
 def get_pcheck_support_user():
     """Get or create the PCheck Support system account."""
     username = 'pcheck_support'
@@ -203,11 +234,11 @@ def get_all_pc_status(request):
                 pending_booking = models.Booking.objects.filter(
                     pc=pc,
                     status__isnull=True
-                ).order_by('-created_at').first()
+                ).exclude(status='cancelled').order_by('-created_at').first()
                 
                 # Also check if there's a cancelled pending booking that might interfere
                 # We only care about non-cancelled pending bookings
-                if pending_booking and pending_booking.status != 'cancelled':
+                if pending_booking:
                     # There's a pending booking - PC should be in_queue
                     if pc.booking_status != 'in_queue':
                         pc.booking_status = 'in_queue'
@@ -226,6 +257,40 @@ def get_all_pc_status(request):
                         if pc.booking_status != 'available':
                             pc.booking_status = 'available'
                             pc.save(update_fields=['booking_status'])
+            
+            # Ensure booking_status is correctly set before returning
+            # Double-check pending bookings one more time - THIS IS CRITICAL FOR ALL USERS
+            if pc.booking_status != 'in_use':
+                # Check for ANY pending booking (status is None/null)
+                pending_check = models.Booking.objects.filter(
+                    pc=pc,
+                    status__isnull=True
+                ).exclude(status='cancelled').order_by('-created_at').first()
+                
+                if pending_check:
+                    # Force status to in_queue if there's a pending booking
+                    if pc.booking_status != 'in_queue':
+                        pc.booking_status = 'in_queue'
+                        pc.save(update_fields=['booking_status'])
+                        print(f"✅ FIXED: PC {pc.name} (ID: {pc.id}) status set to in_queue (found pending booking ID: {pending_check.id})")
+                else:
+                    # No pending booking - verify status is correct
+                    if pc.booking_status == 'in_queue':
+                        # Status says in_queue but no pending booking - this shouldn't happen
+                        # But don't change it here, let the logic above handle it
+                        pass
+            
+            # Debug logging for in_queue status
+            if pc.booking_status == 'in_queue':
+                # Verify there's actually a pending booking
+                verify_pending = models.Booking.objects.filter(
+                    pc=pc,
+                    status__isnull=True
+                ).exclude(status='cancelled').exists()
+                if verify_pending:
+                    print(f"✅ CONFIRMED: PC {pc.name} (ID: {pc.id}) is in_queue with pending booking")
+                else:
+                    print(f"⚠️ WARNING: PC {pc.name} (ID: {pc.id}) status is in_queue but NO pending booking found!")
             
             pc_statuses.append({
                 'id': pc.id,
@@ -431,8 +496,9 @@ def submit_block_booking(request):
                 if active_booking.end_datetime.tzinfo:
                     remaining = active_booking.end_datetime - now
                 else:
-                    from datetime import datetime
-                    remaining = active_booking.end_datetime - datetime.now()
+                    # Make end_datetime timezone-aware if it's not
+                    end_dt = timezone.make_aware(active_booking.end_datetime) if not active_booking.end_datetime.tzinfo else active_booking.end_datetime
+                    remaining = end_dt - now
                 # If expired, allow new booking
                 if remaining.total_seconds() <= 0:
                     has_active_booking = False
@@ -442,15 +508,56 @@ def submit_block_booking(request):
                 messages.error(request, f'You already have an active booking ({status}). Please wait for your current booking to be processed or cancelled before creating a new one.')
                 return HttpResponseRedirect(reverse_lazy('main_app:reserve-pc'))
         
-        cust_num_of_pc = request.POST.get('custNumOfPc')
-        num_of_pc = request.POST.get('numOfPc')
-        course = request.POST.get('course')
-        block = request.POST.get('block')
-        college = request.POST.get('college')
-        date_start_str = request.POST.get('dateStart')
-        date_end_str = request.POST.get('dateEnd')
-        email_list = request.POST.get('emailList')
+        cust_num_of_pc = request.POST.get('custNumOfPc', '').strip()
+        num_of_pc = request.POST.get('numOfPc', '').strip()
+        course = request.POST.get('course', '').strip()
+        block = request.POST.get('block', '').strip()
+        college = request.POST.get('college', '').strip()
+        date_start_str = request.POST.get('dateStart', '').strip()
+        date_end_str = request.POST.get('dateEnd', '').strip()
+        email_list = request.POST.get('emailList', '').strip()
         attachment = request.FILES.get('attachment')
+        
+        # Validate required fields
+        if not college:
+            messages.error(request, 'Please select a college.')
+            return HttpResponseRedirect(reverse_lazy('main_app:reserve-pc'))
+        
+        if not course:
+            messages.error(request, 'Please enter a course.')
+            return HttpResponseRedirect(reverse_lazy('main_app:reserve-pc'))
+        
+        if not block:
+            messages.error(request, 'Please enter a block.')
+            return HttpResponseRedirect(reverse_lazy('main_app:reserve-pc'))
+        
+        # Validate number of PCs
+        num_of_devices = None
+        try:
+            if cust_num_of_pc and int(cust_num_of_pc) > 0:
+                num_of_devices = int(cust_num_of_pc)
+            elif num_of_pc and int(num_of_pc) > 0:
+                num_of_devices = int(num_of_pc)
+            else:
+                messages.error(request, 'Please select the number of PCs needed.')
+                return HttpResponseRedirect(reverse_lazy('main_app:reserve-pc'))
+        except (ValueError, TypeError):
+            messages.error(request, 'Invalid number of PCs. Please select a valid number.')
+            return HttpResponseRedirect(reverse_lazy('main_app:reserve-pc'))
+        
+        # Check if requested number exceeds available PCs
+        available_pcs_count = models.PC.objects.filter(
+            status='connected',
+            system_condition='active',
+            booking_status__in=['available', None]
+        ).count()
+        
+        if num_of_devices > available_pcs_count:
+            messages.error(
+                request, 
+                f'Cannot request {num_of_devices} PC(s). Only {available_pcs_count} PC(s) are currently available.'
+            )
+            return HttpResponseRedirect(reverse_lazy('main_app:reserve-pc'))
         
         college_obj = get_object_or_404(models.College, pk=college)
         
@@ -470,7 +577,8 @@ def submit_block_booking(request):
                 start_datetime = timezone.make_aware(start_datetime)
             except (ValueError, TypeError) as e:
                 print(f"Error parsing start_datetime: {e}")
-                start_datetime = None
+                messages.error(request, 'Invalid start date/time format.')
+                return HttpResponseRedirect(reverse_lazy('main_app:reserve-pc'))
         
         if date_end_str:
             try:
@@ -484,7 +592,14 @@ def submit_block_booking(request):
                 end_datetime = timezone.make_aware(end_datetime)
             except (ValueError, TypeError) as e:
                 print(f"Error parsing end_datetime: {e}")
-                end_datetime = None
+                messages.error(request, 'Invalid end date/time format.')
+                return HttpResponseRedirect(reverse_lazy('main_app:reserve-pc'))
+        
+        # Validate that end datetime is after start datetime
+        if start_datetime and end_datetime:
+            if end_datetime <= start_datetime:
+                messages.error(request, 'End date/time must be after start date/time.')
+                return HttpResponseRedirect(reverse_lazy('main_app:reserve-pc'))
         
         models.FacultyBooking.objects.create(
             faculty=request.user,
@@ -493,7 +608,7 @@ def submit_block_booking(request):
             block=block,
             start_datetime=start_datetime,
             end_datetime=end_datetime,
-            num_of_devices=cust_num_of_pc if cust_num_of_pc and int(cust_num_of_pc) > 0 else num_of_pc,
+            num_of_devices=num_of_devices,
             file=attachment,
             email_addresses=email_list,
             status="pending"
@@ -773,6 +888,9 @@ def end_session(request, booking_id):
                 booking.status = 'cancelled'
                 booking.save()
                 
+                # Broadcast PC status update to all users
+                broadcast_pc_status_update(pc, f"PC {pc.name} is now available")
+                
                 return JsonResponse({'success': True, 'message': 'Session ended successfully'})
             else:
                 return JsonResponse({'success': False, 'error': 'No active session found'})
@@ -967,6 +1085,9 @@ def reserve_pc(request):
             )
             
             print(f"Booking created successfully: {booking.id}, status={booking.status}")
+            
+            # Broadcast PC status update to all users
+            broadcast_pc_status_update(pc, f"PC {pc.name} is now in queue")
             
             scheme = 'https' if request.is_secure() else 'http'
             host = request.get_host()
@@ -1559,6 +1680,10 @@ def reservation_approved(request, pk):
         booking.end_time = booking.start_time + booking.duration
         booking.status = 'confirmed'
         booking.save()
+        
+        # Broadcast PC status update to all users
+        broadcast_pc_status_update(pc, f"PC {pc.name} is now in use")
+        
         messages.success(request, f"Reservation for {pc.name} has been approved.")
         return HttpResponseRedirect(reverse_lazy('main_app:bookings'))
     except models.Booking.DoesNotExist:
@@ -1583,6 +1708,10 @@ def reservation_declined(request, pk):
         booking.status = 'cancelled'
         booking.start_time = timezone.now()
         booking.save()
+        
+        # Broadcast PC status update to all users
+        broadcast_pc_status_update(pc, f"PC {pc.name} is now available")
+        
         messages.success(request, f"Reservation for {pc.name} has been declined.")
         return HttpResponseRedirect(reverse_lazy('main_app:bookings'))
     except models.Booking.DoesNotExist:
@@ -1624,6 +1753,7 @@ def block_reservation_approved(request, pk):
             
             img = qr.make_image(fill_color="black", back_color="white")
             buffer = BytesIO()
+            # Save QR code as PNG format (not PDF)
             img.save(buffer, format="PNG")
             buffer.seek(0)
             
@@ -1653,11 +1783,12 @@ Best regards,
 PCheck System
 """
             
-            # Send email to each student with QR code attachment
+            # Send email to each student with QR code attachment as PNG format
             for email in email_list:
                 try:
                     # Create a new buffer for each email to avoid buffer position issues
                     email_buffer = BytesIO()
+                    # Save QR code as PNG format (not PDF) for email attachment
                     img.save(email_buffer, format="PNG")
                     email_buffer.seek(0)
                     
@@ -1667,6 +1798,7 @@ PCheck System
                         from_email=settings.DEFAULT_FROM_EMAIL,
                         to=[email],
                     )
+                    # Attach QR code as PNG image (not PDF)
                     email_msg.attach('qr_code.png', email_buffer.getvalue(), 'image/png')
                     email_msg.send()
                 except Exception as e:
@@ -1737,6 +1869,9 @@ def faculty_booking_qr_access(request, pk):
                 # Mark PC as in_use
                 pc.booking_status = 'in_use'
                 pc.save(update_fields=['booking_status'])
+                
+                # Broadcast PC status update to all users
+                broadcast_pc_status_update(pc, f"PC {pc.name} is now in use (bulk booking)")
                 
                 # Create a booking record for tracking (linked to faculty booking)
                 # Use the faculty user as the booking user, or create a system booking
@@ -1900,6 +2035,8 @@ def cancel_reservation(request):
                 if booking.pc:
                     booking.pc.booking_status = 'available'
                     booking.pc.save()
+                    # Broadcast PC status update to all users
+                    broadcast_pc_status_update(booking.pc, f"PC {booking.pc.name} is now available")
                     
                 return JsonResponse({
                     "success": True,
@@ -1910,6 +2047,9 @@ def cancel_reservation(request):
                 pc = models.PC.objects.get(pk=pc_id)
                 pc.booking_status = 'available'
                 pc.save()
+                
+                # Broadcast PC status update to all users
+                broadcast_pc_status_update(pc, f"PC {pc.name} is now available")
                 
                 # Also cancel any pending booking for this user and PC
                 booking = models.Booking.objects.filter(
@@ -2048,6 +2188,30 @@ class ReservationApprovalDetailView(StaffRequiredMixin, LoginRequiredMixin, Temp
             reservation.end_time = reservation.start_time + reservation.duration
             reservation.status = 'confirmed'
             reservation.save()
+            
+            # Broadcast PC status update to all users
+            broadcast_pc_status_update(pc, f"PC {pc.name} is now in use")
+            
+            # Send WebSocket notification to the user who made the booking
+            try:
+                channel_layer = get_channel_layer()
+                if channel_layer and reservation.user:
+                    user_group_name = f'booking_updates_{reservation.user.id}'
+                    message_data = {
+                        'type': 'booking_status_update',
+                        'booking_id': reservation.id,
+                        'status': 'confirmed',
+                        'message': f'Your reservation for {pc.name} has been approved!',
+                        'pc_name': pc.name if pc else '',
+                    }
+                    async_to_sync(channel_layer.group_send)(
+                        user_group_name,
+                        message_data
+                    )
+                    print(f"📤 Sent booking status update via WebSocket to user {reservation.user.username} (ID: {reservation.user.id})")
+            except Exception as ws_error:
+                print(f"⚠️ Error sending WebSocket notification: {ws_error}")
+                # Don't fail the request if WebSocket fails
             
             messages.success(request, f"Reservation for {pc.name} has been automatically approved!")
             return HttpResponseRedirect(reverse_lazy('main_app:dashboard'))

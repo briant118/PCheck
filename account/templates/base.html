@@ -130,11 +130,7 @@
               <div class="qr-scanner-screen">
                 <div id="qr-reader" class="qr-reader-container"></div>
                 <div class="qr-placeholder" id="qr-placeholder">
-                  <div class="qr-placeholder-icon">
-                    <i class="fa-solid fa-scanner"></i>
-                  </div>
-                  <div class="qr-placeholder-text">Physical Scanner Ready</div>
-                  <div class="qr-placeholder-subtext" style="font-size: 11px; color: #888; margin-top: 5px;">Scan QR code with device</div>
+                  <div class="qr-placeholder-text">QR code scanner</div>
                 </div>
                 <div class="qr-scanner-overlay" id="qr-overlay" style="display: none;">
                   <div class="qr-scanner-frame"></div>
@@ -149,9 +145,7 @@
                   <i class="fa-solid fa-stop"></i> <span>Stop</span>
                 </button>
                 <!-- Status indicator for physical scanner -->
-                <div class="qr-scanner-status" id="qr-scanner-device-status" style="text-align: center; padding: 8px; color: #00ff00; font-size: 12px;">
-                  <i class="fa-solid fa-check-circle"></i> Scanner Ready
-                </div>
+                <div class="qr-scanner-status" id="qr-scanner-device-status" style="display: none;"></div>
               </div>
               <div class="qr-scanner-result" id="qr-result" style="display: none;"></div>
               <!-- Hidden input for QR scanner device (USB scanner acts as keyboard) -->
@@ -252,12 +246,6 @@
                 </a>
               </li>
             </ul>
-            <div class="mobile-nav-footer">
-              <div class="mobile-nav-footer-icon">
-                <i class="fa-solid fa-display"></i>
-              </div>
-              <span class="mobile-nav-footer-text">PCheck</span>
-            </div>
           </nav>
           {% endif %}
         {% endif %}
@@ -695,6 +683,19 @@
                       // Normalize the decoded text - handle mobile URLs and various formats
                       let normalizedUrl = decodedText.trim();
                       
+                      // Fix URLs that start with :// (missing protocol)
+                      if (normalizedUrl.startsWith('://')) {
+                        // Determine protocol based on current page or default to http for local IPs
+                        const currentProtocol = window.location.protocol;
+                        // For local IPs (192.168.x.x, 10.x.x.x, 172.16-31.x.x), use http
+                        if (normalizedUrl.match(/:\/\/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)/)) {
+                          normalizedUrl = 'http' + normalizedUrl;
+                        } else {
+                          normalizedUrl = currentProtocol.replace(':', '') + normalizedUrl;
+                        }
+                        console.log('Fixed URL missing protocol:', normalizedUrl);
+                      }
+                      
                       // Remove any trailing slashes or whitespace
                       normalizedUrl = normalizedUrl.replace(/\/+$/, '');
                       
@@ -874,7 +875,22 @@
                       stopBtn.style.display = 'none';
                       
                       if (decodedText) {
-                        let normalizedUrl = decodedText.trim().replace(/\/+$/, '');
+                        let normalizedUrl = decodedText.trim();
+                        
+                        // Fix URLs that start with :// (missing protocol)
+                        if (normalizedUrl.startsWith('://')) {
+                          // Determine protocol based on current page or default to http for local IPs
+                          const currentProtocol = window.location.protocol;
+                          // For local IPs (192.168.x.x, 10.x.x.x, 172.16-31.x.x), use http
+                          if (normalizedUrl.match(/:\/\/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)/)) {
+                            normalizedUrl = 'http' + normalizedUrl;
+                          } else {
+                            normalizedUrl = currentProtocol.replace(':', '') + normalizedUrl;
+                          }
+                          console.log('Fixed URL missing protocol:', normalizedUrl);
+                        }
+                        
+                        normalizedUrl = normalizedUrl.replace(/\/+$/, '');
                         
                         if (normalizedUrl.includes('/reservation-approval/') || normalizedUrl.includes('reservation-approval')) {
                           var bookingIdMatch = normalizedUrl.match(/reservation-approval[\/\-](\d+)/i);
@@ -1064,6 +1080,19 @@
           
           // Normalize the decoded text - handle mobile URLs and various formats
           let normalizedUrl = decodedText.trim();
+          
+          // Fix URLs that start with :// (missing protocol)
+          if (normalizedUrl.startsWith('://')) {
+            // Determine protocol based on current page or default to http for local IPs
+            const currentProtocol = window.location.protocol;
+            // For local IPs (192.168.x.x, 10.x.x.x, 172.16-31.x.x), use http
+            if (normalizedUrl.match(/:\/\/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)/)) {
+              normalizedUrl = 'http' + normalizedUrl;
+            } else {
+              normalizedUrl = currentProtocol.replace(':', '') + normalizedUrl;
+            }
+            console.log('Fixed URL missing protocol:', normalizedUrl);
+          }
           
           // Remove any trailing slashes or whitespace
           normalizedUrl = normalizedUrl.replace(/\/+$/, '');

@@ -379,6 +379,102 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
   }
+  
+  // WebSocket connection for booking status updates (auto-refresh when QR is scanned)
+  (function initBookingStatusWS() {
+    var bookingWS = null;
+    var reconnectAttempts = 0;
+    var maxReconnectAttempts = 5;
+    var reconnectDelay = 3000;
+    var shouldReconnect = true;
+    
+    function connect() {
+      try {
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsPath = `${wsProtocol}//${window.location.host}/ws/booking-status/`;
+        bookingWS = new WebSocket(wsPath);
+        
+        bookingWS.onopen = function() {
+          console.log('✅ Booking status WebSocket connected');
+          reconnectAttempts = 0;
+          // Send heartbeat periodically
+          setInterval(function() {
+            if (bookingWS && bookingWS.readyState === WebSocket.OPEN) {
+              bookingWS.send(JSON.stringify({type: 'heartbeat'}));
+            }
+          }, 30000); // Every 30 seconds
+        };
+        
+        bookingWS.onmessage = function(event) {
+          try {
+            const data = JSON.parse(event.data);
+            console.log('📨 Booking status update received:', data);
+            
+            if (data.type === 'booking_status_update') {
+              if (data.status === 'confirmed') {
+                console.log('✅ Booking confirmed via QR scan! Refreshing page...');
+                
+                // Show notification if possible
+                if ('Notification' in window && Notification.permission === 'granted') {
+                  new Notification('Booking Approved!', {
+                    body: data.message || 'Your reservation has been approved!',
+                    icon: '/static/favicon.svg'
+                  });
+                }
+                
+                // Hard refresh - redirect to home page with cache-busting parameter
+                // Use a small delay to ensure the backend has processed the update
+                setTimeout(function() {
+                  // Add timestamp to force hard refresh (bypass cache)
+                  const timestamp = new Date().getTime();
+                  window.location.replace('/?_refresh=' + timestamp);
+                }, 500);
+              }
+            } else if (data.type === 'heartbeat_ack') {
+              // Heartbeat acknowledged, connection is alive
+              console.debug('💓 Booking status WebSocket heartbeat acknowledged');
+            }
+          } catch (error) {
+            console.error('❌ Error parsing booking status message:', error);
+          }
+        };
+        
+        bookingWS.onerror = function(error) {
+          console.error('❌ Booking status WebSocket error:', error);
+          if (reconnectAttempts >= maxReconnectAttempts) {
+            shouldReconnect = false;
+          }
+        };
+        
+        bookingWS.onclose = function() {
+          console.log('❌ Booking status WebSocket closed');
+          if (shouldReconnect && reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts++;
+            setTimeout(function() {
+              if (shouldReconnect) {
+                console.log(`🔄 Reconnecting booking status WebSocket (attempt ${reconnectAttempts})...`);
+                connect();
+              }
+            }, reconnectDelay);
+          }
+        };
+      } catch (error) {
+        console.error('❌ Error creating booking status WebSocket:', error);
+        // Silently fail - polling will still work
+      }
+    }
+    
+    // Connect when page loads
+    connect();
+    
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', function() {
+      shouldReconnect = false;
+      if (bookingWS) {
+        bookingWS.close();
+      }
+    });
+  })();
 });
 </script>
 {% endblock %}

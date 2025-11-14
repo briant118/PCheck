@@ -1200,15 +1200,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Update visual styling
                 pcCard.className = 'pc-list-item dashboard-pc-clickable';
-                if (newBookingStatus === 'in_use') {
-                  pcCard.classList.add('bg-success', 'text-white');
-                  pcCard.style.borderColor = '#28a745';
+                if (pcData.system_condition === 'repair') {
+                  pcCard.classList.add('bg-danger', 'text-white');
+                  pcCard.style.borderColor = '#F44336';
+                } else if (newBookingStatus === 'in_use') {
+                  pcCard.classList.add('bg-danger', 'text-white');
+                  pcCard.style.borderColor = '#FF5722';
+                  pcCard.style.backgroundColor = '#FF5722';
                 } else if (newBookingStatus === 'in_queue') {
                   pcCard.classList.add('bg-warning', 'text-dark');
-                  pcCard.style.borderColor = '#ffc107';
+                  pcCard.style.borderColor = '#FFC107';
                 } else if (pcData.status === 'connected') {
-                  pcCard.classList.add('text-success');
-                  pcCard.style.borderColor = '#28a745';
+                  pcCard.classList.add('bg-success', 'text-white');
+                  pcCard.style.borderColor = '#4caf50';
                 } else {
                   pcCard.classList.add('text-danger');
                   pcCard.style.borderColor = '#dc3545';
@@ -1217,8 +1221,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Update status badge
                 var statusIndicator = pcCard.querySelector('.pc-status-indicator');
                 if (statusIndicator) {
-                  if (newBookingStatus === 'in_use') {
-                    statusIndicator.innerHTML = '<span class="badge bg-success" style="font-size: 0.721em;">In Use</span>';
+                  if (pcData.system_condition === 'repair') {
+                    statusIndicator.innerHTML = '<span class="badge bg-danger" style="font-size: 0.721em;">Repair</span>';
+                  } else if (newBookingStatus === 'in_use') {
+                    statusIndicator.innerHTML = '<span class="badge" style="background-color: #FF5722; color: #FFFFFF; font-size: 0.721em;">In Use</span>';
                   } else if (newBookingStatus === 'in_queue') {
                     statusIndicator.innerHTML = '<span class="badge bg-warning text-dark" style="font-size: 0.721em;">Queued</span>';
                   } else if (pcData.status === 'connected') {
