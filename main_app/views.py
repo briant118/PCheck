@@ -43,6 +43,9 @@ def broadcast_pc_status_update(pc, message=""):
     try:
         channel_layer = get_channel_layer()
         if channel_layer:
+            # Refresh PC from database to ensure we have the latest status
+            pc.refresh_from_db()
+            
             # Count available PCs
             available_pcs_count = models.PC.objects.filter(
                 booking_status='available',
@@ -50,20 +53,25 @@ def broadcast_pc_status_update(pc, message=""):
                 status='connected'
             ).count()
             
+            # Get the current booking_status (should be in_queue, in_use, or available)
+            booking_status = pc.booking_status or 'available'
+            
+            print(f"📤 Broadcasting PC status update: {pc.name} -> booking_status: {booking_status}")
+            
             async_to_sync(channel_layer.group_send)(
                 'pc_status_updates',
                 {
                     'type': 'pc_status_update',
                     'pc_id': pc.id,
                     'pc_name': pc.name,
-                    'booking_status': pc.booking_status or 'available',
+                    'booking_status': booking_status,
                     'status': pc.status,
                     'system_condition': pc.system_condition,
                     'message': message,
                     'available_pcs_count': available_pcs_count,
                 }
             )
-            print(f"📤 Broadcasted PC status update: {pc.name} -> {pc.booking_status}")
+            print(f"✅ Broadcasted PC status update: {pc.name} -> {booking_status}")
     except Exception as e:
         print(f"❌ Error broadcasting PC status update: {e}")
         import traceback
@@ -288,17 +296,25 @@ def get_all_pc_status(request):
                     status__isnull=True
                 ).exclude(status='cancelled').exists()
                 if verify_pending:
-                    print(f"✅ CONFIRMED: PC {pc.name} (ID: {pc.id}) is in_queue with pending booking")
+                    print(f"✅ CONFIRMED: PC {pc.name} (ID: {pc.id}) is in_queue with pending booking - RETURNING TO USER")
                 else:
                     print(f"⚠️ WARNING: PC {pc.name} (ID: {pc.id}) status is in_queue but NO pending booking found!")
+            
+            # IMPORTANT: Always return the actual booking_status from the database
+            # Don't filter or modify it based on user permissions
+            final_booking_status = pc.booking_status or 'available'
             
             pc_statuses.append({
                 'id': pc.id,
                 'name': pc.name,
                 'status': pc.status,
                 'system_condition': pc.system_condition,
-                'booking_status': pc.booking_status
+                'booking_status': final_booking_status  # Always return the actual status
             })
+            
+            # Debug: Log if this PC is in_queue
+            if final_booking_status == 'in_queue':
+                print(f"📤 API Response: PC {pc.name} (ID: {pc.id}) -> booking_status: 'in_queue' (returning to user {request.user.username})")
         return JsonResponse({'pcs': pc_statuses})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
@@ -1070,13 +1086,12 @@ def reserve_pc(request):
                     "error": f"PC {pc.name} is already booked or in queue."
                 }, status=400)
             
-            pc.reserve()
-            
             # Convert duration (minutes) to DurationField (timedelta)
             duration_timedelta = timedelta(minutes=int(duration))
             
             print(f"Creating booking: user={request.user}, pc={pc}, duration={duration_timedelta}")
             
+            # Create the booking first
             booking = models.Booking.objects.create(
                 user=request.user,
                 pc=pc,
@@ -1086,8 +1101,49 @@ def reserve_pc(request):
             
             print(f"Booking created successfully: {booking.id}, status={booking.status}")
             
-            # Broadcast PC status update to all users
-            broadcast_pc_status_update(pc, f"PC {pc.name} is now in queue")
+            # Verify the booking status is None (pending)
+            if booking.status is None:
+                print(f"✅ Booking {booking.id} has status=None (pending/in_queue)")
+            else:
+                print(f"⚠️ WARNING: Booking {booking.id} has status={booking.status}, expected None")
+            
+            # Now set PC to in_queue AFTER booking is created
+            pc.reserve()
+            # Force save to ensure it's persisted
+            pc.save(update_fields=['booking_status'])
+            
+            # Refresh PC from database to ensure we have the latest status
+            pc.refresh_from_db()
+            
+            print(f"PC {pc.name} booking_status after reserve: {pc.booking_status}")
+            
+            # Verify PC status is in_queue
+            if pc.booking_status == 'in_queue':
+                print(f"✅ PC {pc.name} status is correctly set to in_queue")
+            else:
+                print(f"⚠️ WARNING: PC {pc.name} status is {pc.booking_status}, expected in_queue")
+                # Force it to in_queue if it's not
+                pc.booking_status = 'in_queue'
+                pc.save(update_fields=['booking_status'])
+                pc.refresh_from_db()
+                print(f"🔧 FORCED: PC {pc.name} status set to in_queue")
+            
+            # Verify there's a pending booking for this PC
+            pending_check = models.Booking.objects.filter(
+                pc=pc,
+                status__isnull=True
+            ).exclude(status='cancelled').exists()
+            
+            if pending_check:
+                print(f"✅ Verified: Pending booking exists for PC {pc.name}")
+            else:
+                print(f"⚠️ WARNING: No pending booking found for PC {pc.name} even though booking was just created!")
+            
+            # Broadcast PC status update to all users - this should show in_queue status
+            print(f"📤 Broadcasting PC status update for {pc.name} with booking_status: {pc.booking_status}")
+            # Use a fresh PC object from database to ensure we have the latest status
+            pc_fresh = models.PC.objects.get(id=pc.id)
+            broadcast_pc_status_update(pc_fresh, f"PC {pc.name} is now in queue")
             
             scheme = 'https' if request.is_secure() else 'http'
             host = request.get_host()

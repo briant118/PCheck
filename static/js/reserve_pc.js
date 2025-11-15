@@ -133,17 +133,17 @@ function initReservePC() {
   });
 
   $("#minusBtn").click(function () {
-    var currentTime = $("#durationInput").val() || '00:30:00';
+    var currentTime = $("#durationInput").val() || '00:05:00';
     var currentSeconds = timeToSeconds(currentTime);
-    if (currentSeconds > 1800) { // Only allow if above 30 minutes
-      var newSeconds = Math.max(currentSeconds - 300, 1800); // Subtract 5 minutes (300 seconds), min 30 minutes (1800 seconds)
+    if (currentSeconds > 300) { // Only allow if above 5 minutes (to prevent going to 0)
+      var newSeconds = Math.max(currentSeconds - 300, 300); // Subtract 5 minutes (300 seconds), min 5 minutes (300 seconds)
       var newTime = secondsToTime(newSeconds);
       $("#durationInput").val(newTime);
     }
     if (currentSeconds < 10800) {
       $("#plusBtn").prop("disabled", false);
     }
-    if (currentSeconds <= 1800) { // Disable if at minimum (30 minutes)
+    if (currentSeconds <= 300) { // Disable if at minimum (5 minutes)
       $(this).prop("disabled", true);
     }
   });
@@ -418,36 +418,19 @@ function initReservePC() {
       return;
     }
     
-    // Check if time is below 30 minutes
-    var totalSeconds = timeToSeconds(timeValue);
-    if (totalSeconds < 1800) { // 30 minutes = 1800 seconds
-      alert("Minimum booking duration is 30 minutes (00:30:00).");
-      return;
-    }
-    
     // Check if time exceeds 3 hours
+    var totalSeconds = timeToSeconds(timeValue);
     if (totalSeconds > 10800) { // 3 hours = 10800 seconds
       alert("Maximum booking duration is 3 hours (03:00:00).");
       return;
     }
     
-      // Check current time - booking only available from 7am to 7pm
-      var now = new Date();
-      var currentHour = now.getHours();
-      if (currentHour < 7 || currentHour >= 19) {
-        if (typeof window.showCustomAlert === 'function') {
-          window.showCustomAlert("PC booking is only available from 7:00 AM to 7:00 PM.", now.toLocaleTimeString());
-        } else {
-          alert("PC booking is only available from 7:00 AM to 7:00 PM.\n\nCurrent time: " + now.toLocaleTimeString());
-        }
-        return;
-      }
-    
     // Convert time to minutes for backend
     var duration = timeToMinutes(timeValue);
     
-    if (duration < 30) {
-      alert("Please enter a valid duration (minimum 30 minutes).");
+    // Check if duration is valid (greater than 0)
+    if (duration <= 0) {
+      alert("Please enter a valid duration (must be greater than 0).");
       return;
     }
 

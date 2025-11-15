@@ -1449,11 +1449,10 @@ window.decrementCustomPc = function() {
             <div class="modal-body text-center">
               <div class="input-group justify-content-center" style="max-width:300px; margin:auto;">
                 <button class="btn btn-outline-secondary" type="button" id="minusBtn">−</button>
-                <input type="text" id="durationInput" class="form-control text-center" value="00:30:00" pattern="^([0-1][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$" placeholder="00:00:00" maxlength="8">
+                <input type="text" id="durationInput" class="form-control text-center" value="00:05:00" pattern="^([0-1][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$" placeholder="00:00:00" maxlength="8">
                 <button class="btn btn-outline-secondary" type="button" id="plusBtn">+</button>
               </div>
-              <small class="text-muted">Time format: HH:MM:SS (Minimum 00:30:00, Maximum 03:00:00)</small>
-              <P class="mark" style="font-size: xx-small;">Note: PC booking is only available from 7:00 AM to 7:00 PM</P>
+              <small class="text-muted">Time format: HH:MM:SS (Maximum 03:00:00)</small>
             </div>
             <div class="modal-footer">
               <input type="number" name="" id="pc_id" hidden>
@@ -2859,11 +2858,11 @@ document.addEventListener('DOMContentLoaded', function() {
             seconds = 0;
           }
           
-          // Ensure minimum is 30 minutes
-          if (totalSeconds < 1800) {
-            totalSeconds = 1800;
+          // Ensure minimum is 1 minute (60 seconds) to prevent 0 duration
+          if (totalSeconds < 60) {
+            totalSeconds = 60;
             hours = 0;
-            minutes = 30;
+            minutes = 1;
             seconds = 0;
           }
           
@@ -2871,8 +2870,8 @@ document.addEventListener('DOMContentLoaded', function() {
                       String(minutes).padStart(2, '0') + ':' + 
                       String(seconds).padStart(2, '0');
         } else {
-          // If format is wrong, reset to default (30 minutes)
-          this.value = '00:30:00';
+          // If format is wrong, reset to default (5 minutes)
+          this.value = '00:05:00';
         }
       }
     });
@@ -2904,15 +2903,15 @@ document.addEventListener('DOMContentLoaded', function() {
   
   if (minusBtn && durationInput) {
     minusBtn.addEventListener('click', function() {
-      var currentTime = durationInput.value || '00:30:00';
+      var currentTime = durationInput.value || '00:05:00';
       var currentSeconds = timeToSeconds(currentTime);
-      var newSeconds = Math.max(currentSeconds - 300, 1800); // Subtract 5 minutes (300 seconds), min 30 minutes (1800 seconds)
+      var newSeconds = Math.max(currentSeconds - 300, 300); // Subtract 5 minutes (300 seconds), min 5 minutes (300 seconds)
       var newTime = secondsToTime(newSeconds);
       durationInput.value = newTime;
       console.log('Duration decreased to:', newTime);
       
-      // Disable minus button if at min (30 minutes)
-      if (newSeconds <= 1800) {
+      // Disable minus button if at min (5 minutes)
+      if (newSeconds <= 300) {
         minusBtn.disabled = true;
       }
       // Enable plus button
@@ -2936,32 +2935,19 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
       }
       
-      // Check if time is below 30 minutes
-      var totalSeconds = timeToSeconds(timeValue);
-      if (totalSeconds < 1800) { // 30 minutes = 1800 seconds
-        alert("Minimum booking duration is 30 minutes (00:30:00).");
-        return;
-      }
-      
       // Check if time exceeds 3 hours
+      var totalSeconds = timeToSeconds(timeValue);
       if (totalSeconds > 10800) { // 3 hours = 10800 seconds
         alert("Maximum booking duration is 3 hours (03:00:00).");
-        return;
-      }
-      
-      // Check current time - booking only available from 7am to 7pm
-      var now = new Date();
-      var currentHour = now.getHours();
-      if (currentHour < 7 || currentHour >= 19) {
-        window.showCustomAlert("PC booking is only available from 7:00 AM to 7:00 PM.", now.toLocaleTimeString());
         return;
       }
       
       // Convert time to minutes for backend
       var duration = timeToMinutes(timeValue);
       
-      if (duration < 30) {
-        alert("Please enter a valid duration (minimum 30 minutes).");
+      // Check if duration is valid (greater than 0)
+      if (duration <= 0) {
+        alert("Please enter a valid duration (must be greater than 0).");
         return;
       }
       
@@ -4484,9 +4470,25 @@ document.addEventListener('DOMContentLoaded', function() {
   // Auto-refresh PC status every 2 seconds to show real-time updates
   function refreshPCStatusForReservation() {
     fetch('/ajax/get-all-pc-status/')
-      .then(response => response.json())
+      .then(response => {
+        if (!response.ok) {
+          console.error('❌ Polling: Failed to fetch PC status. Status:', response.status);
+          return;
+        }
+        return response.json();
+      })
       .then(data => {
-        if (data.pcs) {
+        if (!data || !data.pcs) {
+          console.warn('⚠️ Polling: No PC data received');
+          return;
+        }
+        
+        // Debug: Log all in_queue PCs
+        var inQueuePCs = data.pcs.filter(function(pc) { return pc.booking_status === 'in_queue'; });
+        if (inQueuePCs.length > 0) {
+          console.log('🟡 Polling: Found', inQueuePCs.length, 'PC(s) in_queue:', inQueuePCs.map(function(pc) { return pc.name; }));
+        }
+          
           data.pcs.forEach(function(pcData) {
             // Find the PC button by data-pc-id
             var pcButton = document.querySelector('.pc-button-modern[data-pc-id="' + pcData.id + '"]');
@@ -4496,7 +4498,7 @@ document.addEventListener('DOMContentLoaded', function() {
               
               // Debug logging for queue status
               if (newBookingStatus === 'in_queue') {
-                console.log('🔵 Server returned in_queue for PC:', pcData.name, 'PC ID:', pcData.id, 'Old status:', oldBookingStatus);
+                console.log('🔵 Polling: Server returned in_queue for PC:', pcData.name, 'PC ID:', pcData.id, 'Old status:', oldBookingStatus);
               }
               
               // Always update data attributes to ensure they're current
@@ -4570,10 +4572,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 };
               } else if (newBookingStatus === 'in_queue') {
                 // PC is in queue - show yellow color for ALL users
-                console.log('🟡 Setting PC', pcData.name, '(ID:', pcData.id, ') to in_queue (yellow) for ALL users');
+                console.log('🟡 Polling: Setting PC', pcData.name, '(ID:', pcData.id, ') to in_queue (yellow) for ALL users');
                 
                 // CRITICAL: Remove ALL status classes first - be very aggressive
-                pcButton.classList.remove('pc-available', 'pc-used', 'pc-selected', 'selected', 'text-success', 'bg-success', 'bg-warning', 'bg-danger');
+                pcButton.classList.remove('pc-available', 'pc-used', 'pc-selected', 'selected', 'text-success', 'bg-success', 'bg-warning', 'bg-danger', 'pc-repair', 'pc-offline');
                 
                 // Add queue class
                 pcButton.classList.add('pc-queue');
@@ -4593,6 +4595,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Remove any conflicting inline styles
                 pcButton.style.removeProperty('color');
+                
+                // Verify the change was applied
+                var appliedStatus = pcButton.getAttribute('data-booking-status');
+                var hasQueueClass = pcButton.classList.contains('pc-queue');
+                console.log('   ✅ Applied in_queue status. data-booking-status:', appliedStatus, 'has pc-queue class:', hasQueueClass);
                 
                 // Also update icon and text colors - be very explicit
                 var iconEl = pcButton.querySelector('.pc-icon-modern');
@@ -4821,7 +4828,9 @@ document.addEventListener('DOMContentLoaded', function() {
       pcStatusWebSocket = new WebSocket(wsUrl);
       
       pcStatusWebSocket.onopen = function() {
-        console.log('✅ PC Status WebSocket connected');
+        console.log('✅ PC Status WebSocket connected for user');
+        console.log('   WebSocket URL:', wsUrl);
+        console.log('   Ready to receive real-time PC status updates');
         // Clear reconnect interval if connection is successful
         if (pcStatusReconnectInterval) {
           clearInterval(pcStatusReconnectInterval);
@@ -4839,10 +4848,12 @@ document.addEventListener('DOMContentLoaded', function() {
           
           if (data.type === 'pc_status_update') {
             console.log('📥 Received PC status update:', data);
+            console.log('   PC ID:', data.pc_id, 'PC Name:', data.pc_name, 'Booking Status:', data.booking_status);
             
             // Find the PC button by data-pc-id
             var pcButton = document.querySelector('.pc-button-modern[data-pc-id="' + data.pc_id + '"]');
             if (pcButton) {
+              console.log('   ✅ Found PC button for', data.pc_name);
               // Update data attributes
               pcButton.setAttribute('data-booking-status', data.booking_status || 'available');
               pcButton.setAttribute('data-pc-status', data.status || 'connected');
@@ -4859,10 +4870,30 @@ document.addEventListener('DOMContentLoaded', function() {
               } else if (data.booking_status === 'in_use') {
                 pcButton.classList.add('pc-used');
               } else if (data.booking_status === 'in_queue') {
+                // PC is in queue - show yellow color for ALL users
+                console.log('🟡 WebSocket: Setting PC', data.pc_name, '(ID:', data.pc_id, ') to in_queue (yellow)');
+                
+                // CRITICAL: Remove ALL status classes first - be very aggressive
+                pcButton.classList.remove('pc-available', 'pc-used', 'pc-selected', 'selected', 'text-success', 'bg-success', 'bg-warning', 'bg-danger');
+                
+                // Add queue class
                 pcButton.classList.add('pc-queue');
-                // Set yellow color for queue status
+                
+                // Force yellow color with inline styles - use multiple methods to ensure it sticks
+                // Method 1: setProperty with important
+                pcButton.style.setProperty('background-color', '#FFF9C4', 'important');
+                pcButton.style.setProperty('border-color', '#FFC107', 'important');
+                pcButton.style.setProperty('border-width', '2px', 'important');
+                pcButton.style.setProperty('border-style', 'solid', 'important');
+                
+                // Method 2: Also set directly as fallback
                 pcButton.style.backgroundColor = '#FFF9C4';
                 pcButton.style.borderColor = '#FFC107';
+                pcButton.style.borderWidth = '2px';
+                pcButton.style.borderStyle = 'solid';
+                
+                // Remove any conflicting inline styles
+                pcButton.style.removeProperty('color');
               } else {
                 pcButton.classList.add('pc-available');
                 // Remove inline styles for available status
@@ -4921,17 +4952,20 @@ document.addEventListener('DOMContentLoaded', function() {
     connectPCStatusWebSocket();
   }
   
-  // Refresh PC status every 5 seconds as fallback (less frequent since WebSocket handles real-time)
-  setInterval(refreshPCStatusForReservation, 5000);
+  // Refresh PC status every 2 seconds as fallback (WebSocket is primary, but polling ensures updates)
+  // Use 2 seconds instead of 5 to catch in_queue status faster for all users
+  setInterval(refreshPCStatusForReservation, 2000);
   
   // Also refresh immediately on page load - multiple times to catch any missed updates
   // This is critical for other users who load the page after a booking is created
+  console.log('🔄 Starting immediate PC status refresh (will run multiple times on page load)');
+  refreshPCStatusForReservation();
   setTimeout(refreshPCStatusForReservation, 100);
   setTimeout(refreshPCStatusForReservation, 500);
   setTimeout(refreshPCStatusForReservation, 1000);
   setTimeout(refreshPCStatusForReservation, 2000);
   
-  console.log('✅ PC status refresh started - WebSocket for real-time updates, polling every 5 seconds as fallback');
+  console.log('✅ PC status refresh started - WebSocket for real-time updates, polling every 2 seconds as fallback');
   
   // Also check when page becomes visible (user switches tabs back)
   document.addEventListener('visibilitychange', function() {

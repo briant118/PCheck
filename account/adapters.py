@@ -127,8 +127,23 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
     
     def authentication_error(self, request, provider_id, error=None, exception=None, extra_context=None):
         """Handle authentication errors"""
-        # Redirect to login on error
+        from django.contrib import messages
         from django.shortcuts import redirect
+        
+        # Check if error is related to private IP
+        error_str = str(error) if error else ''
+        exception_str = str(exception) if exception else ''
+        
+        if 'device_id' in error_str or 'device_id' in exception_str or 'private IP' in error_str or 'private IP' in exception_str:
+            # Get the current host
+            current_host = request.get_host()
+            messages.error(
+                request,
+                f'Google OAuth requires the redirect URI to be registered in Google Cloud Console. '
+                f'Please add this redirect URI: http://{current_host}/accounts/google/login/callback/ '
+                f'to your Google OAuth credentials. See GOOGLE_AUTH_SETUP.md for instructions.'
+            )
+        
         return redirect('account:login')
     
     def get_signup_redirect_url(self, request):

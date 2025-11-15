@@ -27,10 +27,12 @@ This will install `django-allauth==0.62.0` which handles Google authentication.
    - Go to "APIs & Services" > "Credentials"
    - Click "Create Credentials" > "OAuth client ID"
    - Choose "Web application"
-   - Add authorized redirect URIs:
-     - `http://127.0.0.1:8000/accounts/google/login/callback/` (development)
-     - `http://localhost:8000/accounts/google/login/callback/` (development)
-     - `https://yourdomain.com/accounts/google/login/callback/` (production)
+  - Add authorized redirect URIs:
+    - `http://127.0.0.1:8000/accounts/google/login/callback/` (development)
+    - `http://localhost:8000/accounts/google/login/callback/` (development)
+    - `http://10.163.251.178:8000/accounts/google/login/callback/` (private IP - replace with your actual IP)
+    - `http://192.168.x.x:8000/accounts/google/login/callback/` (local network IP - replace x.x with your actual IP)
+    - `https://yourdomain.com/accounts/google/login/callback/` (production)
    - Click "Create"
    - Copy the **Client ID** and **Client Secret**
 
@@ -137,6 +139,31 @@ This will create the necessary database tables for django-allauth.
 ### Profile not created
 - Check Django signals in `account/signals.py`
 - Verify the `save_user` method in `CustomSocialAccountAdapter`
+
+### "device_id and device_name are required for private IP" error
+This error occurs when accessing Google OAuth from a private IP address (like `10.163.251.178` or `192.168.x.x`).
+
+**Solution:**
+1. **Add your private IP redirect URI to Google Cloud Console:**
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Navigate to "APIs & Services" > "Credentials"
+   - Click on your OAuth 2.0 Client ID
+   - Under "Authorized redirect URIs", add:
+     - `http://YOUR_PRIVATE_IP:8000/accounts/google/login/callback/`
+     - Replace `YOUR_PRIVATE_IP` with your actual private IP (e.g., `10.163.251.178`)
+   - Click "Save"
+
+2. **Find your private IP address:**
+   - Windows: Run `ipconfig` in Command Prompt and look for "IPv4 Address"
+   - The IP shown in the error message is your private IP (e.g., `10.163.251.178`)
+
+3. **Important:** You must add the exact redirect URI including:
+   - The protocol (`http://` or `https://`)
+   - The full IP address and port
+   - The complete callback path: `/accounts/google/login/callback/`
+   - The trailing slash is required
+
+**Note:** If you're accessing from multiple private IPs (different networks), you'll need to add each one separately to Google Cloud Console.
 
 ## Production Considerations
 

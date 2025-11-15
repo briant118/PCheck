@@ -1512,12 +1512,26 @@
               }
             };
             
+            // Audio file path for peripheral removal alert
+            var peripheralRemovedAudioPath = '{% static "audio/peripheral_removed.mp3" %}';
+            
             ws.onmessage = function(evt){
               try {
                 var data = JSON.parse(evt.data);
                 
                 // Check if it's a peripheral removal event
                 if (data.type === 'alert' && data.payload && data.payload.action === 'removed') {
+                  // Play audio alert for peripheral removal
+                  try {
+                    var audio = new Audio(peripheralRemovedAudioPath);
+                    audio.volume = 0.7; // Set volume to 70%
+                    audio.play().catch(function(error) {
+                      console.log('Audio play failed (may require user interaction):', error);
+                    });
+                  } catch(e) {
+                    console.error('Error playing audio:', e);
+                  }
+                  
                   // Add to warning list
                   addWarningToList(data);
                   updateWarningBadge();
