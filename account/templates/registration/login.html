@@ -255,6 +255,116 @@
     min-height: auto;
   }
 
+  /* Forgot Password Form - Make scrollable */
+  #forgotPasswordForm {
+    max-height: calc(100vh - 200px);
+    max-height: calc(100dvh - 200px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 0.5rem;
+  }
+  
+  /* Custom scrollbar for forgot password form */
+  #forgotPasswordForm::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  #forgotPasswordForm::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+  }
+  
+  #forgotPasswordForm::-webkit-scrollbar-thumb {
+    background: #ff9800;
+    border-radius: 10px;
+  }
+  
+  #forgotPasswordForm::-webkit-scrollbar-thumb:hover {
+    background: #ff5722;
+  }
+
+  /* Circle Loading Animation */
+  .circle-loader {
+    display: inline-block;
+    width: 30px;
+    height: 30px;
+    border: 4px solid rgba(255, 152, 0, 0.2);
+    border-top: 4px solid #ff9800;
+    border-right: 4px solid #ff9800;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto;
+    box-sizing: border-box;
+  }
+
+  @keyframes spin {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  #loadingAnimation {
+    min-height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 0;
+  }
+
+  /* Toast Notification */
+  .toast-notification {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10000;
+    animation: slideDown 0.3s ease-out;
+  }
+
+  .toast-content {
+    background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+    color: #ffffff;
+    padding: 16px 24px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    font-size: 0.95rem;
+    font-weight: 500;
+    min-width: 300px;
+    max-width: 90%;
+    text-align: center;
+    word-wrap: break-word;
+  }
+
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateX(-50%) translateY(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateX(-50%) translateY(-20px);
+    }
+  }
+
+  .toast-notification.hiding {
+    animation: slideUp 0.3s ease-out forwards;
+  }
+
+
   .form-label {
     color: #212529;
     font-weight: 600;
@@ -846,17 +956,18 @@
     <div class="card login-card">
     <div class="text-center card-body login-header">
       <div class="w-100">
-        <h1 class="login-title mb-3">Login to PCHECK</h1>
+        <h1 id="loginHeaderTitle" class="login-title mb-3">Login to PCHECK</h1>
       </div>
     </div>
     <div class="form-section login-form">
       {% if form.errors %}
-      <p class="text-danger">
-        Your username and password didn't match.
-        Please try again.
-      </p>
+      <div id="loginErrorToast" class="toast-notification" style="display: none;">
+        <div class="toast-content" style="background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);">
+          <span>Your username and password didn't match. Please try again.</span>
+        </div>
+      </div>
       {% endif %}
-      <form action="{% url 'account:login' %}" method="post">
+      <form id="loginForm" action="{% url 'account:login' %}" method="post">
         <label class="form-label fw-semibold">Email</label>
         <div class="input-group mb-3">
           <input type="text" name="username" class="form-control" placeholder="Your school ID" aria-label="School ID" required>
@@ -870,7 +981,7 @@
               <i class="fa-solid fa-eye" id="passwordToggleIcon"></i>
             </button>
           </div>
-          <a class="btn btn-link p-0 mt-1" href="{% url 'account:password_reset' %}">
+          <a class="btn btn-link p-0 mt-1" href="#" id="forgotPasswordLink" style="cursor: pointer;">
             forgot password?
           </a>
         </div>
@@ -888,8 +999,73 @@
         </div>
       </form>
       
+      <!-- Forgot Password Form -->
+      <form id="forgotPasswordForm" method="post" action="{% url 'account:change_password' %}" style="display: none;">
+        {% csrf_token %}
+        <div>
+          <h3>Change Password</h3>
+          <p id="forgotPasswordDescription">Enter your email to receive an OTP verification code.</p>
+        </div>
+        
+        <!-- Step 1: Email -->
+        <div class="form-group mb-3" id="emailSection">
+          <label for="id_email">Email:</label>
+          <input type="email" name="email" id="id_email" class="form-control" required>
+        </div>
+        
+        <!-- Step 2: OTP (shown after email is sent) -->
+        <div id="otpSection" style="display: none;">
+          <div class="form-group mb-3">
+            <label for="otp_code" class="form-label">Enter OTP Code</label>
+            <input type="text" name="otp_code" id="otp_code" class="form-control" maxlength="6" placeholder="6-digit code">
+            <small class="text-muted">Check your email for the OTP code</small>
+          </div>
+        </div>
+        
+        <!-- Step 3: Password fields (shown after OTP is verified) -->
+        <div id="passwordSection" style="display: none;">
+          <div class="form-group mb-3">
+            <label for="new_password" class="form-label">New Password</label>
+            <div class="input-group">
+              <input type="password" name="new_password" id="new_password" class="form-control">
+              <button type="button" class="input-group-text" id="toggleNewPassword" style="cursor: pointer; border: none;">
+                <i class="fa-solid fa-eye" id="newPasswordToggleIcon"></i>
+              </button>
+            </div>
+          </div>
+          <div class="form-group mb-3">
+            <label for="retype_password" class="form-label">Retype New Password</label>
+            <div class="input-group">
+              <input type="password" name="retype_password" id="retype_password" class="form-control">
+              <button type="button" class="input-group-text" id="toggleRetypePassword" style="cursor: pointer; border: none;">
+                <i class="fa-solid fa-eye" id="retypePasswordToggleIcon"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <div id="changePasswordErrors" class="text-danger mb-3" style="display: none;"></div>
+        
+        <!-- Toast Notification -->
+        <div id="toastNotification" class="toast-notification" style="display: none;">
+          <div class="toast-content">
+            <span id="toastMessage"></span>
+          </div>
+        </div>
+        
+        <div>
+          <button type="submit" id="changePasswordSubmit" class="btn btn-warning btn-submit">Send OTP</button>
+          <div id="loadingAnimation" style="display: none; text-align: center; padding: 10px;">
+            <div class="circle-loader"></div>
+          </div>
+        </div>
+        <div>
+          <a href="#" id="backToLoginLink" class="btn btn-link p-0 mt-2" style="cursor: pointer;">Back to login</a>
+        </div>
+      </form>
+      
       <!-- Google Sign-In -->
-      <div class="mt-4">
+      <div id="googleSignInSection" class="mt-4">
         <div class="or-divider"><span>OR</span></div>
         <a href="/accounts/google/login/" class="btn google-signin-btn">
           <svg width="20" height="20" viewBox="0 0 24 24">
@@ -913,6 +1089,67 @@
 {% block scripts %}
 <script>
   document.addEventListener('DOMContentLoaded', function() {
+    // Function to show toast notification
+    function showToast(message, type) {
+      const toast = document.getElementById('toastNotification');
+      const toastMessage = document.getElementById('toastMessage');
+      
+      if (!toast || !toastMessage) return;
+      
+      // Set message
+      toastMessage.textContent = message;
+      
+      // Set type (success, error, etc.)
+      const toastContent = toast.querySelector('.toast-content');
+      if (toastContent) {
+        if (type === 'success') {
+          toastContent.style.background = 'linear-gradient(135deg, #4caf50 0%, #45a049 100%)';
+        } else if (type === 'error') {
+          toastContent.style.background = 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)';
+        }
+      }
+      
+      // Show toast
+      toast.style.display = 'block';
+      toast.classList.remove('hiding');
+      
+      // Hide after 2 seconds
+      setTimeout(function() {
+        toast.classList.add('hiding');
+        setTimeout(function() {
+          toast.style.display = 'none';
+          toast.classList.remove('hiding');
+        }, 300); // Wait for animation to complete
+      }, 2000);
+    }
+    
+    // Function to show error toast (wrapper for convenience)
+    function showErrorToast(message) {
+      showToast(message, 'error');
+    }
+    
+    // Show login error toast if form has errors
+    const loginErrorToast = document.getElementById('loginErrorToast');
+    if (loginErrorToast) {
+      const toastContent = loginErrorToast.querySelector('.toast-content');
+      const toastMessage = toastContent ? toastContent.querySelector('span') : null;
+      
+      if (toastMessage) {
+        // Show toast
+        loginErrorToast.style.display = 'block';
+        loginErrorToast.classList.remove('hiding');
+        
+        // Hide after 3 seconds
+        setTimeout(function() {
+          loginErrorToast.classList.add('hiding');
+          setTimeout(function() {
+            loginErrorToast.style.display = 'none';
+            loginErrorToast.classList.remove('hiding');
+          }, 300); // Wait for animation to complete
+        }, 3000); // 3 seconds
+      }
+    }
+    
     const togglePassword = document.getElementById('togglePassword');
     const passwordInput = document.getElementById('password');
     const passwordToggleIcon = document.getElementById('passwordToggleIcon');
@@ -930,6 +1167,385 @@
         }
       });
     }
+
+    // Toggle for New Password
+    const toggleNewPassword = document.getElementById('toggleNewPassword');
+    const newPasswordInput = document.getElementById('new_password');
+    const newPasswordToggleIcon = document.getElementById('newPasswordToggleIcon');
+    
+    if (toggleNewPassword && newPasswordInput && newPasswordToggleIcon) {
+      toggleNewPassword.addEventListener('click', function() {
+        if (newPasswordInput.type === 'password') {
+          newPasswordInput.type = 'text';
+          newPasswordToggleIcon.classList.remove('fa-eye');
+          newPasswordToggleIcon.classList.add('fa-eye-slash');
+        } else {
+          newPasswordInput.type = 'password';
+          newPasswordToggleIcon.classList.remove('fa-eye-slash');
+          newPasswordToggleIcon.classList.add('fa-eye');
+        }
+      });
+    }
+
+    // Toggle for Retype Password
+    const toggleRetypePassword = document.getElementById('toggleRetypePassword');
+    const retypePasswordInput = document.getElementById('retype_password');
+    const retypePasswordToggleIcon = document.getElementById('retypePasswordToggleIcon');
+    
+    if (toggleRetypePassword && retypePasswordInput && retypePasswordToggleIcon) {
+      toggleRetypePassword.addEventListener('click', function() {
+        if (retypePasswordInput.type === 'password') {
+          retypePasswordInput.type = 'text';
+          retypePasswordToggleIcon.classList.remove('fa-eye');
+          retypePasswordToggleIcon.classList.add('fa-eye-slash');
+        } else {
+          retypePasswordInput.type = 'password';
+          retypePasswordToggleIcon.classList.remove('fa-eye-slash');
+          retypePasswordToggleIcon.classList.add('fa-eye');
+        }
+      });
+    }
+
+    // Forgot password form toggle
+    const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+    const forgotPasswordForm = document.getElementById('forgotPasswordForm');
+    const loginForm = document.getElementById('loginForm');
+    const backToLoginLink = document.getElementById('backToLoginLink');
+    const googleSignInSection = document.getElementById('googleSignInSection');
+    const loginHeaderTitle = document.getElementById('loginHeaderTitle');
+    
+    if (forgotPasswordLink && forgotPasswordForm && loginForm) {
+      forgotPasswordLink.addEventListener('click', function(e) {
+        e.preventDefault();
+        loginForm.style.display = 'none';
+        if (googleSignInSection) googleSignInSection.style.display = 'none';
+        forgotPasswordForm.style.display = 'block';
+        if (loginHeaderTitle) loginHeaderTitle.textContent = 'Forgot Password';
+        // Reset form state and show only email
+        forgotPasswordForm.reset();
+        document.getElementById('emailSection').style.display = 'block';
+        document.getElementById('otpSection').style.display = 'none';
+        document.getElementById('passwordSection').style.display = 'none';
+        document.getElementById('changePasswordSubmit').textContent = 'Send OTP';
+        // Update required fields based on visibility
+        updateRequiredFields();
+      });
+    }
+    
+    // Function to update required attributes based on visibility
+    function updateRequiredFields() {
+      const emailInput = document.getElementById('id_email');
+      const otpInput = document.getElementById('otp_code');
+      const newPasswordInput = document.getElementById('new_password');
+      const retypePasswordInput = document.getElementById('retype_password');
+      const emailSection = document.getElementById('emailSection');
+      const otpSection = document.getElementById('otpSection');
+      const passwordSection = document.getElementById('passwordSection');
+      
+      // Check visibility using computed styles
+      const isEmailVisible = emailSection && window.getComputedStyle(emailSection).display !== 'none';
+      const isOtpVisible = otpSection && window.getComputedStyle(otpSection).display !== 'none';
+      const isPasswordVisible = passwordSection && window.getComputedStyle(passwordSection).display !== 'none';
+      
+      // Set required based on visibility
+      if (emailInput) {
+        emailInput.required = isEmailVisible;
+      }
+      if (otpInput) {
+        otpInput.required = isOtpVisible;
+      }
+      if (newPasswordInput) {
+        newPasswordInput.required = isPasswordVisible;
+      }
+      if (retypePasswordInput) {
+        retypePasswordInput.required = isPasswordVisible;
+      }
+    }
+    
+    if (backToLoginLink && forgotPasswordForm && loginForm) {
+      backToLoginLink.addEventListener('click', function(e) {
+        e.preventDefault();
+        forgotPasswordForm.style.display = 'none';
+        loginForm.style.display = 'block';
+        if (googleSignInSection) googleSignInSection.style.display = 'block';
+        if (loginHeaderTitle) loginHeaderTitle.textContent = 'Login to PCHECK';
+        // Reset form
+        forgotPasswordForm.reset();
+        document.getElementById('otpSection').style.display = 'none';
+        document.getElementById('passwordSection').style.display = 'none';
+        document.getElementById('changePasswordErrors').style.display = 'none';
+        const submitBtn = document.getElementById('changePasswordSubmit');
+        if (submitBtn) submitBtn.textContent = 'Send OTP';
+        // Show email field again
+        const emailSection = document.getElementById('emailSection');
+        if (emailSection) emailSection.style.display = 'block';
+        const descriptionText = document.getElementById('forgotPasswordDescription');
+        if (descriptionText) descriptionText.textContent = 'Enter your email to receive an OTP verification code.';
+        // Update required fields
+        updateRequiredFields();
+      });
+    }
+
+    // Handle password change form submission
+    if (forgotPasswordForm) {
+      forgotPasswordForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const errorDiv = document.getElementById('changePasswordErrors');
+        const otpSection = document.getElementById('otpSection');
+        const passwordSection = document.getElementById('passwordSection');
+        const submitBtn = document.getElementById('changePasswordSubmit');
+        const loadingAnimation = document.getElementById('loadingAnimation');
+        const descriptionText = document.getElementById('forgotPasswordDescription');
+        const emailInput = document.getElementById('id_email');
+        const otpInput = document.getElementById('otp_code');
+        const newPasswordInput = document.getElementById('new_password');
+        const retypePasswordInput = document.getElementById('retype_password');
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+        
+        // Clear previous errors
+        errorDiv.style.display = 'none';
+        errorDiv.textContent = '';
+        
+        // Hide button and show loading animation
+        if (submitBtn) {
+          submitBtn.style.display = 'none';
+        }
+        if (loadingAnimation) {
+          loadingAnimation.style.display = 'block';
+        }
+        
+        if (!csrfToken) {
+          // Restore button state
+          if (submitBtn) submitBtn.style.display = 'block';
+          if (loadingAnimation) loadingAnimation.style.display = 'none';
+          showErrorToast('CSRF token not found. Please refresh the page.');
+          return;
+        }
+        
+        // Check which sections are visible (check computed style for accurate visibility)
+        let isOtpSectionVisible = false;
+        let isPasswordSectionVisible = false;
+        
+        if (otpSection) {
+          const otpDisplay = window.getComputedStyle(otpSection).display;
+          isOtpSectionVisible = otpDisplay !== 'none';
+        }
+        
+        if (passwordSection) {
+          const passwordDisplay = window.getComputedStyle(passwordSection).display;
+          isPasswordSectionVisible = passwordDisplay !== 'none';
+        }
+        
+        // Determine which step we're on based on visibility and field values
+        const email = emailInput ? emailInput.value.trim() : '';
+        const otp = otpInput ? otpInput.value.trim() : '';
+        const newPassword = newPasswordInput ? newPasswordInput.value.trim() : '';
+        const retypePassword = retypePasswordInput ? retypePasswordInput.value.trim() : '';
+        
+        // Create form data and only include visible/relevant fields
+        const formData = new FormData();
+        
+        // Always include email and CSRF token
+        if (email) {
+          formData.append('email', email);
+        }
+        formData.append('csrfmiddlewaretoken', csrfToken.value);
+        
+        // Validate email is always required
+        if (!email) {
+          // Restore button state
+          if (submitBtn) submitBtn.style.display = 'block';
+          if (loadingAnimation) loadingAnimation.style.display = 'none';
+          showErrorToast('Email is required.');
+          return;
+        }
+        
+        // Determine step based on field values and visibility (prioritize explicit checks)
+        // Step 1: Send OTP (email provided, OTP section not visible, no OTP entered, no password)
+        if (email && !isOtpSectionVisible && !isPasswordSectionVisible && (!otp || otp.length === 0) && (!newPassword || newPassword.length === 0)) {
+          formData.append('action', 'send_otp');
+        }
+        // Step 2: Verify OTP (OTP section visible, OTP provided, password section not visible, no password)
+        else if (isOtpSectionVisible && otp && otp.length > 0 && !isPasswordSectionVisible && (!newPassword || newPassword.length === 0)) {
+          // Include OTP for verification - DO NOT include password fields
+          formData.append('otp_code', otp);
+          formData.append('action', 'verify_otp');
+        }
+        // Step 3: Change password - if password section is visible AND passwords are provided
+        else if (isPasswordSectionVisible && newPassword && newPassword.length > 0 && retypePassword && retypePassword.length > 0) {
+          // Include OTP and passwords for password change
+          if (otp) {
+            formData.append('otp_code', otp);
+          }
+          formData.append('new_password', newPassword);
+          formData.append('retype_password', retypePassword);
+          // Validate OTP is still required
+          if (!email) {
+            // Restore button state
+            if (submitBtn) submitBtn.style.display = 'block';
+            if (loadingAnimation) loadingAnimation.style.display = 'none';
+            showErrorToast('Email is required.');
+            return;
+          }
+          if (!otp) {
+            // Restore button state
+            if (submitBtn) submitBtn.style.display = 'block';
+            if (loadingAnimation) loadingAnimation.style.display = 'none';
+            showErrorToast('OTP code is required.');
+            return;
+          }
+          // Validate passwords
+          if (!newPassword) {
+            // Restore button state
+            if (submitBtn) submitBtn.style.display = 'block';
+            if (loadingAnimation) loadingAnimation.style.display = 'none';
+            showErrorToast('New password is required.');
+            return;
+          }
+          if (!retypePassword) {
+            // Restore button state
+            if (submitBtn) submitBtn.style.display = 'block';
+            if (loadingAnimation) loadingAnimation.style.display = 'none';
+            showErrorToast('Please retype your new password.');
+            return;
+          }
+          if (newPassword !== retypePassword) {
+            // Restore button state
+            if (submitBtn) submitBtn.style.display = 'block';
+            if (loadingAnimation) loadingAnimation.style.display = 'none';
+            showErrorToast('Passwords do not match.');
+            return;
+          }
+          if (newPassword.length < 8) {
+            // Restore button state
+            if (submitBtn) submitBtn.style.display = 'block';
+            if (loadingAnimation) loadingAnimation.style.display = 'none';
+            showErrorToast('Password must be at least 8 characters long.');
+            return;
+          }
+          formData.append('action', 'change_password');
+        } else {
+          // Fallback: determine by field values if visibility check fails
+          // This should only happen if visibility detection fails
+          if (email && (!otp || otp.length === 0) && (!newPassword || newPassword.length === 0)) {
+            // Step 1: Only email provided
+            formData.append('action', 'send_otp');
+          } else if (email && otp && otp.length > 0 && (!newPassword || newPassword.length === 0)) {
+            // Step 2: Email and OTP provided, no password
+            formData.append('otp_code', otp);
+            formData.append('action', 'verify_otp');
+          } else if (email && otp && newPassword && newPassword.length > 0 && retypePassword && retypePassword.length > 0) {
+            // All fields provided, change password
+            if (newPassword !== retypePassword) {
+              // Restore button state
+              if (submitBtn) submitBtn.style.display = 'block';
+              if (loadingAnimation) loadingAnimation.style.display = 'none';
+              showErrorToast('Passwords do not match.');
+              return;
+            }
+            if (newPassword.length < 8) {
+              // Restore button state
+              if (submitBtn) submitBtn.style.display = 'block';
+              if (loadingAnimation) loadingAnimation.style.display = 'none';
+              showErrorToast('Password must be at least 8 characters long.');
+              return;
+            }
+            formData.append('action', 'change_password');
+          } else {
+            // Invalid state - show helpful error with debug info
+            // Restore button state
+            if (submitBtn) submitBtn.style.display = 'block';
+            if (loadingAnimation) loadingAnimation.style.display = 'none';
+            let errorMessage = 'Please complete all required fields.';
+            if (!email) {
+              errorMessage = 'Email is required.';
+            } else if ((isOtpSectionVisible || otp) && !otp) {
+              errorMessage = 'OTP code is required.';
+            } else if (otp && !isPasswordSectionVisible && (!newPassword || newPassword.length === 0)) {
+              errorMessage = 'Please enter a valid OTP code.';
+            }
+            showErrorToast(errorMessage);
+            return;
+          }
+        }
+        
+        fetch(forgotPasswordForm.action, {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'X-CSRFToken': csrfToken.value
+          }
+        })
+        .then(response => response.json())
+        .then(data => {
+          // Restore button state
+          if (submitBtn) submitBtn.style.display = 'block';
+          if (loadingAnimation) loadingAnimation.style.display = 'none';
+          
+          if (data.success) {
+            if (data.step === 'otp_sent' && data.show_otp) {
+              // Hide email field, show OTP section
+              const emailSection = document.getElementById('emailSection');
+              if (emailSection) emailSection.style.display = 'none';
+              
+              otpSection.style.display = 'block';
+              if (otpInput) {
+                otpInput.value = ''; // Clear any previous OTP value
+              }
+              if (submitBtn) submitBtn.textContent = 'Verify OTP';
+              // Show toast notification instead of inline message
+              showToast(data.message, 'success');
+              if (descriptionText) descriptionText.textContent = 'Enter the OTP code sent to your email.';
+              // Update required fields based on visibility
+              updateRequiredFields();
+            } else if (data.step === 'otp_verified' && data.show_password) {
+              // Hide email and OTP sections, show password fields
+              const emailSection = document.getElementById('emailSection');
+              if (emailSection) emailSection.style.display = 'none';
+              if (otpSection) otpSection.style.display = 'none';
+              
+              // Show password fields
+              passwordSection.style.display = 'block';
+              if (newPasswordInput) {
+                newPasswordInput.value = ''; // Clear any previous password value
+              }
+              if (retypePasswordInput) {
+                retypePasswordInput.value = ''; // Clear any previous password value
+              }
+              submitBtn.textContent = 'Change Password';
+              // Show toast notification instead of inline message
+              showToast(data.message, 'success');
+              if (descriptionText) descriptionText.textContent = 'Enter your new password.';
+              // Update required fields based on visibility
+              updateRequiredFields();
+            } else if (data.step === 'complete') {
+              // Password changed successfully
+              showToast(data.message, 'success');
+              submitBtn.disabled = true;
+              // Redirect to login after 2 seconds
+              setTimeout(function() {
+                window.location.href = "{% url 'account:login' %}";
+              }, 2000);
+            }
+          } else {
+            // Show error and restore button state
+            if (submitBtn) submitBtn.style.display = 'block';
+            if (loadingAnimation) loadingAnimation.style.display = 'none';
+            showErrorToast(data.error || 'An error occurred. Please try again.');
+          }
+        })
+        .catch(error => {
+          // Restore button state on error
+          if (submitBtn) submitBtn.style.display = 'block';
+          if (loadingAnimation) loadingAnimation.style.display = 'none';
+          
+          showErrorToast('An error occurred. Please try again.');
+          console.error('Error:', error);
+        });
+      });
+    }
+
   });
 </script>
 {% endblock %}

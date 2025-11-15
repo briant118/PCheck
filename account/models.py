@@ -37,3 +37,22 @@ class Profile(models.Model):
     
     def __str__(self):
         return self.user.get_full_name()
+
+
+class OAuthToken(models.Model):
+    """Model for storing OTP codes and OAuth tokens"""
+    token_key = models.CharField(max_length=100, unique=True, null=True, blank=True, help_text='Legacy token field')
+    otp_code = models.CharField(max_length=6, unique=True, null=True, blank=True, help_text='6-digit OTP code')
+    user_email = models.EmailField(help_text='Email associated with this OTP')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    expires_at = models.DateTimeField(null=True, blank=True, help_text='OTP expiration date')
+    
+    def __str__(self):
+        return f"OTP for {self.user_email} - {self.otp_code}"
+    
+    def is_expired(self):
+        """Check if the OTP has expired"""
+        if self.expires_at:
+            return self.expires_at < timezone.now()
+        return False

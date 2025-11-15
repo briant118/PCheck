@@ -16,12 +16,19 @@ def send_otp_email(email, user_name=None):
     otp_code = str(random.randint(100000, 999999))
     
     # Create OTP token in database
-    oauth_token = OAuthToken.objects.create(
-        otp_code=otp_code,
-        user_email=email,
-        is_active=True,
-        expires_at=timezone.now() + timedelta(minutes=10)  # Expires in 10 minutes
-    )
+    try:
+        oauth_token = OAuthToken.objects.create(
+            otp_code=otp_code,
+            user_email=email,
+            is_active=True,
+            expires_at=timezone.now() + timedelta(minutes=10)  # Expires in 10 minutes
+        )
+    except Exception as e:
+        # If database creation fails, still try to send email
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f'Failed to create OAuthToken: {str(e)}')
+        # Continue to try sending email anyway
     
     # Prepare email context
     context = {

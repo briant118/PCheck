@@ -9,6 +9,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.contrib.auth.hashers import make_password
 from django.core.mail import send_mail
+from django.conf import settings
 from django.views.generic import TemplateView, CreateView, ListView, UpdateView, DetailView
 from django.contrib.auth.models import User
 from django.contrib.auth.backends import ModelBackend
@@ -562,12 +563,199 @@ def password_set(request):
     return render(request, 'registration/password_set_form.html', {
         'form': form
     })
-
-
 @login_required
 def password_set_done(request):
     """Confirmation page after setting password"""
     return render(request, 'registration/password_set_done.html')
+
+
+def change_password(request):
+    """
+    Handle password change with OTP verification
+    Flow: Send OTP -> Verify OTP -> Show password fields -> Update password
+    """
+    from django.contrib.auth import get_user_model
+    from django.http import JsonResponse
+    from account.otp_utils import send_otp_email, verify_otp_code
+    
+    User = get_user_model()
+    
+    if request.method == 'POST':
+        email = request.POST.get('email', '').strip()
+        new_password = request.POST.get('new_password', '').strip()
+        retype_password = request.POST.get('retype_password', '').strip()
+        otp_code = request.POST.get('otp_code', '').strip()
+        action = request.POST.get('action', '').strip()  # 'send_otp', 'verify_otp', 'change_password'
+        
+        # Step 1: Send OTP (only email provided)
+        if action == 'send_otp' or (not otp_code and not new_password):
+            if not email:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Email is required.',
+                    'step': 'validation'
+                })
+            
+            # Find user by email
+            try:
+                user = User.objects.get(email=email)
+            except User.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'No account found with this email address.',
+                    'step': 'user_verification'
+                })
+            
+            # Send OTP using the existing OTP system
+            try:
+                otp_result = send_otp_email(email, user.get_full_name() or user.username)
+                
+                if otp_result['success']:
+                    return JsonResponse({
+                        'success': True,
+                        'message': f'OTP code sent to {email}. Please check your email and enter the code.',
+                        'step': 'otp_sent',
+                        'show_otp': True
+                    })
+                else:
+                    # Return the error message from send_otp_email
+                    error_msg = otp_result.get("message", "Unknown error")
+                    # Include OTP code in debug mode for testing
+                    if settings.DEBUG and 'otp_code' in otp_result:
+                        error_msg += f' (OTP: {otp_result["otp_code"]})'
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'Failed to send OTP: {error_msg}',
+                        'step': 'otp_sending'
+                    })
+            except Exception as e:
+                import traceback
+                error_details = traceback.format_exc()
+                # Log the full error for debugging
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f'Error sending OTP: {error_details}')
+                
+                error_message = f'Error sending OTP: {str(e)}'
+                if settings.DEBUG:
+                    error_message += f'. Details: {error_details}'
+                
+                return JsonResponse({
+                    'success': False,
+                    'error': error_message,
+                    'step': 'otp_sending',
+                    'debug': str(e) if settings.DEBUG else None
+                })
+        
+        # Step 2: Verify OTP (OTP code provided, but no password yet)
+        elif action == 'verify_otp' or (otp_code and (not new_password or not new_password.strip())):
+            if not email or not otp_code:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Email and OTP code are required.',
+                    'step': 'validation'
+                })
+            
+            # Verify OTP without deactivating it (check if valid and not expired)
+            from account.models import OAuthToken
+            try:
+                oauth_obj = OAuthToken.objects.get(
+                    otp_code=otp_code,
+                    user_email=email,
+                    is_active=True
+                )
+                
+                # Check if OTP is expired
+                if oauth_obj.is_expired():
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'OTP code has expired. Please request a new one.',
+                        'step': 'otp_verification'
+                    })
+                
+                # OTP is valid, show password fields (don't deactivate yet)
+                return JsonResponse({
+                    'success': True,
+                    'message': 'OTP verified successfully! Please enter your new password.',
+                    'step': 'otp_verified',
+                    'show_password': True
+                })
+            except OAuthToken.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Invalid OTP code. Please request a new one.',
+                    'step': 'otp_verification'
+                })
+        
+        # Step 3: Change password (OTP verified, passwords provided)
+        elif action == 'change_password' or (otp_code and new_password and new_password.strip()):
+            # Verify OTP and deactivate it (final verification)
+            if not verify_otp_code(otp_code, email):
+                return JsonResponse({
+                    'success': False,
+                    'error': 'OTP verification failed. Please start over.',
+                    'step': 'otp_verification'
+                })
+            
+            # Validate all required fields
+            if not email or not new_password or not retype_password:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'All fields are required.',
+                    'step': 'validation'
+                })
+            
+            # Validate new passwords match
+            if new_password != retype_password:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'New passwords do not match.',
+                    'step': 'password_validation'
+                })
+            
+            # Validate password strength
+            if len(new_password) < 8:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Password must be at least 8 characters long.',
+                    'step': 'password_validation'
+                })
+            
+            # Update password
+            try:
+                user = User.objects.get(email=email)
+                user.set_password(new_password)
+                user.save()
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Password changed successfully! You can now log in with your new password.',
+                    'step': 'complete'
+                })
+                
+            except User.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'User not found.',
+                    'step': 'user_verification'
+                })
+        else:
+            # Debug: Log what we received
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f'Change password - No condition matched. Action: {action}, Email: {bool(email)}, OTP: {bool(otp_code)}, New Password: {bool(new_password)}')
+            
+            return JsonResponse({
+                'success': False,
+                'error': f'Invalid request. Please try again. (Action: {action or "none"})',
+                'step': 'validation'
+            })
+    
+    # GET request - should not happen for this form
+    return JsonResponse({
+        'success': False,
+        'error': 'Invalid request method.'
+    })
 
 
 def get_courses_by_college(request):
