@@ -141,9 +141,37 @@ This will create the necessary database tables for django-allauth.
 - Verify the `save_user` method in `CustomSocialAccountAdapter`
 
 ### "device_id and device_name are required for private IP" error
-This error occurs when accessing Google OAuth from a private IP address (like `10.163.251.178` or `192.168.x.x`).
+This error occurs when accessing Google OAuth from a private IP address (like `10.163.251.178` or `192.168.x.x`). Google OAuth doesn't allow IP addresses in redirect URIs.
 
-**Solution:**
+**Solution 1: Use Ngrok (Recommended)**
+This is the best solution for development and testing on multiple devices.
+
+1. **Set up ngrok** (see `NGROK_SETUP.md` for detailed instructions):
+   - Install ngrok from https://ngrok.com/download
+   - Start your Django server: `python manage.py runserver 8000`
+   - Run `START-NGROK.bat` or `START-NGROK.ps1` to start ngrok
+   - Copy the HTTPS URL (e.g., `https://abc123.ngrok-free.app`)
+
+2. **Add ngrok URL to Google OAuth:**
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Navigate to "APIs & Services" > "Credentials"
+   - Click on your OAuth 2.0 Client ID
+   - Under "Authorized redirect URIs", add:
+     - `https://YOUR-NGROK-URL.ngrok-free.app/accounts/google/login/callback/`
+   - Click "Save"
+
+3. **Update Django site:**
+   - Run: `python update_site_for_ngrok.py`
+   - Or manually update in Django Admin: Sites > Sites > Edit domain
+
+4. **Access your app:**
+   - Use the ngrok URL: `https://YOUR-NGROK-URL.ngrok-free.app`
+   - All devices can now access using this URL
+   - Google OAuth will work on all devices
+
+**Solution 2: Add Private IP (Not Recommended)**
+Only works for one IP address at a time.
+
 1. **Add your private IP redirect URI to Google Cloud Console:**
    - Go to [Google Cloud Console](https://console.cloud.google.com/)
    - Navigate to "APIs & Services" > "Credentials"
@@ -163,7 +191,7 @@ This error occurs when accessing Google OAuth from a private IP address (like `1
    - The complete callback path: `/accounts/google/login/callback/`
    - The trailing slash is required
 
-**Note:** If you're accessing from multiple private IPs (different networks), you'll need to add each one separately to Google Cloud Console.
+**Note:** If you're accessing from multiple private IPs (different networks), you'll need to add each one separately to Google Cloud Console, OR use ngrok (Solution 1) which works for all devices.
 
 ## Production Considerations
 

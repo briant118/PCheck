@@ -25,6 +25,13 @@ DEBUG = True
 # Allow all hosts for development (change to specific hosts in production)
 ALLOWED_HOSTS = ['*']
 
+# CSRF trusted origins - Add ngrok URLs here for Google OAuth to work
+CSRF_TRUSTED_ORIGINS = [
+    'https://lorena-unbrave-heteronymously.ngrok-free.dev',
+    'http://127.0.0.1:8000',
+    'http://localhost:8000',
+]
+
 
 # Application definition
 
@@ -64,6 +71,7 @@ MIDDLEWARE = [
     'allauth.account.middleware.AccountMiddleware',
     'account.middleware.ForceRoleSelectionMiddleware',
     'main_app.middleware.BookingCleanupMiddleware',
+    'main_app.middleware.NgrokSkipWarningMiddleware',  # Skip ngrok warning page
 ]
 
 ROOT_URLCONF = 'PCheckMain.urls'
