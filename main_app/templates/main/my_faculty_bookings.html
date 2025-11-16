@@ -3,51 +3,417 @@
 
 {% block title %}My Faculty Bookings{% endblock %}
 
+{% block links %}
+<style>
+  .faculty-bookings-container {
+    padding: 2rem 1.5rem;
+  }
+  
+  .bookings-header {
+    background: linear-gradient(135deg, #ff9800 0%, #ff5722 100%);
+    border-radius: 12px;
+    padding: 1.5rem 2rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 12px rgba(255, 152, 0, 0.2);
+  }
+  
+  .bookings-header h4 {
+    color: #ffffff;
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin: 0;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  
+  .bookings-card {
+    border: none !important;
+    border-radius: 16px !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
+    overflow: hidden;
+  }
+  
+  .bookings-table {
+    margin: 0;
+  }
+  
+  .bookings-table thead {
+    background: linear-gradient(135deg, #ff9800 0%, #ff5722 100%);
+    color: #ffffff;
+  }
+  
+  .bookings-table thead th {
+    border: none;
+    padding: 1.25rem 1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.875rem;
+    letter-spacing: 0.5px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  }
+  
+  .bookings-table tbody tr {
+    transition: all 0.3s ease;
+    border-bottom: 1px solid #f1f3f5;
+  }
+  
+  .bookings-table tbody tr:hover {
+    background: linear-gradient(135deg, rgba(255, 152, 0, 0.05) 0%, rgba(255, 87, 34, 0.05) 100%);
+    transform: translateX(4px);
+    box-shadow: 0 2px 8px rgba(255, 152, 0, 0.1);
+  }
+  
+  .bookings-table tbody td {
+    padding: 1.25rem 1rem;
+    vertical-align: middle;
+    border: none;
+  }
+  
+  .booking-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .booking-title {
+    font-weight: 600;
+    font-size: 1rem;
+    color: #212529;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .booking-date {
+    font-size: 0.875rem;
+    color: #6c757d;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .view-btn-modern {
+    background: linear-gradient(135deg, #ff9800 0%, #ff5722 100%);
+    border: none;
+    color: #ffffff;
+    padding: 0.5rem 1.25rem;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.875rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .view-btn-modern:hover {
+    background: linear-gradient(135deg, #ff9f1a 0%, #ff6b47 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+    color: #ffffff;
+  }
+  
+  .status-badge-modern {
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-transform: capitalize;
+    display: inline-block;
+  }
+  
+  .status-approved {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+  }
+  
+  .status-pending {
+    background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
+  }
+  
+  .status-cancelled {
+    background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(108, 117, 125, 0.3);
+  }
+  
+  .empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: #6c757d;
+  }
+  
+  .empty-state i {
+    font-size: 4rem;
+    color: #ff9800;
+    opacity: 0.5;
+    margin-bottom: 1rem;
+  }
+  
+  .modal-content-modern {
+    border: none;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  }
+  
+  .modal-header-modern {
+    background: linear-gradient(135deg, #ff9800 0%, #ff5722 100%);
+    color: #ffffff;
+    border: none;
+    padding: 1.5rem;
+  }
+  
+  .modal-header-modern .modal-title {
+    font-weight: 700;
+    font-size: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  
+  .modal-header-modern .btn-close {
+    filter: brightness(0) invert(1);
+  }
+  
+  .detail-item {
+    padding: 1rem;
+    background: #f8f9fb;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    transition: all 0.3s ease;
+  }
+  
+  .detail-item:hover {
+    background: #f1f3f5;
+    transform: translateX(4px);
+  }
+  
+  .detail-label {
+    font-weight: 600;
+    color: #495057;
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .detail-value {
+    color: #212529;
+    font-size: 1rem;
+    margin: 0;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container mt-5 pt-5">
-  <div class="card shadow-lg mb-5 bg-body rounded-bottom rounded-5">
-    <div class="text-center card-title">
-      <div class="p-4 bg-warning rounded-bottom rounded-5"></div>
-    </div>
-    <div class="card-body p-4">
-      <h5 class="mb-3">My Faculty Bookings</h5>
-      {% if my_faculty_bookings %}
+<div class="faculty-bookings-container">
+  <div class="bookings-header">
+    <h4>
+      <i class="fa-solid fa-calendar-check"></i>
+      My Faculty Bookings
+    </h4>
+  </div>
+  
+  {% if my_faculty_bookings %}
+  <div class="bookings-card card">
+    <div class="card-body p-0">
       <div class="table-responsive">
-        <table class="table align-middle w-100" style="table-layout: fixed;">
+        <table class="table bookings-table align-middle mb-0">
           <thead>
             <tr>
-              <th>Created</th>
-              <th>Start</th>
-              <th>End</th>
-              <th># of PC</th>
-              <th>Status</th>
+              <th style="width: 40%;">Class Booking</th>
+              <th style="width: 20%;" class="text-center">View</th>
+              <th style="width: 20%;" class="text-center">Status</th>
             </tr>
           </thead>
           <tbody>
             {% for booking in my_faculty_bookings %}
             <tr>
-              <td class="text-truncate">{{ booking.created_at|date:'Y-m-d H:i' }}</td>
-              <td class="text-truncate">{{ booking.start_datetime|date:'Y-m-d H:i' }}</td>
-              <td class="text-truncate">{{ booking.end_datetime|date:'Y-m-d H:i' }}</td>
-              <td class="text-truncate">{{ booking.num_of_devices }}</td>
+              <td>
+                <div class="booking-info">
+                  <div class="booking-title">
+                    <i class="fa-solid fa-chalkboard-user"></i>
+                    Class Booking
+                  </div>
+                  <div class="booking-date">
+                    <i class="fa-solid fa-calendar"></i>
+                    Created: {{ booking.created_at|date:'M d, Y H:i' }}
+                  </div>
+                </div>
+              </td>
+              <td class="text-center">
+                <button type="button" class="view-btn-modern" data-bs-toggle="modal" data-bs-target="#bookingDetailsModal{{ booking.id }}">
+                  <i class="fa-solid fa-eye"></i> View
+                </button>
+              </td>
               <td class="text-center">
                 {% if booking.status == 'confirmed' %}
-                  <span class="badge bg-success">approved</span>
+                  <span class="status-badge-modern status-approved">Approved</span>
                 {% elif booking.status == 'pending' %}
-                  <span class="badge bg-warning text-dark">pending</span>
+                  <span class="status-badge-modern status-pending">Pending</span>
                 {% elif booking.status == 'cancelled' %}
-                  <span class="badge bg-secondary">cancelled</span>
+                  <span class="status-badge-modern status-cancelled">Cancelled</span>
                 {% else %}
-                  <span class="badge bg-light text-dark">n/a</span>
+                  <span class="badge bg-light text-dark">N/A</span>
                 {% endif %}
               </td>
             </tr>
+            
+            <!-- Booking Details Modal -->
+            <div class="modal fade" id="bookingDetailsModal{{ booking.id }}" tabindex="-1" aria-labelledby="bookingDetailsModalLabel{{ booking.id }}" aria-hidden="true">
+              <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content modal-content-modern">
+                  <div class="modal-header modal-header-modern">
+                    <h5 class="modal-title" id="bookingDetailsModalLabel{{ booking.id }}">
+                      <i class="fa-solid fa-calendar-check"></i> Class Booking Details
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                  </div>
+                  <div class="modal-body p-4">
+                    <div class="row g-3 mb-4">
+                      <div class="col-md-6">
+                        <div class="detail-item">
+                          <div class="detail-label">
+                            <i class="fa-solid fa-calendar-plus"></i> Created Date
+                          </div>
+                          <p class="detail-value">{{ booking.created_at|date:'F d, Y h:i A' }}</p>
+                        </div>
+                      </div>
+                      <div class="col-md-6">
+                        <div class="detail-item">
+                          <div class="detail-label">
+                            <i class="fa-solid fa-info-circle"></i> Status
+                          </div>
+                          <p class="detail-value mb-0">
+                            {% if booking.status == 'confirmed' %}
+                              <span class="status-badge-modern status-approved">Approved</span>
+                            {% elif booking.status == 'pending' %}
+                              <span class="status-badge-modern status-pending">Pending</span>
+                            {% elif booking.status == 'cancelled' %}
+                              <span class="status-badge-modern status-cancelled">Cancelled</span>
+                            {% else %}
+                              <span class="badge bg-light text-dark">N/A</span>
+                            {% endif %}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div class="row g-3 mb-4">
+                      <div class="col-md-6">
+                        <div class="detail-item">
+                          <div class="detail-label">
+                            <i class="fa-solid fa-clock"></i> Start Date & Time
+                          </div>
+                          <p class="detail-value">{{ booking.start_datetime|date:'F d, Y h:i A'|default:'Not set' }}</p>
+                        </div>
+                      </div>
+                      <div class="col-md-6">
+                        <div class="detail-item">
+                          <div class="detail-label">
+                            <i class="fa-solid fa-clock"></i> End Date & Time
+                          </div>
+                          <p class="detail-value">{{ booking.end_datetime|date:'F d, Y h:i A'|default:'Not set' }}</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div class="row g-3 mb-4">
+                      <div class="col-md-6">
+                        <div class="detail-item">
+                          <div class="detail-label">
+                            <i class="fa-solid fa-desktop"></i> Number of PCs
+                          </div>
+                          <p class="detail-value">{{ booking.num_of_devices }}</p>
+                        </div>
+                      </div>
+                      <div class="col-md-6">
+                        <div class="detail-item">
+                          <div class="detail-label">
+                            <i class="fa-solid fa-building"></i> College
+                          </div>
+                          <p class="detail-value">{{ booking.college.name|default:'N/A' }}</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {% if booking.course %}
+                    <div class="row g-3 mb-4">
+                      <div class="col-md-6">
+                        <div class="detail-item">
+                          <div class="detail-label">
+                            <i class="fa-solid fa-book"></i> Course
+                          </div>
+                          <p class="detail-value">{{ booking.course }}</p>
+                        </div>
+                      </div>
+                      {% if booking.block %}
+                      <div class="col-md-6">
+                        <div class="detail-item">
+                          <div class="detail-label">
+                            <i class="fa-solid fa-users"></i> Block
+                          </div>
+                          <p class="detail-value">{{ booking.block }}</p>
+                        </div>
+                      </div>
+                      {% endif %}
+                    </div>
+                    {% endif %}
+                    
+                    {% if booking.email_addresses %}
+                    <div class="mb-4">
+                      <div class="detail-item">
+                        <div class="detail-label">
+                          <i class="fa-solid fa-envelope"></i> Student Email Addresses
+                        </div>
+                        <div class="mt-3 p-3 bg-white rounded border" style="max-height: 250px; overflow-y: auto;">
+                          <div style="white-space: pre-wrap; word-wrap: break-word; font-size: 0.9rem; color: #495057; line-height: 1.6;">{{ booking.email_addresses }}</div>
+                        </div>
+                      </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if booking.file %}
+                    <div class="mb-4">
+                      <div class="detail-item">
+                        <div class="detail-label">
+                          <i class="fa-solid fa-file-pdf"></i> Approval Letter
+                        </div>
+                        <div class="mt-3">
+                          <a href="{{ booking.file.url }}" target="_blank" class="btn btn-outline-primary" style="border-radius: 8px;">
+                            <i class="fa-solid fa-download"></i> Download Attachment
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                    {% endif %}
+                  </div>
+                  <div class="modal-footer" style="border-top: 1px solid #e9ecef; padding: 1rem 1.5rem;">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="border-radius: 8px; padding: 0.5rem 1.5rem;">
+                      <i class="fa-solid fa-times"></i> Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
             {% endfor %}
           </tbody>
         </table>
       </div>
       {% else %}
-      <p class="text-muted mb-0">No faculty bookings yet.</p>
+      <div class="empty-state">
+        <i class="fa-solid fa-calendar-xmark"></i>
+        <h5 class="mb-2">No Faculty Bookings Yet</h5>
+        <p class="text-muted mb-0">You haven't created any class bookings. Start by creating a bulk booking for your class.</p>
+      </div>
       {% endif %}
     </div>
   </div>

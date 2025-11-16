@@ -275,6 +275,8 @@ function initReservePC() {
               'opacity': '1'
             });
             $blockButton.removeAttr('onclick');
+            // Reset button text to default
+            $blockButton.text('Bulk booking for class');
           }
           
           // Remove warning message
@@ -1522,6 +1524,17 @@ function initReservePC() {
             });
             $blockButton.off('click');
             $blockButton.attr('onclick', 'return false;');
+            
+            // Change button text based on booking status
+            if (data.status === 'confirmed') {
+              $blockButton.text('Bulk booking approved');
+            } else if (data.status === 'pending') {
+              $blockButton.text('Bulk booking pending');
+            } else if (data.status === 'cancelled') {
+              $blockButton.text('Bulk booking for class');
+            } else {
+              $blockButton.text('Bulk booking for class');
+            }
           }
           
           // Show warning message if not already shown
@@ -1644,6 +1657,8 @@ function initReservePC() {
             });
             $blockButton.off('click');
             $blockButton.removeAttr('onclick');
+            // Reset button text to default
+            $blockButton.text('Bulk booking for class');
           }
           
           // Remove warning message

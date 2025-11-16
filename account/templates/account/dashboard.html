@@ -117,6 +117,11 @@
     background: linear-gradient(135deg, rgba(220, 53, 69, 0.05) 0%, rgba(220, 53, 69, 0.1) 100%);
   }
   
+  .pc-card-modern.repair {
+    border-color: #dc3545;
+    background: linear-gradient(135deg, rgba(220, 53, 69, 0.15) 0%, rgba(220, 53, 69, 0.25) 100%);
+  }
+  
   .chart-card {
     border: none !important;
     border-radius: 12px !important;
@@ -405,7 +410,8 @@
             <div class="col-3 col-md-2 col-sm-3">
               <div class="pc-container position-relative">
                 <div class="pc-card-modern dashboard-pc-clickable
-                  {% if pc.booking_status == 'in_use' %}in-use
+                  {% if pc.system_condition == 'repair' %}repair
+                  {% elif pc.booking_status == 'in_use' %}in-use
                   {% elif pc.booking_status == 'in_queue' %}queued
                   {% elif pc.status == 'connected' %}available
                   {% else %}offline{% endif %}" 
@@ -413,11 +419,14 @@
                   data-pc-name="{{ pc.name }}"
                   data-pc-ip="{{ pc.ip_address }}"
                   data-pc-status="{{ pc.status }}"
-                  data-pc-booking-status="{{ pc.booking_status }}">
+                  data-pc-booking-status="{{ pc.booking_status }}"
+                  data-pc-health="{{ pc.system_condition }}">
                   <i class="fa-solid fa-desktop mb-1" style="font-size: 1.25rem;"></i>
                   <div class="pc-name fw-bold mb-1" style="font-size: 0.75rem;">{{ pc.name }}</div>
                   <div class="pc-status-indicator">
-                    {% if pc.booking_status == 'in_use' %}
+                    {% if pc.system_condition == 'repair' %}
+                      <span class="badge bg-danger" style="font-size: 0.625rem;">In Repair</span>
+                    {% elif pc.booking_status == 'in_use' %}
                       <span class="badge bg-light text-dark" style="font-size: 0.625rem;">In Use</span>
                     {% elif pc.booking_status == 'in_queue' %}
                       <span class="badge bg-light text-dark" style="font-size: 0.625rem;">Queued</span>
@@ -1189,48 +1198,45 @@ document.addEventListener('DOMContentLoaded', function() {
             var pcCard = document.querySelector('.dashboard-pc-clickable[data-pc-id="' + pcData.id + '"]');
             if (pcCard) {
               var oldBookingStatus = pcCard.getAttribute('data-pc-booking-status');
+              var oldSystemCondition = pcCard.getAttribute('data-pc-health');
               var newBookingStatus = pcData.booking_status || 'available';
+              var newSystemCondition = pcData.system_condition || 'active';
               
-              // Only update if status changed
-              if (oldBookingStatus !== newBookingStatus) {
-                console.log('PC status changed:', pcData.name, 'from', oldBookingStatus, 'to', newBookingStatus);
+              // Update if booking status or system condition changed
+              if (oldBookingStatus !== newBookingStatus || oldSystemCondition !== newSystemCondition) {
+                console.log('PC status changed:', pcData.name, 'booking:', oldBookingStatus, '->', newBookingStatus, 'condition:', oldSystemCondition, '->', newSystemCondition);
                 
-                // Update data attribute
+                // Update data attributes
                 pcCard.setAttribute('data-pc-booking-status', newBookingStatus);
+                pcCard.setAttribute('data-pc-health', newSystemCondition);
                 
-                // Update visual styling
-                pcCard.className = 'pc-list-item dashboard-pc-clickable';
-                if (pcData.system_condition === 'repair') {
-                  pcCard.classList.add('bg-danger', 'text-white');
-                  pcCard.style.borderColor = '#F44336';
+                // Update visual styling - check repair status first
+                pcCard.className = 'pc-card-modern dashboard-pc-clickable';
+                if (newSystemCondition === 'repair') {
+                  pcCard.classList.add('repair');
                 } else if (newBookingStatus === 'in_use') {
-                  pcCard.classList.add('bg-danger', 'text-white');
-                  pcCard.style.borderColor = '#FF5722';
-                  pcCard.style.backgroundColor = '#FF5722';
+                  pcCard.classList.add('in-use');
                 } else if (newBookingStatus === 'in_queue') {
-                  pcCard.classList.add('bg-warning', 'text-dark');
-                  pcCard.style.borderColor = '#FFC107';
+                  pcCard.classList.add('queued');
                 } else if (pcData.status === 'connected') {
-                  pcCard.classList.add('bg-success', 'text-white');
-                  pcCard.style.borderColor = '#4caf50';
+                  pcCard.classList.add('available');
                 } else {
-                  pcCard.classList.add('text-danger');
-                  pcCard.style.borderColor = '#dc3545';
+                  pcCard.classList.add('offline');
                 }
                 
                 // Update status badge
                 var statusIndicator = pcCard.querySelector('.pc-status-indicator');
                 if (statusIndicator) {
-                  if (pcData.system_condition === 'repair') {
-                    statusIndicator.innerHTML = '<span class="badge bg-danger" style="font-size: 0.721em;">Repair</span>';
+                  if (newSystemCondition === 'repair') {
+                    statusIndicator.innerHTML = '<span class="badge bg-danger" style="font-size: 0.625rem;">In Repair</span>';
                   } else if (newBookingStatus === 'in_use') {
-                    statusIndicator.innerHTML = '<span class="badge" style="background-color: #FF5722; color: #FFFFFF; font-size: 0.721em;">In Use</span>';
+                    statusIndicator.innerHTML = '<span class="badge bg-light text-dark" style="font-size: 0.625rem;">In Use</span>';
                   } else if (newBookingStatus === 'in_queue') {
-                    statusIndicator.innerHTML = '<span class="badge bg-warning text-dark" style="font-size: 0.721em;">Queued</span>';
+                    statusIndicator.innerHTML = '<span class="badge bg-light text-dark" style="font-size: 0.625rem;">Queued</span>';
                   } else if (pcData.status === 'connected') {
-                    statusIndicator.innerHTML = '<i class="fa-solid fa-circle text-success" style="font-size: 0.721em;"></i> <span style="font-size: 0.721em;">Available</span>';
+                    statusIndicator.innerHTML = '<i class="fa-solid fa-circle text-success" style="font-size: 0.5rem;"></i> <span style="font-size: 0.625rem;">Available</span>';
                   } else {
-                    statusIndicator.innerHTML = '<i class="fa-solid fa-circle text-danger" style="font-size: 0.721em;"></i> <span style="font-size: 0.721em;">Offline</span>';
+                    statusIndicator.innerHTML = '<i class="fa-solid fa-circle text-danger" style="font-size: 0.5rem;"></i> <span style="font-size: 0.625rem;">Offline</span>';
                   }
                 }
               }

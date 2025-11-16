@@ -486,6 +486,38 @@
   box-shadow: none;
 }
 
+.image-upload-button {
+  background: #f8f9fb;
+  color: #6c757d;
+  border: 1px solid #e0e3e8;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+  margin-right: 8px;
+}
+
+.image-upload-button:hover {
+  background: #e9ecef;
+  border-color: #ff9800;
+  color: #ff9800;
+  transform: translateY(-2px);
+}
+
+#image_preview_container {
+  position: relative;
+  display: inline-block;
+}
+
+#image_preview {
+  display: block;
+}
+
 /* Staff Search Section */
 .staff-search-section {
   padding: 15px 20px;
@@ -1027,8 +1059,18 @@
       <div class="messages-container" id="messagesContainer"></div>
       
       <div class="chat-input-area">
-        <div class="chat-input-wrapper">
-          <textarea id="new_message" rows="1" placeholder="Type a message..." style="overflow-y: auto;"></textarea>
+        <input type="file" id="chat_image_input" accept="image/*" style="display: none;">
+        <button class="image-upload-button" id="image_upload_btn" type="button" title="Upload image">
+          <i class="fa-solid fa-image"></i>
+        </button>
+        <div class="chat-input-wrapper" style="flex-direction: column; align-items: flex-start;">
+          <div id="image_preview_container" style="display: none; margin-bottom: 8px; position: relative; width: 100%;">
+            <img id="image_preview" src="" alt="Preview" style="max-width: 200px; max-height: 200px; border-radius: 8px; cursor: pointer; display: block;">
+            <button type="button" id="remove_image_btn" style="position: absolute; top: 4px; right: 4px; background: #dc3545; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px;">
+              <i class="fa-solid fa-times"></i>
+            </button>
+          </div>
+          <textarea id="new_message" rows="1" placeholder="Type a message..." style="overflow-y: auto; width: 100%;"></textarea>
         </div>
         <button class="send-button" id="send_new_message_btn" type="button">
           <i class="fa-solid fa-paper-plane"></i>
@@ -1200,22 +1242,39 @@ function getDisplayName(user) {
 
 // Create conversation item HTML
 function createConversationItem(room, otherUser) {
-  const hasUnread = room.chats && Array.isArray(room.chats) && 
-    room.chats.some(chat => chat.status === "sent" && 
-    String(chat.sender) != String(currentUserId) && 
-    String(chat.recipient) == String(currentUserId));
+  // Use unread_count from backend if available, otherwise calculate it
+  const unreadCount = room.unread_count || (room.chats && Array.isArray(room.chats) ? 
+    room.chats.filter(chat => 
+      (chat.status === "sent" || chat.status === "delivered") && 
+      String(chat.sender) != String(currentUserId) && 
+      String(chat.recipient) == String(currentUserId)
+    ).length : 0);
   
+  const hasUnread = unreadCount > 0;
+  
+  // Get the most recent message (chats are sorted by timestamp descending from backend)
+  // So the first message in the array is the newest
   const lastMessage = room.chats && room.chats.length > 0 
-    ? room.chats[room.chats.length - 1] 
+    ? room.chats[0]  // First message is newest (sorted desc by timestamp)
     : null;
   
-  const preview = lastMessage ? lastMessage.message.substring(0, 40) + (lastMessage.message.length > 40 ? '...' : '') : 'No messages yet';
+  // Handle image messages - show "Image" instead of empty message
+  let previewText = 'No messages yet';
+  if (lastMessage) {
+    if (lastMessage.message && lastMessage.message.trim()) {
+      previewText = lastMessage.message.substring(0, 40) + (lastMessage.message.length > 40 ? '...' : '');
+    } else if (lastMessage.image) {
+      previewText = 'Image';
+    }
+  }
+  
+  const preview = previewText;
   const time = lastMessage ? formatTime(lastMessage.timestamp) : '';
   const displayName = getDisplayName(otherUser);
   const actualName = `${otherUser.first_name || ''} ${otherUser.last_name || ''}`.trim() || otherUser.email || 'User';
   
   return `
-    <a href="#" class="conversation-item" data-room-id="${room.id}" 
+    <a href="#" class="conversation-item ${hasUnread ? 'has-unread' : ''}" data-room-id="${room.id}" 
        data-receiver-id="${otherUser.id}" 
        data-receiver-email="${otherUser.email}"
        data-receiver-name="${displayName}"
@@ -1227,7 +1286,7 @@ function createConversationItem(room, otherUser) {
       </div>
       <div class="conversation-meta">
         ${time ? `<div class="conversation-time">${time}</div>` : ''}
-        ${hasUnread ? '<div class="unread-badge">!</div>' : ''}
+        ${hasUnread ? `<div class="unread-badge">${unreadCount > 9 ? '9+' : unreadCount}</div>` : ''}
       </div>
     </a>
   `;
@@ -1385,6 +1444,8 @@ function loadMessages() {
                     }
                     {% endif %}
                     const item = createConversationItem(room, other);
+                    // Backend already sorts: unread first, then by most recent
+                    // Append to maintain order (unread/newest at top)
                     conversationsList.append(item);
                   }
                 });
@@ -1467,6 +1528,8 @@ function loadMessages() {
           {% endif %}
           
           const item = createConversationItem(room, other);
+          // Backend already sorts: unread first, then by most recent
+          // Append to maintain order (unread/newest at top)
           conversationsList.append(item);
         }
       });
@@ -1677,7 +1740,8 @@ function loadConversation(roomId) {
         reversedMessages.forEach(msg => {
           const isSender = String(currentUserId) == String(msg.sender__id);
           // appendMessage checks for duplicates, don't scroll for each message during bulk load
-          appendMessage(msg.message, isSender, msg.timestamp, msg.id, false);
+          const imageUrl = msg.image || null;
+          appendMessage(msg.message || '', isSender, msg.timestamp, msg.id, false, imageUrl);
         });
         // Scroll to bottom after all messages are loaded
         scrollToBottom();
@@ -1706,7 +1770,7 @@ function loadConversation(roomId) {
 
 // Append message to chat (newest at bottom)
 // scrollToBottom: optional parameter, defaults to true. Set to false when loading multiple messages
-function appendMessage(message, isSender, timestamp, chatId, scrollToBottomAfter = true) {
+function appendMessage(message, isSender, timestamp, chatId, scrollToBottomAfter = true, imageUrl = null) {
   const messagesContainer = $("#messagesContainer");
   
   // Check if message already exists to prevent duplicates
@@ -1737,10 +1801,19 @@ function appendMessage(message, isSender, timestamp, chatId, scrollToBottomAfter
   const finalChatId = chatId || 'temp_' + Date.now();
   bubble.attr('data-chat-id', finalChatId);
   
-  bubble.html(`
-    <div>${escapeHtml(message)}</div>
-    <div class="message-time">${formatTime(timestamp)}</div>
-  `);
+  let messageContent = '';
+  if (imageUrl) {
+    console.log('Displaying image:', imageUrl);
+    messageContent += `<div class="message-image-container" style="margin-bottom: 8px;">
+      <img src="${escapeHtml(imageUrl)}" alt="Chat image" class="message-image" style="max-width: 300px; max-height: 300px; border-radius: 8px; cursor: pointer; display: block;" onerror="console.error('Failed to load image:', this.src); this.style.display='none';" onclick="window.open('${escapeHtml(imageUrl)}', '_blank')">
+    </div>`;
+  }
+  if (message) {
+    messageContent += `<div>${escapeHtml(message)}</div>`;
+  }
+  messageContent += `<div class="message-time">${formatTime(timestamp)}</div>`;
+  
+  bubble.html(messageContent);
   
   messageWrapper.append(bubble);
   messagesContainer.append(messageWrapper); // Append to bottom
@@ -1814,7 +1887,7 @@ function connectChatSocket(roomId) {
                 $(this).closest('.message-wrapper').remove();
               }
             });
-            appendMessage(data.message, isSender, data.timestamp || new Date().toISOString(), existingId);
+            appendMessage(data.message || '', isSender, data.timestamp || new Date().toISOString(), existingId, true, data.image_url || null);
           } else if (!existingId) {
             // If no chat_id, still check for duplicates by content
             const messagesContainer = $("#messagesContainer");
@@ -1827,16 +1900,59 @@ function connectChatSocket(roomId) {
               }
             });
             if (!isDuplicate) {
-              appendMessage(data.message, isSender, data.timestamp || new Date().toISOString(), existingId);
+              appendMessage(data.message || '', isSender, data.timestamp || new Date().toISOString(), existingId, true, data.image_url || null);
             }
           }
         }
-        // Don't reload all messages here - just update conversation list
-        // The new message is already added above, reloading would cause duplicates
-        // Only refresh conversation list to update unread counts
+        // Update conversation list preview immediately when new message arrives
+        // Update the conversation item preview text and timestamp
+        const roomId = data.room_id || currentRoomId;
+        if (roomId) {
+          const conversationItem = $(`.conversation-item[data-room-id="${roomId}"]`);
+          if (conversationItem.length > 0) {
+            // Update preview text
+            const previewText = data.message && data.message.trim() 
+              ? (data.message.substring(0, 40) + (data.message.length > 40 ? '...' : ''))
+              : (data.image_url ? 'Image' : '');
+            conversationItem.find('.conversation-preview').text(previewText);
+            
+            // Update timestamp
+            if (data.timestamp) {
+              const timeText = formatTime(data.timestamp);
+              const timeElement = conversationItem.find('.conversation-time');
+              if (timeElement.length > 0) {
+                timeElement.text(timeText);
+              } else {
+                conversationItem.find('.conversation-meta').prepend(`<div class="conversation-time">${timeText}</div>`);
+              }
+            }
+            
+            // Move conversation to top if it has unread messages
+            const unreadBadge = conversationItem.find('.unread-badge');
+            if (String(data.sender_id) != String(currentUserId)) {
+              // This is a received message, move to top
+              if (unreadBadge.length === 0) {
+                conversationItem.find('.conversation-meta').append('<div class="unread-badge">1</div>');
+              } else {
+                const currentCount = parseInt(unreadBadge.text()) || 0;
+                unreadBadge.text(currentCount >= 9 ? '9+' : currentCount + 1);
+              }
+              // Move to top of list (after PCheck Support if it exists)
+              const conversationsList = $("#conversationsList");
+              const pcheckItem = $("#pcheckSupportItem");
+              if (pcheckItem.length > 0) {
+                pcheckItem.after(conversationItem);
+              } else {
+                conversationsList.prepend(conversationItem);
+              }
+            }
+          }
+        }
+        
+        // Also refresh conversation list to update unread counts and ensure consistency
         setTimeout(function() {
           loadMessages();
-        }, 500); // Delay to avoid race conditions
+        }, 300); // Reduced delay for faster updates
       }
     } catch (error) {
       console.error("Error parsing WebSocket message:", error);
@@ -2168,18 +2284,56 @@ function sendInitMessage() {
     sendMessageFromModal();
   });
 
+  // Image upload handlers
+  let selectedImageFile = null;
+  
+  $("#image_upload_btn").on("click", function() {
+    $("#chat_image_input").click();
+  });
+  
+  $("#chat_image_input").on("change", function(e) {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) { // 10MB limit
+        alert("Image size must be less than 10MB");
+        return;
+      }
+      selectedImageFile = file;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        $("#image_preview").attr("src", e.target.result);
+        $("#image_preview_container").show();
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+  
+  $("#remove_image_btn").on("click", function() {
+    selectedImageFile = null;
+    $("#chat_image_input").val("");
+    $("#image_preview_container").hide();
+    $("#image_preview").attr("src", "");
+  });
+
   // Send new message handler (consolidated, robust)
   $("#send_new_message_btn").off("click.send").on("click.send", function () {
     const hasInput = $("#new_message").length > 0;
     const message = (hasInput ? ($("#new_message").val() || "") : "").toString().trim();
     const roomId = currentRoomId || modalRoomId || null;
-    if (!message) return;
+    if (!message && !selectedImageFile) return;
 
     // Don't add optimistic message - wait for server response to avoid duplicates
     // The message will appear via WebSocket or after reload
     if (hasInput) {
       $("#new_message").val("");
     }
+    
+    // Clear image preview after sending
+    const imageToSend = selectedImageFile;
+    selectedImageFile = null;
+    $("#chat_image_input").val("");
+    $("#image_preview_container").hide();
+    $("#image_preview").attr("src", "");
 
     // If no room yet, start a new conversation
     if (!roomId) {
@@ -2189,10 +2343,19 @@ function sendInitMessage() {
       if (currentReceiver && currentReceiver.email && currentReceiver.email !== 'PCheck') {
         // Staff/admin can message selected student/faculty
         const recipient = currentReceiver.email;
+        const formData = new FormData();
+        formData.append('recipient', recipient);
+        formData.append('message', message);
+        if (imageToSend) {
+          formData.append('image', imageToSend);
+        }
+        formData.append('csrfmiddlewaretoken', getCSRFToken());
         $.ajax({
           url: $("#send_init_message").data("send-init-message-url"),
           type: "POST",
-          data: { recipient, message, csrfmiddlewaretoken: getCSRFToken() },
+          data: formData,
+          processData: false,
+          contentType: false,
           beforeSend: (xhr) => { const t = getCSRFToken(); if (t) xhr.setRequestHeader("X-CSRFToken", t); },
           success: (res) => {
             const newRoom = res && (res.room_id || (Array.isArray(res.rooms) && res.rooms[0]));
@@ -2226,10 +2389,19 @@ function sendInitMessage() {
       {% else %}
       // For non-staff, message PCheck (broadcasts to all staff)
       const recipient = (currentReceiver && currentReceiver.email) ? currentReceiver.email : "PCheck";
+      const formData = new FormData();
+      formData.append('recipient', recipient);
+      formData.append('message', message);
+      if (imageToSend) {
+        formData.append('image', imageToSend);
+      }
+      formData.append('csrfmiddlewaretoken', getCSRFToken());
       $.ajax({
         url: $("#send_init_message").data("send-init-message-url"),
         type: "POST",
-        data: { recipient, message, csrfmiddlewaretoken: getCSRFToken() },
+        data: formData,
+        processData: false,
+        contentType: false,
         beforeSend: (xhr) => { const t = getCSRFToken(); if (t) xhr.setRequestHeader("X-CSRFToken", t); },
         success: (res) => {
           const newRoom = res && (res.room_id || (Array.isArray(res.rooms) && res.rooms[0]));
@@ -2259,10 +2431,18 @@ function sendInitMessage() {
     }
 
     // Send to existing room
+    const formData = new FormData();
+    formData.append('message', message);
+    if (imageToSend) {
+      formData.append('image', imageToSend);
+    }
+    formData.append('csrfmiddlewaretoken', getCSRFToken());
     $.ajax({
       url: `/ajax/send-new-message/${roomId}/`,
       type: "POST",
-      data: { message, csrfmiddlewaretoken: getCSRFToken() },
+      data: formData,
+      processData: false,
+      contentType: false,
       beforeSend: (xhr) => { const t = getCSRFToken(); if (t) xhr.setRequestHeader("X-CSRFToken", t); },
       success: () => { 
         // Don't reload messages here - WebSocket will handle the new message
@@ -2289,10 +2469,18 @@ function sendInitMessage() {
                 modalRoomId = newRoom;
                 connectChatSocket(newRoom);
                 // resend message into the new room
+                const resendFormData = new FormData();
+                resendFormData.append('message', message);
+                if (imageToSend) {
+                  resendFormData.append('image', imageToSend);
+                }
+                resendFormData.append('csrfmiddlewaretoken', getCSRFToken());
                 $.ajax({
                   url: `/ajax/send-new-message/${newRoom}/`,
                   type: "POST",
-                  data: { message, csrfmiddlewaretoken: getCSRFToken() },
+                  data: resendFormData,
+                  processData: false,
+                  contentType: false,
                   beforeSend: (xhr3) => { const t3 = getCSRFToken(); if (t3) xhr3.setRequestHeader("X-CSRFToken", t3); },
                   complete: () => {
                     loadConversation(newRoom);

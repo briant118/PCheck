@@ -118,5 +118,6 @@ class Chat(models.Model):
     sender = models.ForeignKey(User, null=True, related_name='sent_chats', on_delete=models.CASCADE)
     recipient = models.ForeignKey(User, null=True, related_name='received_chats', on_delete=models.CASCADE)
     message = models.TextField()
+    image = models.ImageField(upload_to='chat_images/', null=True, blank=True)
     status = models.CharField(max_length=20, choices=[('sent', 'Sent'), ('delivered', 'Delivered'), ('read', 'Read')])
     timestamp = models.DateTimeField(auto_now_add=True)

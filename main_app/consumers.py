@@ -50,7 +50,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # Send message to WebSocket
         message_data = {
             "type": "new_message",
-            "message": event["message"],
+            "message": event.get("message", ""),
+            "image_url": event.get("image_url"),
             "sender_id": event["sender_id"],
             "sender_first_name": event.get("sender_first_name", ""),
             "sender_last_name": event.get("sender_last_name", ""),

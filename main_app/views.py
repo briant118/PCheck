@@ -1182,8 +1182,11 @@ def reserve_pc(request):
 def load_messages(request):
     """Load chat rooms. All users can see all their conversations including PCheck Support."""
     # All users (including staff/admin) can see all their conversations including PCheck Support
+    from django.db.models import Max
     chatrooms = models.ChatRoom.objects.filter(
         Q(initiator=request.user) | Q(receiver=request.user)
+    ).annotate(
+        last_message_time=Max('chats__timestamp')
     ).prefetch_related(
         Prefetch('chats', queryset=models.Chat.objects.all().order_by('-timestamp'))
     )
@@ -1201,6 +1204,16 @@ def load_messages(request):
             initiator_role = room.initiator.profile.role
         if hasattr(room.receiver, 'profile') and room.receiver.profile.role:
             receiver_role = room.receiver.profile.role
+        
+        # Calculate unread count for this user
+        unread_count = models.Chat.objects.filter(
+            chatroom=room,
+            recipient=request.user,
+            status__in=['sent', 'delivered']
+        ).count()
+        
+        # Get last message timestamp
+        last_message_time = room.last_message_time if hasattr(room, 'last_message_time') else None
         
         room_data = {
             'id': room.id,
@@ -1220,10 +1233,13 @@ def load_messages(request):
                 'is_staff': bool(getattr(room.receiver, 'is_staff', False)),
                 'role': receiver_role or '',
             },
+            'unread_count': unread_count,
+            'last_message_time': last_message_time.isoformat() if last_message_time and timezone.is_aware(last_message_time) else (timezone.make_aware(last_message_time, timezone.get_current_timezone()).isoformat() if last_message_time else None),
             'chats': [
                 {
                     'id': chat.id,
                     'message': chat.message,
+                    'image': request.build_absolute_uri(chat.image.url) if chat.image else None,
                     'status': chat.status,
                     'sender': chat.sender.id if chat.sender else None,
                     'recipient': chat.recipient.id if chat.recipient else None,
@@ -1233,6 +1249,28 @@ def load_messages(request):
             ]
         }
         result.append(room_data)
+    
+    # Sort result: unread first, then by most recent message
+    def sort_key(x):
+        unread = x.get('unread_count', 0)
+        last_time = x.get('last_message_time')
+        if last_time:
+            try:
+                # Parse ISO format timestamp
+                if 'T' in last_time:
+                    dt = timezone.datetime.fromisoformat(last_time.replace('Z', '+00:00'))
+                else:
+                    dt = timezone.datetime.fromisoformat(last_time)
+                if not timezone.is_aware(dt):
+                    dt = timezone.make_aware(dt)
+                timestamp = dt.timestamp()
+            except:
+                timestamp = 0
+        else:
+            timestamp = 0
+        return (-unread, -timestamp)  # Negative for descending order (unread first, then most recent)
+    
+    result.sort(key=sort_key)
 
     return JsonResponse({'result': result})
 
@@ -1278,6 +1316,7 @@ def load_conversation(request, room_id):
             'sender__email': chat.sender.email if chat.sender else '',
             'sender__id': chat.sender.id if chat.sender else None,
             'message': chat.message,
+            'image': request.build_absolute_uri(chat.image.url) if chat.image else None,
             'timestamp': timestamp_iso,
             'chatroom__initiator__id': chat.chatroom.initiator.id if chat.chatroom and chat.chatroom.initiator else None,
             'chatroom__receiver__id': chat.chatroom.receiver.id if chat.chatroom and chat.chatroom.receiver else None,
@@ -1299,7 +1338,8 @@ def send_init_message(request):
     Also supports PCheck Support system account messaging admin/staff.
     """
     if request.method == "POST":
-        message = request.POST.get("message")
+        message = request.POST.get("message", "")
+        image = request.FILES.get("image")
         recipient_value = request.POST.get("recipient") or ""
 
         # Check if sender is PCheck Support system account
@@ -1329,6 +1369,7 @@ def send_init_message(request):
                         sender=request.user,
                         recipient=staff_user,
                         message=message,
+                        image=image,
                         status="sent"
                     )
                     broadcasted_room_ids.append(room.id)
@@ -1342,6 +1383,7 @@ def send_init_message(request):
                                 {
                                     'type': 'chat_message',
                                     'message': message,
+                                    'image_url': request.build_absolute_uri(chat.image.url) if chat.image else None,
                                     'sender_id': request.user.id,
                                     'sender_first_name': request.user.first_name or '',
                                     'sender_last_name': request.user.last_name or '',
@@ -1353,11 +1395,12 @@ def send_init_message(request):
                     except Exception:
                         pass
 
-                return JsonResponse({
+                response_data = {
                     "success": True,
                     "message": message,
                     "rooms": broadcasted_room_ids
-                })
+                }
+                return JsonResponse(response_data)
             # If staff/admin is sending to "PCheck", create conversation with PCheck Support system account
             elif is_sender_staff:
                 pcheck_support_user = get_pcheck_support_user()
@@ -1371,6 +1414,7 @@ def send_init_message(request):
                     sender=request.user,
                     recipient=pcheck_support_user,
                     message=message,
+                    image=image,
                     status="sent"
                 )
                 
@@ -1383,6 +1427,7 @@ def send_init_message(request):
                             {
                                 'type': 'chat_message',
                                 'message': message,
+                                'image_url': request.build_absolute_uri(chat.image.url) if chat.image else None,
                                 'sender_id': request.user.id,
                                 'sender_first_name': request.user.first_name or '',
                                 'sender_last_name': request.user.last_name or '',
@@ -1417,6 +1462,7 @@ def send_init_message(request):
                         sender=request.user,
                         recipient=staff_user,
                         message=message,
+                        image=image,
                         status="sent"
                     )
                     broadcasted_room_ids.append(room.id)
@@ -1430,6 +1476,7 @@ def send_init_message(request):
                                 {
                                     'type': 'chat_message',
                                     'message': message,
+                                    'image_url': request.build_absolute_uri(chat.image.url) if chat.image else None,
                                     'sender_id': request.user.id,
                                     'sender_first_name': request.user.first_name or '',
                                     'sender_last_name': request.user.last_name or '',
@@ -1441,11 +1488,12 @@ def send_init_message(request):
                     except Exception:
                         pass
 
-                return JsonResponse({
+                response_data = {
                     "success": True,
                     "message": message,
                     "rooms": broadcasted_room_ids
-                })
+                }
+                return JsonResponse(response_data)
 
         # Otherwise, normal 1:1 init: staff can message non-staff; users may also reach staff
         # Also handle PCheck Support system account
@@ -1514,6 +1562,7 @@ def send_init_message(request):
             sender=request.user,
             recipient=recipient,
             message=message,
+            image=image,
             status="sent"
         )
 
@@ -1525,6 +1574,7 @@ def send_init_message(request):
                     {
                         'type': 'chat_message',
                         'message': message,
+                        'image_url': request.build_absolute_uri(chat.image.url) if chat.image else None,
                         'sender_id': request.user.id,
                         'sender_first_name': request.user.first_name or '',
                         'sender_last_name': request.user.last_name or '',
@@ -1536,11 +1586,14 @@ def send_init_message(request):
         except Exception:
             pass
 
-        return JsonResponse({
+        response_data = {
             "success": True,
             "message": message,
             "room_id": room.id
-        })
+        }
+        if chat.image:
+            response_data["image_url"] = request.build_absolute_uri(chat.image.url)
+        return JsonResponse(response_data)
 
 
 @csrf_exempt
@@ -1676,7 +1729,8 @@ def send_new_message(request, room_id):
                     "error": "You can only message staff or admin."
                 }, status=403)
         
-        message = request.POST.get("message")
+        message = request.POST.get("message", "")
+        image = request.FILES.get("image")
         receiver = room.receiver if room.initiator == request.user else room.initiator
 
         chat = models.Chat.objects.create(
@@ -1684,6 +1738,7 @@ def send_new_message(request, room_id):
             recipient=receiver,
             chatroom=room,
             message=message,
+            image=image,
             status="sent"
         )
 
@@ -1696,6 +1751,7 @@ def send_new_message(request, room_id):
                     {
                         'type': 'chat_message',
                         'message': message,
+                        'image_url': request.build_absolute_uri(chat.image.url) if chat.image else None,
                         'sender_id': request.user.id,
                         'sender_first_name': request.user.first_name or '',
                         'sender_last_name': request.user.last_name or '',
@@ -1713,11 +1769,15 @@ def send_new_message(request, room_id):
             traceback.print_exc()
             # WebSocket broadcast failed, but message is saved
 
-        return JsonResponse({
+        response_data = {
             "success": True,
             "message": message,
             "room_id": room.id
-        })
+        }
+        if chat.image:
+            response_data["image_url"] = request.build_absolute_uri(chat.image.url)
+        
+        return JsonResponse(response_data)
 
 
 @login_required
