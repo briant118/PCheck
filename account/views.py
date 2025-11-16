@@ -133,6 +133,11 @@ class ProfileUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
     def get_queryset(self, **kwargs):
         return models.Profile.objects.filter(pk=self.kwargs['pk'])
     
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
+    
     
 @login_required
 @permission_required('account.view_dashboard', raise_exception=True)
@@ -683,7 +688,30 @@ def change_password(request):
             except OAuthToken.DoesNotExist:
                 return JsonResponse({
                     'success': False,
-                    'error': 'Invalid OTP code. Please request a new one.',
+                    'error': 'Invalid OTP code. Please check the code and try again, or request a new one.',
+                    'step': 'otp_verification'
+                })
+            except OAuthToken.MultipleObjectsReturned:
+                # If multiple OTPs exist (shouldn't happen, but handle it)
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Multiple OTP codes found. Please request a new one.',
+                    'step': 'otp_verification'
+                })
+            except Exception as e:
+                # Log the error for debugging
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f'Error verifying OTP: {str(e)}', exc_info=True)
+                
+                # Return user-friendly error message
+                error_message = 'An error occurred while verifying the OTP code.'
+                if settings.DEBUG:
+                    error_message += f' Error: {str(e)}'
+                
+                return JsonResponse({
+                    'success': False,
+                    'error': error_message,
                     'step': 'otp_verification'
                 })
         

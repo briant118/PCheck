@@ -771,42 +771,96 @@ window.incrementCustomPc = function() {
       return false;
     }
     
-    // If maxAvailable < 2, allow incrementing anyway (don't enforce the limit strictly)
-    // Only enforce limit if maxAvailable >= 2
-    if (maxAvailable >= 2 && current >= maxAvailable) {
+    // Check if incrementing would exceed maximum available PCs
+    var nextValue = current + 1;
+    if (nextValue > maxAvailable) {
       var errorMsg = document.getElementById('pc-limit-error');
       if (errorMsg) {
         errorMsg.style.display = 'block';
         errorMsg.innerHTML = '<small><i class="fa-solid fa-triangle-exclamation"></i> Maximum available: ' + maxAvailable + ' PC(s)</small>';
       }
-      alert('Cannot exceed ' + maxAvailable + ' available PC(s)');
+      alert('Maximum of available PC is ' + maxAvailable + '. You cannot exceed this limit.');
       return false;
     }
     
-    // Allow incrementing if maxAvailable < 2 (even if current >= maxAvailable)
-    // or if maxAvailable >= 2 and current < maxAvailable
-    customInput.value = current + 1;
+    // If current equals maxAvailable (e.g., 2 = 2), no error, just prevent increment
+    if (current >= maxAvailable) {
+      // Already at maximum, no error message, just don't increment
+      return false;
+    }
+    
+    // Allow incrementing if current < maxAvailable
+    customInput.value = nextValue;
     if (typeof window.handleCustomPcInput === 'function') {
       window.handleCustomPcInput();
     }
   }
+  return false; // Prevent default behavior
 };
 
-window.decrementCustomPc = function() {
+window.decrementCustomPc = function(e) {
+  // Prevent event propagation
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  
   var customInput = document.getElementById('customNumOfPc');
-  if (customInput) {
-    var current = parseInt(customInput.value) || 2;
-    // Minimum is 2, so only allow decrementing if current > 2
+  if (!customInput) {
+    return false;
+  }
+  
+  // Get current value and ensure it's a valid number
+  var current = parseInt(customInput.value);
+  if (isNaN(current)) {
+    current = 2;
+    customInput.value = 2;
+  }
+  
+  // CRITICAL: If current is exactly 2, show alert and IMMEDIATELY return - do NOT decrement
+  if (current === 2) {
+    alert('You cannot book 1 PC. Add more PCs.');
+    // Force value to stay at 2 (in case something tried to change it)
+    customInput.value = 2;
+    // Update hidden field if it exists
+    var custNumOfPcHidden = document.getElementById('custNumOfPc');
+    if (custNumOfPcHidden) {
+      custNumOfPcHidden.value = 2;
+    }
+    return false; // STOP HERE - do not proceed
+  }
+  
+  // If current is less than 2 (shouldn't happen, but safety check), set to 2
+  if (current < 2) {
+    customInput.value = 2;
+    var custNumOfPcHidden = document.getElementById('custNumOfPc');
+    if (custNumOfPcHidden) {
+      custNumOfPcHidden.value = 2;
+    }
+    if (typeof window.handleCustomPcInput === 'function') {
+      window.handleCustomPcInput();
+    }
+    return false;
+  }
+  
+    // Only decrement if current > 2
     if (current > 2) {
-      customInput.value = current - 1;
+      var newValue = current - 1;
+      customInput.value = newValue;
+      var custNumOfPcHidden = document.getElementById('custNumOfPc');
+      if (custNumOfPcHidden) {
+        custNumOfPcHidden.value = newValue;
+      }
       if (typeof window.handleCustomPcInput === 'function') {
         window.handleCustomPcInput();
       }
-    } else if (current === 2) {
-      // Already at minimum, show alert
-      alert('Minimum booking is 2 PCs. You cannot reduce below 2 PCs.');
+      // Update button states after decrementing
+      if (typeof updateCustomPcButtons === 'function') {
+        updateCustomPcButtons();
+      }
     }
-  }
+  
+  return false; // Prevent default behavior
 };
 </script>
 {% endblock %}
@@ -1225,6 +1279,110 @@ window.decrementCustomPc = function() {
             font-size: 1.25rem;
           }
         }
+        
+        /* Bulk Booking Form Button Styles */
+        .bulk-step-actions {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 1rem;
+          padding: 1.5rem 0;
+          border-top: 1px solid #e9ecef;
+          margin-top: 2rem;
+        }
+        
+        .bulk-back {
+          min-width: 120px;
+          padding: 0.75rem 1.5rem;
+          font-weight: 600;
+          font-size: 1rem;
+          border-radius: 8px;
+          border: 2px solid #6c757d;
+          background-color: #ffffff;
+          color: #6c757d;
+          transition: all 0.3s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          text-decoration: none;
+        }
+        
+        .bulk-back:hover {
+          background-color: #6c757d;
+          color: #ffffff;
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+          border-color: #6c757d;
+        }
+        
+        .bulk-back:active {
+          transform: translateY(0);
+          box-shadow: 0 2px 6px rgba(108, 117, 125, 0.2);
+        }
+        
+        .bulk-back i {
+          transition: transform 0.3s ease;
+        }
+        
+        .bulk-back:hover i {
+          transform: translateX(-3px);
+        }
+        
+        .bulk-submit {
+          min-width: 160px;
+          padding: 0.75rem 2rem;
+          font-weight: 600;
+          font-size: 1rem;
+          border-radius: 8px;
+          border: none;
+          background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+          color: #ffffff;
+          transition: all 0.3s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+        }
+        
+        .bulk-submit:hover {
+          background: linear-gradient(135deg, #218838 0%, #1ea080 100%);
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+          color: #ffffff;
+        }
+        
+        .bulk-submit:active {
+          transform: translateY(0);
+          box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+        }
+        
+        .bulk-submit:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+          transform: none;
+        }
+        
+        .bulk-submit i {
+          transition: transform 0.3s ease;
+        }
+        
+        .bulk-submit:hover i {
+          transform: translateX(3px);
+        }
+        
+        /* Responsive button adjustments */
+        @media (max-width: 768px) {
+          .bulk-step-actions {
+            flex-direction: column;
+            gap: 1rem;
+          }
+          
+          .bulk-back,
+          .bulk-submit {
+            width: 100%;
+            min-width: unset;
+          }
+        }
       </style>
       
       <script>
@@ -1300,8 +1458,8 @@ window.decrementCustomPc = function() {
                   <div class="text-center mb-3" style="max-width:250px; margin:auto;">
                     <label for="customNumOfPc" class="form-label mb-2">Number Of PC</label>
                     <div class="input-group justify-content-center">
-                      <button class="btn btn-outline-secondary" type="button" id="fb-minusBtn" onclick="decrementCustomPc()">−</button>
-                      <input type="number" id="customNumOfPc" name="customNumOfPc" class="form-control text-center" value="2" min="2" max="{{ available_count|default:total_pc }}" oninput="if (typeof handleCustomPcInput === 'function') handleCustomPcInput()" required>
+                      <button class="btn btn-outline-secondary" type="button" id="fb-minusBtn" onclick="decrementCustomPc()" disabled style="opacity: 0.5; cursor: not-allowed;">−</button>
+                      <input type="number" id="customNumOfPc" name="customNumOfPc" class="form-control text-center" value="2" min="2" max="{{ available_count|default:total_pc }}" step="1" oninput="if (typeof handleCustomPcInput === 'function') handleCustomPcInput()" onchange="var val = parseInt(this.value); if (isNaN(val) || val < 2) { this.value = 2; if (typeof handleCustomPcInput === 'function') handleCustomPcInput(); }" onkeydown="if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { var val = parseInt(this.value) || 2; if (event.key === 'ArrowDown' && val <= 2) { event.preventDefault(); alert('Minimum booking is 2 PCs. You cannot reduce below 2.'); return false; } }" required>
                       <button class="btn btn-outline-secondary" type="button" id="fb-plusBtn" onclick="incrementCustomPc()">+</button>
                     </div>
                   </div>
@@ -1670,14 +1828,23 @@ window.decrementCustomPc = function() {
     
     if (!customInput) return;
     
-    var value = parseInt(customInput.value) || 2;
+    var value = parseInt(customInput.value);
     var maxAvailable = window.MAX_AVAILABLE_PCS || 0;
     
-    // Enforce minimum of 2 PCs
-    if (value < 2) {
+    // CRITICAL: Strictly enforce minimum of 2 PCs - prevent any value below 2
+    if (isNaN(value) || value < 2) {
       value = 2;
       customInput.value = 2;
-      alert('Minimum booking is 2 PCs. Value has been set to 2.');
+      // Always update hidden field when correcting value
+      if (custNumOfPcHidden) {
+        custNumOfPcHidden.value = 2;
+      }
+      // Don't show alert here - let beforeinput/keydown handle it to avoid spam
+    } else {
+      // Value is valid, ensure hidden field is synced
+      if (custNumOfPcHidden) {
+        custNumOfPcHidden.value = value;
+      }
     }
     
     // Validate against max available
@@ -1689,10 +1856,6 @@ window.decrementCustomPc = function() {
         errorMsg.innerHTML = '<small><i class="fa-solid fa-triangle-exclamation"></i> Maximum available: ' + maxAvailable + ' PC(s)</small>';
       }
       customInput.classList.add('is-invalid');
-    } else if (value < 2) {
-      value = 2;
-      customInput.value = 2;
-      customInput.classList.remove('is-invalid');
     } else {
       if (errorMsg) {
         errorMsg.style.display = 'none';
@@ -1700,9 +1863,7 @@ window.decrementCustomPc = function() {
       customInput.classList.remove('is-invalid');
     }
     
-    if (custNumOfPcHidden) {
-      custNumOfPcHidden.value = value;
-    }
+    // Hidden field is already updated in the validation section above
     
     // Clear any selected PC group buttons when using custom input
     if (value > 0) {
@@ -1726,7 +1887,7 @@ window.decrementCustomPc = function() {
       }
     }
     
-    // Update button states
+    // Update button states (enable/disable minus/plus buttons)
     if (typeof updateCustomPcButtons === 'function') {
       updateCustomPcButtons();
     }
@@ -1739,31 +1900,92 @@ window.decrementCustomPc = function() {
       var current = parseInt(customInput.value) || 2;
       var maxAvailable = window.MAX_AVAILABLE_PCS || 0;
       
-      if (current >= maxAvailable) {
+      // Check if incrementing would exceed maximum available PCs
+      var nextValue = current + 1;
+      if (nextValue > maxAvailable) {
         var errorMsg = document.getElementById('pc-limit-error');
         if (errorMsg) {
           errorMsg.style.display = 'block';
           errorMsg.innerHTML = '<small><i class="fa-solid fa-triangle-exclamation"></i> Maximum available: ' + maxAvailable + ' PC(s)</small>';
         }
-        alert('Cannot exceed ' + maxAvailable + ' available PC(s)');
+        alert('Maximum of available PC is ' + maxAvailable + '. You cannot exceed this limit.');
         return false;
       }
       
-      customInput.value = current + 1;
+      // If current equals maxAvailable (e.g., 2 = 2), no error, just prevent increment
+      if (current >= maxAvailable) {
+        // Already at maximum, no error message, just don't increment
+        return false;
+      }
+      
+      // Allow incrementing if current < maxAvailable
+      customInput.value = nextValue;
       window.handleCustomPcInput();
     }
+    return false; // Prevent default behavior
   };
 
   // Minus button for custom PC count
-  window.decrementCustomPc = function() {
+  window.decrementCustomPc = function(e) {
+    // Prevent event propagation
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     var customInput = document.getElementById('customNumOfPc');
-    if (customInput) {
-      var current = parseInt(customInput.value) || 2;
-      if (current > 1) {
-        customInput.value = current - 1;
-        window.handleCustomPcInput();
+    if (!customInput) {
+      return false;
+    }
+    
+    // Get current value and ensure it's a valid number
+    var current = parseInt(customInput.value);
+    if (isNaN(current)) {
+      current = 2;
+      customInput.value = 2;
+    }
+    
+    // CRITICAL: If current is exactly 2, show alert and IMMEDIATELY return - do NOT decrement
+    if (current === 2) {
+      alert('You cannot book 1 PC. Add more PCs.');
+      // Force value to stay at 2 (in case something tried to change it)
+      customInput.value = 2;
+      // Update hidden field if it exists
+      var custNumOfPcHidden = document.getElementById('custNumOfPc');
+      if (custNumOfPcHidden) {
+        custNumOfPcHidden.value = 2;
+      }
+      window.handleCustomPcInput();
+      return false; // STOP HERE - do not proceed
+    }
+    
+    // If current is less than 2 (shouldn't happen, but safety check), set to 2
+    if (current < 2) {
+      customInput.value = 2;
+      var custNumOfPcHidden = document.getElementById('custNumOfPc');
+      if (custNumOfPcHidden) {
+        custNumOfPcHidden.value = 2;
+      }
+      window.handleCustomPcInput();
+      return false;
+    }
+    
+    // Only decrement if current > 2
+    if (current > 2) {
+      var newValue = current - 1;
+      customInput.value = newValue;
+      var custNumOfPcHidden = document.getElementById('custNumOfPc');
+      if (custNumOfPcHidden) {
+        custNumOfPcHidden.value = newValue;
+      }
+      window.handleCustomPcInput();
+      // Update button states after decrementing
+      if (typeof updateCustomPcButtons === 'function') {
+        updateCustomPcButtons();
       }
     }
+    
+    return false; // Prevent default behavior
   };
 
   // Max button - sets value to all available PCs
@@ -2115,10 +2337,12 @@ function updateCustomPcButtons() {
       minusBtn.disabled = true;
       minusBtn.style.opacity = '0.5';
       minusBtn.style.cursor = 'not-allowed';
+      minusBtn.setAttribute('aria-disabled', 'true');
     } else {
       minusBtn.disabled = false;
       minusBtn.style.opacity = '1';
       minusBtn.style.cursor = 'pointer';
+      minusBtn.removeAttribute('aria-disabled');
     }
   }
   
@@ -2781,7 +3005,159 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   
   if (customNumOfPc) {
-    customNumOfPc.addEventListener('input', handleCustomPcInput);
+    // Use beforeinput to prevent invalid values before they're entered
+    customNumOfPc.addEventListener('beforeinput', function(e) {
+      // Get the proposed new value
+      var currentValue = this.value;
+      var selectionStart = this.selectionStart || 0;
+      var selectionEnd = this.selectionEnd || 0;
+      var inputData = e.data || '';
+      
+      // Calculate what the new value would be
+      var newValueStr = currentValue.substring(0, selectionStart) + inputData + currentValue.substring(selectionEnd);
+      var newValue = parseInt(newValueStr);
+      
+      // If the new value would be less than 2, prevent the input
+      if (!isNaN(newValue) && newValue < 2 && newValueStr.trim() !== '') {
+        e.preventDefault();
+        alert('Minimum booking is 2 PCs. You cannot enter a value below 2.');
+        return false;
+      }
+      
+      // Allow empty string temporarily (user might be typing)
+      if (newValueStr.trim() === '' || newValueStr === '-') {
+        return true; // Allow user to clear and type
+      }
+    });
+    
+    customNumOfPc.addEventListener('input', function() {
+      // Immediately enforce minimum on input - CRITICAL: This runs on every keystroke
+      var value = parseInt(this.value);
+      var oldValue = parseInt(this.getAttribute('data-old-value')) || 2;
+      
+      // If value is invalid or less than 2, force it to 2
+      if (isNaN(value) || value < 2) {
+        this.value = 2;
+        value = 2;
+        // Update hidden field immediately
+        var custNumOfPcHidden = document.getElementById('custNumOfPc');
+        if (custNumOfPcHidden) {
+          custNumOfPcHidden.value = 2;
+        }
+        // Use HTML5 validation API
+        this.setCustomValidity('');
+        this.checkValidity();
+      } else {
+        // Value is valid, clear any validation errors
+        this.setCustomValidity('');
+      }
+      
+      // Store current value for next check
+      this.setAttribute('data-old-value', value);
+      
+      // Call the main handler
+      if (typeof handleCustomPcInput === 'function') {
+        handleCustomPcInput();
+      }
+    });
+    
+    // Add change event to catch any programmatic changes
+    customNumOfPc.addEventListener('change', function() {
+      var value = parseInt(this.value) || 2;
+      if (isNaN(value) || value < 2) {
+        this.value = 2;
+        var custNumOfPcHidden = document.getElementById('custNumOfPc');
+        if (custNumOfPcHidden) {
+          custNumOfPcHidden.value = 2;
+        }
+        // Force validation
+        this.setCustomValidity('');
+        this.checkValidity();
+        handleCustomPcInput();
+      } else {
+        this.setCustomValidity('');
+      }
+    });
+    
+    // Add invalid event to enforce minimum
+    customNumOfPc.addEventListener('invalid', function(e) {
+      var value = parseInt(this.value);
+      if (isNaN(value) || value < 2) {
+        this.setCustomValidity('Minimum booking is 2 PCs. You cannot enter a value below 2.');
+        this.value = 2;
+        var custNumOfPcHidden = document.getElementById('custNumOfPc');
+        if (custNumOfPcHidden) {
+          custNumOfPcHidden.value = 2;
+        }
+      }
+    });
+    
+    // Prevent mouse wheel from changing value below 2
+    customNumOfPc.addEventListener('wheel', function(e) {
+      var value = parseInt(this.value) || 2;
+      if (e.deltaY > 0 && value <= 2) {
+        // Scrolling down and value is at or below 2
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+    });
+    // Prevent typing values below 2 using keydown
+    customNumOfPc.addEventListener('keydown', function(e) {
+      // CRITICAL: Prevent arrow down key when value is 2 or less
+      if (e.key === 'ArrowDown' || e.keyCode === 40) {
+        var current = parseInt(this.value) || 2;
+        if (current <= 2) {
+          e.preventDefault();
+          e.stopPropagation();
+          alert('Minimum booking is 2 PCs. You cannot reduce below 2.');
+          return false;
+        }
+      }
+      
+      // Allow: backspace, delete, tab, escape, enter, decimal point
+      if ([46, 8, 9, 27, 13, 110, 190].indexOf(e.keyCode) !== -1 ||
+          // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+          (e.keyCode === 65 && e.ctrlKey === true) ||
+          (e.keyCode === 67 && e.ctrlKey === true) ||
+          (e.keyCode === 86 && e.ctrlKey === true) ||
+          (e.keyCode === 88 && e.ctrlKey === true) ||
+          // Allow: home, end, left, right, arrow up
+          (e.keyCode >= 35 && e.keyCode <= 39 && e.keyCode !== 40)) {
+        return;
+      }
+      
+      // Ensure that it is a number and stop the keypress if value would be below 2
+      if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && (e.keyCode < 96 || e.keyCode > 105)) {
+        e.preventDefault();
+      } else {
+        // Check if the resulting value would be below 2
+        var currentValue = this.value;
+        var selectionStart = this.selectionStart;
+        var selectionEnd = this.selectionEnd;
+        var newValue = currentValue.substring(0, selectionStart) + 
+                      (e.keyCode >= 96 ? String.fromCharCode(e.keyCode - 48) : String.fromCharCode(e.keyCode)) + 
+                      currentValue.substring(selectionEnd);
+        var numValue = parseInt(newValue) || 0;
+        if (numValue < 2 && newValue.length > 0 && newValue.trim() !== '') {
+          e.preventDefault();
+          e.stopPropagation();
+          alert('Minimum booking is 2 PCs. You cannot enter a value below 2.');
+          return false;
+        }
+      }
+    });
+    // Prevent pasting values below 2
+    customNumOfPc.addEventListener('paste', function(e) {
+      var paste = (e.clipboardData || window.clipboardData).getData('text');
+      var numValue = parseInt(paste) || 0;
+      if (numValue < 2) {
+        e.preventDefault();
+        this.value = 2;
+        handleCustomPcInput();
+        alert('Minimum booking is 2 PCs. Pasted value has been set to 2.');
+      }
+    });
   }
   
   // Add click handler for Next button to show modal

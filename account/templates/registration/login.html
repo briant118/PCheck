@@ -1026,27 +1026,27 @@
           <p id="forgotPasswordDescription">Enter your email to receive an OTP verification code.</p>
         </div>
         
-        <!-- Step 1: Email -->
+        <!-- Step 1: Email (only visible in step 1) -->
         <div class="form-group mb-3" id="emailSection">
           <label for="id_email">Email:</label>
           <input type="email" name="email" id="id_email" class="form-control" required>
         </div>
         
-        <!-- Step 2: OTP (shown after email is sent) -->
+        <!-- Step 2: OTP (shown after email is sent, hidden in step 1 and step 3) -->
         <div id="otpSection" style="display: none;">
           <div class="form-group mb-3">
             <label for="otp_code" class="form-label">Enter OTP Code</label>
-            <input type="text" name="otp_code" id="otp_code" class="form-control" maxlength="6" placeholder="6-digit code">
+            <input type="text" id="otp_code" class="form-control" maxlength="6" placeholder="6-digit code" disabled>
             <small class="text-muted">Check your email for the OTP code</small>
           </div>
         </div>
         
-        <!-- Step 3: Password fields (shown after OTP is verified) -->
+        <!-- Step 3: Password fields (shown ONLY after OTP is verified) -->
         <div id="passwordSection" style="display: none;">
           <div class="form-group mb-3">
             <label for="new_password" class="form-label">New Password</label>
             <div class="input-group">
-              <input type="password" name="new_password" id="new_password" class="form-control">
+              <input type="password" id="new_password" class="form-control" disabled>
               <button type="button" class="input-group-text" id="toggleNewPassword" style="cursor: pointer; border: none;">
                 <i class="fa-solid fa-eye" id="newPasswordToggleIcon"></i>
               </button>
@@ -1055,7 +1055,7 @@
           <div class="form-group mb-3">
             <label for="retype_password" class="form-label">Retype New Password</label>
             <div class="input-group">
-              <input type="password" name="retype_password" id="retype_password" class="form-control">
+              <input type="password" id="retype_password" class="form-control" disabled>
               <button type="button" class="input-group-text" id="toggleRetypePassword" style="cursor: pointer; border: none;">
                 <i class="fa-solid fa-eye" id="retypePasswordToggleIcon"></i>
               </button>
@@ -1272,18 +1272,63 @@
         if (googleSignInSection) googleSignInSection.style.display = 'none';
         forgotPasswordForm.style.display = 'block';
         if (loginHeaderTitle) loginHeaderTitle.textContent = 'Forgot Password';
-        // Reset form state and show only email
+        // Reset form state and show ONLY email field (step 1)
         forgotPasswordForm.reset();
-        document.getElementById('emailSection').style.display = 'block';
-        document.getElementById('otpSection').style.display = 'none';
-        document.getElementById('passwordSection').style.display = 'none';
-        document.getElementById('changePasswordSubmit').textContent = 'Send OTP';
+        const emailSection = document.getElementById('emailSection');
+        const otpSection = document.getElementById('otpSection');
+        const passwordSection = document.getElementById('passwordSection');
+        const submitBtn = document.getElementById('changePasswordSubmit');
+        const descriptionText = document.getElementById('forgotPasswordDescription');
+        
+        // Step 1: Only show email field
+        if (emailSection) emailSection.style.display = 'block';
+        if (otpSection) otpSection.style.display = 'none';
+        if (passwordSection) passwordSection.style.display = 'none';
+        if (submitBtn) submitBtn.textContent = 'Send OTP';
+        if (descriptionText) descriptionText.textContent = 'Enter your email to receive an OTP verification code.';
+        
+        // Clear any previous values and set proper states
+        const emailInput = document.getElementById('id_email');
+        const otpInput = document.getElementById('otp_code');
+        const newPasswordInput = document.getElementById('new_password');
+        const retypePasswordInput = document.getElementById('retype_password');
+        
+        // Enable email field (step 1)
+        if (emailInput) {
+          emailInput.value = '';
+          emailInput.disabled = false;
+          emailInput.required = true;
+          emailInput.setAttribute('name', 'email');
+        }
+        
+        // Disable and clear OTP field (not in step 1)
+        if (otpInput) {
+          otpInput.value = '';
+          otpInput.disabled = true;
+          otpInput.required = false;
+          otpInput.removeAttribute('name');
+        }
+        
+        // Disable and clear password fields (not in step 1)
+        if (newPasswordInput) {
+          newPasswordInput.value = '';
+          newPasswordInput.disabled = true;
+          newPasswordInput.required = false;
+          newPasswordInput.removeAttribute('name');
+        }
+        if (retypePasswordInput) {
+          retypePasswordInput.value = '';
+          retypePasswordInput.disabled = true;
+          retypePasswordInput.required = false;
+          retypePasswordInput.removeAttribute('name');
+        }
+        
         // Update required fields based on visibility
         updateRequiredFields();
       });
     }
     
-    // Function to update required attributes based on visibility
+    // Function to update required attributes and disabled state based on visibility
     function updateRequiredFields() {
       const emailInput = document.getElementById('id_email');
       const otpInput = document.getElementById('otp_code');
@@ -1298,18 +1343,40 @@
       const isOtpVisible = otpSection && window.getComputedStyle(otpSection).display !== 'none';
       const isPasswordVisible = passwordSection && window.getComputedStyle(passwordSection).display !== 'none';
       
-      // Set required based on visibility
+      // Set required and disabled based on visibility
       if (emailInput) {
         emailInput.required = isEmailVisible;
+        emailInput.disabled = !isEmailVisible;
       }
       if (otpInput) {
         otpInput.required = isOtpVisible;
+        otpInput.disabled = !isOtpVisible;
+        // Remove name attribute when disabled to prevent form submission
+        if (!isOtpVisible) {
+          otpInput.removeAttribute('name');
+        } else {
+          otpInput.setAttribute('name', 'otp_code');
+        }
       }
       if (newPasswordInput) {
         newPasswordInput.required = isPasswordVisible;
+        newPasswordInput.disabled = !isPasswordVisible;
+        // Remove name attribute when disabled to prevent form submission
+        if (!isPasswordVisible) {
+          newPasswordInput.removeAttribute('name');
+        } else {
+          newPasswordInput.setAttribute('name', 'new_password');
+        }
       }
       if (retypePasswordInput) {
         retypePasswordInput.required = isPasswordVisible;
+        retypePasswordInput.disabled = !isPasswordVisible;
+        // Remove name attribute when disabled to prevent form submission
+        if (!isPasswordVisible) {
+          retypePasswordInput.removeAttribute('name');
+        } else {
+          retypePasswordInput.setAttribute('name', 'retype_password');
+        }
       }
     }
     
@@ -1320,18 +1387,59 @@
         loginForm.style.display = 'block';
         if (googleSignInSection) googleSignInSection.style.display = 'block';
         if (loginHeaderTitle) loginHeaderTitle.textContent = 'Login to PCHECK';
-        // Reset form
+        // Reset form to step 1: ONLY email field visible
         forgotPasswordForm.reset();
-        document.getElementById('otpSection').style.display = 'none';
-        document.getElementById('passwordSection').style.display = 'none';
-        document.getElementById('changePasswordErrors').style.display = 'none';
-        const submitBtn = document.getElementById('changePasswordSubmit');
-        if (submitBtn) submitBtn.textContent = 'Send OTP';
-        // Show email field again
         const emailSection = document.getElementById('emailSection');
-        if (emailSection) emailSection.style.display = 'block';
+        const otpSection = document.getElementById('otpSection');
+        const passwordSection = document.getElementById('passwordSection');
+        const submitBtn = document.getElementById('changePasswordSubmit');
         const descriptionText = document.getElementById('forgotPasswordDescription');
+        const errorDiv = document.getElementById('changePasswordErrors');
+        
+        // Step 1: Only show email field, hide OTP and password fields
+        if (emailSection) emailSection.style.display = 'block';
+        if (otpSection) otpSection.style.display = 'none';
+        if (passwordSection) passwordSection.style.display = 'none';
+        if (errorDiv) errorDiv.style.display = 'none';
+        if (submitBtn) submitBtn.textContent = 'Send OTP';
         if (descriptionText) descriptionText.textContent = 'Enter your email to receive an OTP verification code.';
+        
+        // Clear all field values and set proper states
+        const emailInput = document.getElementById('id_email');
+        const otpInput = document.getElementById('otp_code');
+        const newPasswordInput = document.getElementById('new_password');
+        const retypePasswordInput = document.getElementById('retype_password');
+        
+        // Enable email field (step 1)
+        if (emailInput) {
+          emailInput.value = '';
+          emailInput.disabled = false;
+          emailInput.required = true;
+          emailInput.setAttribute('name', 'email');
+        }
+        
+        // Disable and clear OTP field (not in step 1)
+        if (otpInput) {
+          otpInput.value = '';
+          otpInput.disabled = true;
+          otpInput.required = false;
+          otpInput.removeAttribute('name');
+        }
+        
+        // Disable and clear password fields (not in step 1)
+        if (newPasswordInput) {
+          newPasswordInput.value = '';
+          newPasswordInput.disabled = true;
+          newPasswordInput.required = false;
+          newPasswordInput.removeAttribute('name');
+        }
+        if (retypePasswordInput) {
+          retypePasswordInput.value = '';
+          retypePasswordInput.disabled = true;
+          retypePasswordInput.required = false;
+          retypePasswordInput.removeAttribute('name');
+        }
+        
         // Update required fields
         updateRequiredFields();
       });
@@ -1415,13 +1523,20 @@
         // Determine step based on field values and visibility (prioritize explicit checks)
         // Step 1: Send OTP (email provided, OTP section not visible, no OTP entered, no password)
         if (email && !isOtpSectionVisible && !isPasswordSectionVisible && (!otp || otp.length === 0) && (!newPassword || newPassword.length === 0)) {
+          // Ensure password section is explicitly hidden in step 1
+          if (passwordSection) passwordSection.style.display = 'none';
+          if (otpSection) otpSection.style.display = 'none';
           formData.append('action', 'send_otp');
         }
         // Step 2: Verify OTP (OTP section visible, OTP provided, password section not visible, no password)
         else if (isOtpSectionVisible && otp && otp.length > 0 && !isPasswordSectionVisible && (!newPassword || newPassword.length === 0)) {
+          // Ensure password section is explicitly hidden in step 2 (before OTP verification)
+          if (passwordSection) passwordSection.style.display = 'none';
           // Include OTP for verification - DO NOT include password fields
           formData.append('otp_code', otp);
           formData.append('action', 'verify_otp');
+          // Debug logging
+          console.log('Verifying OTP:', { email: email, otp: otp });
         }
         // Step 3: Change password - if password section is visible AND passwords are provided
         else if (isPasswordSectionVisible && newPassword && newPassword.length > 0 && retypePassword && retypePassword.length > 0) {
@@ -1521,14 +1636,26 @@
           }
         }
         
-        fetch(forgotPasswordForm.action, {
+        // Build absolute URL to ensure it works from any IP address
+        const formAction = forgotPasswordForm.action;
+        const absoluteUrl = formAction.startsWith('http') 
+          ? formAction 
+          : window.location.origin + formAction;
+        
+        fetch(absoluteUrl, {
           method: 'POST',
           body: formData,
           headers: {
             'X-CSRFToken': csrfToken.value
           }
         })
-        .then(response => response.json())
+        .then(response => {
+          // Check if response is ok
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+        })
         .then(data => {
           // Restore button state
           if (submitBtn) submitBtn.style.display = 'block';
@@ -1536,13 +1663,20 @@
           
           if (data.success) {
             if (data.step === 'otp_sent' && data.show_otp) {
-              // Hide email field, show OTP section
+              // Step 2: Hide email field, show ONLY OTP section (password fields remain hidden)
               const emailSection = document.getElementById('emailSection');
               if (emailSection) emailSection.style.display = 'none';
               
-              otpSection.style.display = 'block';
+              // Ensure password section is hidden and disabled
+              if (passwordSection) passwordSection.style.display = 'none';
+              
+              // Show OTP section and enable OTP input
+              if (otpSection) otpSection.style.display = 'block';
               if (otpInput) {
                 otpInput.value = ''; // Clear any previous OTP value
+                otpInput.disabled = false; // Enable the field
+                otpInput.setAttribute('name', 'otp_code'); // Add name attribute for form submission
+                otpInput.required = true; // Make it required
               }
               if (submitBtn) submitBtn.textContent = 'Verify OTP';
               // Show toast notification instead of inline message
@@ -1551,20 +1685,32 @@
               // Update required fields based on visibility
               updateRequiredFields();
             } else if (data.step === 'otp_verified' && data.show_password) {
-              // Hide email and OTP sections, show password fields
+              // Step 3: Hide email and OTP sections, show ONLY password fields
               const emailSection = document.getElementById('emailSection');
               if (emailSection) emailSection.style.display = 'none';
               if (otpSection) otpSection.style.display = 'none';
               
-              // Show password fields
-              passwordSection.style.display = 'block';
+              // Disable OTP input since we're moving to password step
+              if (otpInput) {
+                otpInput.disabled = true;
+                otpInput.removeAttribute('name');
+              }
+              
+              // Show password fields (only after OTP is verified) and enable them
+              if (passwordSection) passwordSection.style.display = 'block';
               if (newPasswordInput) {
                 newPasswordInput.value = ''; // Clear any previous password value
+                newPasswordInput.disabled = false; // Enable the field
+                newPasswordInput.setAttribute('name', 'new_password'); // Add name attribute for form submission
+                newPasswordInput.required = true; // Make it required
               }
               if (retypePasswordInput) {
                 retypePasswordInput.value = ''; // Clear any previous password value
+                retypePasswordInput.disabled = false; // Enable the field
+                retypePasswordInput.setAttribute('name', 'retype_password'); // Add name attribute for form submission
+                retypePasswordInput.required = true; // Make it required
               }
-              submitBtn.textContent = 'Change Password';
+              if (submitBtn) submitBtn.textContent = 'Change Password';
               // Show toast notification instead of inline message
               showToast(data.message, 'success');
               if (descriptionText) descriptionText.textContent = 'Enter your new password.';
@@ -1591,8 +1737,21 @@
           if (submitBtn) submitBtn.style.display = 'block';
           if (loadingAnimation) loadingAnimation.style.display = 'none';
           
-          showErrorToast('An error occurred. Please try again.');
-          console.error('Error:', error);
+          // Log detailed error for debugging
+          console.error('Forgot password form error:', error);
+          console.error('Error details:', {
+            message: error.message,
+            stack: error.stack,
+            email: emailInput ? emailInput.value : 'N/A',
+            otp: otpInput ? otpInput.value : 'N/A'
+          });
+          
+          // Show user-friendly error message
+          let errorMessage = 'An error occurred. Please try again.';
+          if (error.message && error.message.includes('HTTP error')) {
+            errorMessage = 'Unable to connect to the server. Please check your internet connection and try again.';
+          }
+          showErrorToast(errorMessage);
         });
       });
     }

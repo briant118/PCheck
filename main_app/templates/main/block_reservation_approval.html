@@ -45,8 +45,81 @@
     </div>
   </div><!-- end of card -->
   <div id="control" class="p2 text-center mt-2">
-    <a href="{% url 'main_app:block-reservation-approved' pk=reservation.pk %}" class="btn btn-lg btn-success rounded rounded-3">approve</a>
+    <button type="button" id="approve-btn" class="btn btn-lg btn-success rounded rounded-3" data-booking-id="{{ reservation.pk }}">approve</button>
     <a href="{% url 'main_app:block-reservation-declined' pk=reservation.pk %}" class="btn btn-lg btn-danger rounded rounded-3" onclick="return confirm('Are you sure you want to decline this faculty booking?');">decline</a>
   </div>
+  
+  <script>
+  document.addEventListener('DOMContentLoaded', function() {
+    var approveBtn = document.getElementById('approve-btn');
+    if (approveBtn) {
+      approveBtn.addEventListener('click', function() {
+        var bookingId = this.getAttribute('data-booking-id');
+        var btn = this;
+        
+        // Disable button and show loading state
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> Approving...';
+        
+        // Make AJAX request
+        fetch('{% url "main_app:block-reservation-approved" pk=reservation.pk %}?ajax=true', {
+          method: 'GET',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': '{{ csrf_token }}'
+          },
+          credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            // Show success message
+            var message = data.message || 'Reservation approved successfully!';
+            var alertClass = data.warning ? 'alert-warning' : 'alert-success';
+            
+            // Create and show alert
+            var alertDiv = document.createElement('div');
+            alertDiv.className = 'alert ' + alertClass + ' alert-dismissible fade show mt-3';
+            alertDiv.setAttribute('role', 'alert');
+            alertDiv.innerHTML = '<strong>Success!</strong> ' + message + 
+              '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+            
+            // Insert alert before the control div
+            var controlDiv = document.getElementById('control');
+            controlDiv.parentNode.insertBefore(alertDiv, controlDiv);
+            
+            // Update button to show success
+            btn.disabled = true;
+            btn.className = 'btn btn-lg btn-secondary rounded rounded-3';
+            btn.innerHTML = '<i class="fa-solid fa-check me-2"></i> Approved';
+            
+            // Auto-dismiss alert after 5 seconds
+            setTimeout(function() {
+              if (alertDiv && alertDiv.parentNode) {
+                alertDiv.remove();
+              }
+            }, 5000);
+            
+            // Optionally reload the page after a delay to show updated status
+            setTimeout(function() {
+              window.location.reload();
+            }, 2000);
+          } else {
+            // Show error message
+            alert('Error: ' + (data.message || 'Failed to approve reservation'));
+            btn.disabled = false;
+            btn.innerHTML = 'approve';
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          alert('An error occurred while approving the reservation. Please try again.');
+          btn.disabled = false;
+          btn.innerHTML = 'approve';
+        });
+      });
+    }
+  });
+  </script>
 </div>
 {% endblock %}

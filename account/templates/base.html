@@ -2158,319 +2158,381 @@
     <!-- Password Change Modal Script -->
     {% if request.user.is_authenticated and request.user.has_usable_password %}
     <script>
+      document.addEventListener('DOMContentLoaded', function() {
       (function() {
-        const passwordChangeModal = document.getElementById('passwordChangeModal');
-        if (passwordChangeModal) {
-          console.log('Password change modal found, setting up event listener');
+        // Function to show toast notification
+        function showToast(message, type) {
+          // Create toast element if it doesn't exist
+          let toast = document.getElementById('passwordChangeToastNotification');
+          if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'passwordChangeToastNotification';
+            toast.className = 'toast-notification';
+            toast.style.display = 'none';
+            toast.innerHTML = '<div class="toast-content"><span id="passwordChangeToastMessage"></span></div>';
+            document.body.appendChild(toast);
+          }
           
-          // Reset modal body when modal is shown
-          passwordChangeModal.addEventListener('show.bs.modal', function() {
-            console.log('Password change modal opened');
-            const modalBody = document.getElementById('passwordChangeModalBody');
-            if (!modalBody) {
-              console.error('Password change modal body not found');
+          const toastMessage = document.getElementById('passwordChangeToastMessage');
+          if (!toastMessage) return;
+          
+          // Clear any existing timeout
+          if (toast._timeout) {
+            clearTimeout(toast._timeout);
+          }
+          
+          // Reset toast state
+          toast.classList.remove('hiding');
+          toast.style.display = 'block';
+          
+          // Set message
+          toastMessage.textContent = message;
+          
+          // Set type (success, error, etc.)
+          const toastContent = toast.querySelector('.toast-content');
+          if (toastContent) {
+            if (type === 'success') {
+              toastContent.style.background = 'linear-gradient(135deg, #4caf50 0%, #45a049 100%)';
+            } else if (type === 'error') {
+              toastContent.style.background = 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)';
+            }
+          }
+          
+          // Hide after 3 seconds (slightly longer to ensure visibility)
+          toast._timeout = setTimeout(function() {
+            toast.classList.add('hiding');
+            setTimeout(function() {
+              toast.style.display = 'none';
+              toast.classList.remove('hiding');
+            }, 300);
+          }, 3000);
+        }
+        
+        // Function to show error toast
+        function showErrorToast(message) {
+          showToast(message, 'error');
+        }
+        
+        // Handle password change form submission
+        const passwordChangeForm = document.getElementById('passwordChangeForm');
+        if (passwordChangeForm) {
+          passwordChangeForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const errorDiv = document.getElementById('passwordChangeErrors');
+            const otpSection = document.getElementById('passwordChangeOtpSection');
+            const passwordSection = document.getElementById('passwordChangePasswordSection');
+            const submitBtn = document.getElementById('passwordChangeSubmit');
+            const loadingAnimation = document.getElementById('passwordChangeLoadingAnimation');
+            const descriptionText = document.getElementById('passwordChangeDescription');
+            const emailInput = document.getElementById('passwordChangeEmail');
+            const otpInput = document.getElementById('passwordChangeOtpCode');
+            const newPasswordInput = document.getElementById('passwordChangeNewPassword');
+            const retypePasswordInput = document.getElementById('passwordChangeRetypePassword');
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+            
+            // Clear previous errors
+            if (errorDiv) {
+              errorDiv.style.display = 'none';
+              errorDiv.textContent = '';
+            }
+            
+            // Hide button and show loading animation
+            if (submitBtn) {
+              submitBtn.style.display = 'none';
+            }
+            if (loadingAnimation) {
+              loadingAnimation.style.display = 'block';
+            }
+            
+            if (!csrfToken) {
+              // Restore button state
+              if (submitBtn) submitBtn.style.display = 'block';
+              if (loadingAnimation) loadingAnimation.style.display = 'none';
+              showErrorToast('CSRF token not found. Please refresh the page.');
               return;
             }
             
-            // Show loading spinner
-            modalBody.innerHTML = '<div class="text-center"><div class="spinner-border text-warning" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+            // Check which sections are visible
+            let isOtpSectionVisible = false;
+            let isPasswordSectionVisible = false;
             
-            // Load form content via AJAX with timeout
-            console.log('Loading password change form...');
-            const url = '{% url "account:password_change" %}';
-            console.log('Fetching URL:', url);
+            if (otpSection) {
+              const otpDisplay = window.getComputedStyle(otpSection).display;
+              isOtpSectionVisible = otpDisplay !== 'none';
+            }
             
-            // Create a timeout promise
-            const timeoutPromise = new Promise((_, reject) => {
-              setTimeout(() => reject(new Error('Request timeout after 10 seconds')), 10000);
-            });
+            if (passwordSection) {
+              const passwordDisplay = window.getComputedStyle(passwordSection).display;
+              isPasswordSectionVisible = passwordDisplay !== 'none';
+            }
             
-            // Safety timeout: ensure spinner is removed after 15 seconds even if promise chain fails
-            const safetyTimeout = setTimeout(() => {
-              const spinner = modalBody.querySelector('.spinner-border');
-              if (spinner) {
-                console.warn('Safety timeout: removing spinner after 15 seconds');
-                modalBody.innerHTML = '<div class="alert alert-danger">Request is taking too long. Please try again or <a href="' + url + '" target="_blank">open in a new tab</a>.</div>';
-              }
-            }, 15000);
+            // Determine which step we're on
+            const email = emailInput ? emailInput.value.trim() : '';
+            const otp = otpInput ? otpInput.value.trim() : '';
+            const newPassword = newPasswordInput ? newPasswordInput.value.trim() : '';
+            const retypePassword = retypePasswordInput ? retypePasswordInput.value.trim() : '';
             
-            // Race between fetch and timeout
-            Promise.race([
-              fetch(url, {
-                credentials: 'same-origin',
-                headers: {
-                  'X-Requested-With': 'XMLHttpRequest'
-                }
-              }),
-              timeoutPromise
-            ])
-              .then(response => {
-                console.log('Response received, status:', response.status);
-                if (!response.ok) {
-                  throw new Error('Network response was not ok: ' + response.status);
-                }
-                return response.text();
-              })
-              .then(html => {
-                console.log('Password change form response received, length:', html.length);
-                
-                if (!html || html.length === 0) {
-                  throw new Error('Empty response received');
-                }
-                
-                // Check if response is a redirect or login page
-                if (html.includes('login') && !html.includes('password-change-form')) {
-                  console.error('Received login page instead of form');
-                  modalBody.innerHTML = '<div class="alert alert-warning">Session expired. Please refresh the page and try again.</div>';
-                  return;
-                }
-                
-                // Parse the HTML response
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-                
-                // Find the form in the parsed document - try multiple selectors
-                let form = doc.querySelector('form.password-change-form');
-                if (!form) {
-                  form = doc.querySelector('form');
-                }
-                
-                if (form) {
-                  console.log('Form found, rendering...');
-                  renderPasswordForm(form, modalBody);
-                } else {
-                  console.error('Form not found in response. HTML length:', html.length);
-                  console.error('Response preview:', html.substring(0, 500));
-                  // Try to show what we got
-                  if (html.includes('password')) {
-                    // Maybe the form is there but with different structure
-                    modalBody.innerHTML = '<div class="alert alert-warning">Form structure may have changed. <a href="' + url + '" target="_blank">Open in new tab</a> to change password.</div>';
-                  } else {
-                    modalBody.innerHTML = '<div class="alert alert-danger">Error: Form not found in response. Please refresh and try again.</div>';
-                  }
-                }
-              })
-              .catch(error => {
-                console.error('Error loading password change form:', error);
-                let errorMsg = error.message || 'Unknown error';
-                if (errorMsg.includes('timeout')) {
-                  errorMsg = 'Request timed out. The server may be slow or unresponsive.';
-                }
-                modalBody.innerHTML = '<div class="alert alert-danger">Error loading form: ' + errorMsg + '. <a href="' + url + '" target="_blank">Click here to open in a new tab</a>.</div>';
-              })
-              .finally(() => {
-                // Clear safety timeout since request completed
-                if (typeof safetyTimeout !== 'undefined') {
-                  clearTimeout(safetyTimeout);
-                }
-                // Safety check: ensure spinner is removed even if something unexpected happens
-                const spinner = modalBody.querySelector('.spinner-border');
-                if (spinner && modalBody.innerHTML.includes('spinner-border')) {
-                  // If spinner is still there and nothing else was set, show error
-                  if (modalBody.innerHTML.trim() === '<div class="text-center"><div class="spinner-border text-warning" role="status"><span class="visually-hidden">Loading...</span></div></div>') {
-                    modalBody.innerHTML = '<div class="alert alert-danger">Error loading form. Please try again or <a href="' + url + '" target="_blank">open in a new tab</a>.</div>';
-                  }
-                }
-              });
-          });
-        }
-        
-        function renderPasswordForm(form, modalBody) {
-          try {
-            // Extract form content
-            let formHTML = form.outerHTML;
+            // Create form data
+            const formData = new FormData();
             
-            // Update form to submit via AJAX
-            formHTML = formHTML.replace(/<form([^>]*)>/, '<form$1 id="passwordChangeForm">');
+            // Always include email and CSRF token
+            if (email) {
+              formData.append('email', email);
+            }
+            formData.append('csrfmiddlewaretoken', csrfToken.value);
             
-            // Build modal content with icon and styling
-            let content = '<div class="password-change-modal-wrapper">' +
-              '<div class="password-change-icon-wrapper">' +
-              '<i class="fa-solid fa-lock-open password-change-icon-padlock"></i>' +
-              '<i class="fa-solid fa-key password-change-icon-key"></i>' +
-              '</div>' +
-              '<p class="password-change-subtitle">Please enter your old password, for security\'s sake, and then enter your new password twice so we can verify you typed it in correctly.</p>' +
-              formHTML +
-              '</div>';
-            
-            modalBody.innerHTML = content;
-          } catch (error) {
-            console.error('Error rendering password form:', error);
-            modalBody.innerHTML = '<div class="alert alert-danger">Error rendering form. Please try again.</div>';
+            // Validate email is always required
+            if (!email) {
+              if (submitBtn) submitBtn.style.display = 'block';
+              if (loadingAnimation) loadingAnimation.style.display = 'none';
+              showErrorToast('Email is required.');
             return;
           }
           
-          // Attach submit handler
-          const passwordForm = document.getElementById('passwordChangeForm');
-          if (passwordForm) {
-            attachPasswordSubmitHandler(passwordForm);
-          }
-          
-          // Add toggle password visibility functionality
-          const eyeIcons = modalBody.querySelectorAll('.password-input-right-icon');
-          eyeIcons.forEach(icon => {
-            // Remove any existing onclick handlers
-            icon.removeAttribute('onclick');
-            
-            // Find the associated input field (should be in the same container)
-            const container = icon.closest('.password-input-container');
-            if (container) {
-              const input = container.querySelector('input[type="password"], input[type="text"]');
-              if (input && icon.classList.contains('fa-eye')) {
-                icon.addEventListener('click', function() {
-                  togglePasswordVisibility(input.id, this);
-                });
-              }
+            // Determine step based on field values and visibility
+            // Step 1: Send OTP
+            if (email && !isOtpSectionVisible && !isPasswordSectionVisible && (!otp || otp.length === 0) && (!newPassword || newPassword.length === 0)) {
+              if (passwordSection) passwordSection.style.display = 'none';
+              if (otpSection) otpSection.style.display = 'none';
+              formData.append('action', 'send_otp');
             }
-          });
-        }
-        
-        function attachPasswordSubmitHandler(form) {
-          if (!form) return;
-          
-          // Check if handler is already attached
-          if (form.dataset.submitHandlerAttached === 'true') {
+            // Step 2: Verify OTP
+            else if (isOtpSectionVisible && otp && otp.length > 0 && !isPasswordSectionVisible && (!newPassword || newPassword.length === 0)) {
+              if (passwordSection) passwordSection.style.display = 'none';
+              formData.append('otp_code', otp);
+              formData.append('action', 'verify_otp');
+            }
+            // Step 3: Change password
+            else if (isPasswordSectionVisible && newPassword && newPassword.length > 0 && retypePassword && retypePassword.length > 0) {
+              if (otp) {
+                formData.append('otp_code', otp);
+              }
+              formData.append('new_password', newPassword);
+              formData.append('retype_password', retypePassword);
+              
+              if (!otp) {
+                if (submitBtn) submitBtn.style.display = 'block';
+                if (loadingAnimation) loadingAnimation.style.display = 'none';
+                showErrorToast('OTP code is required.');
             return;
           }
-          form.dataset.submitHandlerAttached = 'true';
-          
-          form.addEventListener('submit', function handleSubmit(e) {
-            e.preventDefault();
-            
-            const formData = new FormData(form);
-            const modalBody = document.getElementById('passwordChangeModalBody');
-            
-            // Get CSRF token
-            let csrfToken = formData.get('csrfmiddlewaretoken');
-            if (!csrfToken) {
-              const cookies = document.cookie.split(';');
-              for (let cookie of cookies) {
-                const [name, value] = cookie.trim().split('=');
-                if (name === 'csrftoken') {
-                  csrfToken = value;
-                  formData.append('csrfmiddlewaretoken', value);
-                  break;
-                }
+              if (newPassword !== retypePassword) {
+                if (submitBtn) submitBtn.style.display = 'block';
+                if (loadingAnimation) loadingAnimation.style.display = 'none';
+                showErrorToast('Passwords do not match.');
+                return;
               }
+              if (newPassword.length < 8) {
+                if (submitBtn) submitBtn.style.display = 'block';
+                if (loadingAnimation) loadingAnimation.style.display = 'none';
+                showErrorToast('Password must be at least 8 characters long.');
+                return;
+              }
+              formData.append('action', 'change_password');
+            } else {
+              // Invalid state
+              if (submitBtn) submitBtn.style.display = 'block';
+              if (loadingAnimation) loadingAnimation.style.display = 'none';
+              showErrorToast('Please complete all required fields.');
+              return;
             }
             
-            // Show loading state
-            const submitBtn = form.querySelector('button[type="submit"]');
-            const originalBtnText = submitBtn ? submitBtn.innerHTML : '';
-            if (submitBtn) {
-              submitBtn.disabled = true;
-              submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Changing...';
-            }
+            // Build absolute URL
+            const formAction = passwordChangeForm.action;
+            const absoluteUrl = formAction.startsWith('http') 
+              ? formAction 
+              : window.location.origin + formAction;
             
-            fetch('{% url "account:password_change" %}', {
+            fetch(absoluteUrl, {
               method: 'POST',
               body: formData,
               headers: {
-                'X-CSRFToken': csrfToken || ''
-              },
-              credentials: 'same-origin'
+                'X-CSRFToken': csrfToken.value
+              }
             })
             .then(response => {
-              if (response.redirected) {
-                // Success - show success message and close modal
+              if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+              }
+              return response.json();
+            })
+            .then(data => {
+              // Restore button state
+              if (submitBtn) submitBtn.style.display = 'block';
+              if (loadingAnimation) loadingAnimation.style.display = 'none';
+              
+              if (data.success) {
+                if (data.step === 'otp_sent' && data.show_otp) {
+                  // Step 2: Hide email field, show ONLY OTP section
+                  const emailSection = document.getElementById('passwordChangeEmailSection');
+                  if (emailSection) emailSection.style.display = 'none';
+                  if (passwordSection) passwordSection.style.display = 'none';
+                  if (otpSection) otpSection.style.display = 'block';
+                  if (otpInput) {
+                    otpInput.value = '';
+                    otpInput.disabled = false;
+                    otpInput.setAttribute('name', 'otp_code');
+                    otpInput.required = true;
+                  }
+                  if (submitBtn) submitBtn.textContent = 'Verify OTP';
+                  showToast(data.message, 'success');
+                  if (descriptionText) descriptionText.textContent = 'Enter the OTP code sent to your email.';
+                } else if (data.step === 'otp_verified' && data.show_password) {
+                  // Step 3: Hide email and OTP sections, show ONLY password fields
+                  const emailSection = document.getElementById('passwordChangeEmailSection');
+                  if (emailSection) emailSection.style.display = 'none';
+                  if (otpSection) otpSection.style.display = 'none';
+                  if (otpInput) {
+                    otpInput.disabled = true;
+                    otpInput.removeAttribute('name');
+                  }
+                  if (passwordSection) passwordSection.style.display = 'block';
+                  if (newPasswordInput) {
+                    newPasswordInput.value = '';
+                    newPasswordInput.disabled = false;
+                    newPasswordInput.setAttribute('name', 'new_password');
+                    newPasswordInput.required = true;
+                  }
+                  if (retypePasswordInput) {
+                    retypePasswordInput.value = '';
+                    retypePasswordInput.disabled = false;
+                    retypePasswordInput.setAttribute('name', 'retype_password');
+                    retypePasswordInput.required = true;
+                  }
+                  if (submitBtn) submitBtn.textContent = 'Change Password';
+                  showToast(data.message, 'success');
+                  if (descriptionText) descriptionText.textContent = 'Enter your new password.';
+                } else if (data.step === 'complete') {
+                  // Password changed successfully
+                  showToast(data.message, 'success');
+                  if (submitBtn) submitBtn.disabled = true;
+                  // Close modal after 2 seconds
+                  setTimeout(function() {
                 const modal = bootstrap.Modal.getInstance(document.getElementById('passwordChangeModal'));
                 if (modal) {
                   modal.hide();
                 }
-                
-                // Show success toast
-                const toast = document.createElement('div');
-                toast.className = 'alert alert-success alert-dismissible fade show text-center';
-                toast.style.position = 'fixed';
-                toast.style.top = '20px';
-                toast.style.right = '20px';
-                toast.style.zIndex = '2000';
-                toast.innerHTML = 'Password changed successfully! <button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
-                document.body.appendChild(toast);
-                setTimeout(() => {
-                  try { toast.remove(); } catch(e) {}
-                }, 5000);
-                
-                return;
-              } else if (response.ok) {
-                return response.text();
-              } else {
-                throw new Error('Form submission failed');
-              }
-            })
-            .then(html => {
-              if (html) {
-                // Parse response to check for errors
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-                
-                // Check if there are errors
-                const errors = doc.querySelectorAll('.password-field-error, .password-alert');
-                if (errors.length > 0) {
-                  // Re-render form with errors
-                  const form = doc.querySelector('form');
-                  if (form) {
-                    renderPasswordForm(form, modalBody);
-                  }
-                } else {
-                  // Check if it's a success page (password_change_done)
-                  if (doc.querySelector('.password-change-done') || html.includes('Password changed')) {
-                    const modal = bootstrap.Modal.getInstance(document.getElementById('passwordChangeModal'));
-                    if (modal) {
-                      modal.hide();
-                    }
-                    
-                    const toast = document.createElement('div');
-                    toast.className = 'alert alert-success alert-dismissible fade show text-center';
-                    toast.style.position = 'fixed';
-                    toast.style.top = '20px';
-                    toast.style.right = '20px';
-                    toast.style.zIndex = '2000';
-                    toast.innerHTML = 'Password changed successfully! <button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
-                    document.body.appendChild(toast);
-                    setTimeout(() => {
-                      try { toast.remove(); } catch(e) {}
-                    }, 5000);
-                  } else {
-                    // Re-render form
-                    const form = doc.querySelector('form');
-                    if (form) {
-                      renderPasswordForm(form, modalBody);
-                    }
-                  }
+                  }, 2000);
                 }
+              } else {
+                showErrorToast(data.error || 'An error occurred. Please try again.');
               }
             })
             .catch(error => {
-              console.error('Error:', error);
-              modalBody.innerHTML = '<div class="alert alert-danger">Error submitting form. Please try again.</div>';
-            })
-            .finally(() => {
-              // Restore button state
-              const submitBtn = form.querySelector('button[type="submit"]');
-              if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = originalBtnText || 'CONFIRM CHANGE';
+              // Restore button state on error
+              if (submitBtn) submitBtn.style.display = 'block';
+              if (loadingAnimation) loadingAnimation.style.display = 'none';
+              
+              console.error('Password change form error:', error);
+              let errorMessage = 'An error occurred. Please try again.';
+              if (error.message && error.message.includes('HTTP error')) {
+                errorMessage = 'Unable to connect to the server. Please check your internet connection and try again.';
               }
+              showErrorToast(errorMessage);
             });
+            return false;
           });
         }
         
-        function togglePasswordVisibility(inputId, icon) {
-          const input = document.getElementById(inputId);
-          if (input) {
-            if (input.type === 'password') {
-              input.type = 'text';
-              icon.classList.remove('fa-eye');
-              icon.classList.add('fa-eye-slash');
-            } else {
-              input.type = 'password';
-              icon.classList.remove('fa-eye-slash');
-              icon.classList.add('fa-eye');
+        const passwordChangeModal = document.getElementById('passwordChangeModal');
+        if (passwordChangeModal) {
+          // Reset modal body when modal is shown
+          passwordChangeModal.addEventListener('show.bs.modal', function() {
+            const passwordChangeForm = document.getElementById('passwordChangeForm');
+            if (passwordChangeForm) {
+              passwordChangeForm.reset();
             }
-          }
+            
+            const emailSection = document.getElementById('passwordChangeEmailSection');
+            const otpSection = document.getElementById('passwordChangeOtpSection');
+            const passwordSection = document.getElementById('passwordChangePasswordSection');
+            const submitBtn = document.getElementById('passwordChangeSubmit');
+            const descriptionText = document.getElementById('passwordChangeDescription');
+            
+            // Step 1: Only show email field
+            if (emailSection) emailSection.style.display = 'block';
+            if (otpSection) otpSection.style.display = 'none';
+            if (passwordSection) passwordSection.style.display = 'none';
+            if (submitBtn) submitBtn.textContent = 'Send OTP';
+            if (descriptionText) descriptionText.textContent = 'Enter your email to receive an OTP verification code.';
+            
+            // Clear any previous values and set proper states
+            const emailInput = document.getElementById('passwordChangeEmail');
+            const otpInput = document.getElementById('passwordChangeOtpCode');
+            const newPasswordInput = document.getElementById('passwordChangeNewPassword');
+            const retypePasswordInput = document.getElementById('passwordChangeRetypePassword');
+            
+            // Enable email field (step 1)
+            if (emailInput) {
+              emailInput.disabled = false;
+              emailInput.setAttribute('name', 'email');
+              emailInput.required = true;
+            }
+            
+            // Disable OTP field (step 1)
+            if (otpInput) {
+              otpInput.value = '';
+              otpInput.disabled = true;
+              otpInput.removeAttribute('name');
+              otpInput.required = false;
+            }
+            
+            // Disable password fields (step 1)
+            if (newPasswordInput) {
+              newPasswordInput.value = '';
+              newPasswordInput.disabled = true;
+              newPasswordInput.removeAttribute('name');
+              newPasswordInput.required = false;
+            }
+            if (retypePasswordInput) {
+              retypePasswordInput.value = '';
+              retypePasswordInput.disabled = true;
+              retypePasswordInput.removeAttribute('name');
+              retypePasswordInput.required = false;
+            }
+          });
+        }
+        
+        // Toggle for New Password
+        const toggleNewPassword = document.getElementById('togglePasswordChangeNewPassword');
+        const newPasswordInput = document.getElementById('passwordChangeNewPassword');
+        const newPasswordToggleIcon = document.getElementById('passwordChangeNewPasswordToggleIcon');
+        
+        if (toggleNewPassword && newPasswordInput && newPasswordToggleIcon) {
+          toggleNewPassword.addEventListener('click', function() {
+            if (newPasswordInput.type === 'password') {
+              newPasswordInput.type = 'text';
+              newPasswordToggleIcon.classList.remove('fa-eye');
+              newPasswordToggleIcon.classList.add('fa-eye-slash');
+            } else {
+              newPasswordInput.type = 'password';
+              newPasswordToggleIcon.classList.remove('fa-eye-slash');
+              newPasswordToggleIcon.classList.add('fa-eye');
+            }
+          });
+        }
+        
+        // Toggle for Retype Password
+        const toggleRetypePassword = document.getElementById('togglePasswordChangeRetypePassword');
+        const retypePasswordInput = document.getElementById('passwordChangeRetypePassword');
+        const retypePasswordToggleIcon = document.getElementById('passwordChangeRetypePasswordToggleIcon');
+        
+        if (toggleRetypePassword && retypePasswordInput && retypePasswordToggleIcon) {
+          toggleRetypePassword.addEventListener('click', function() {
+            if (retypePasswordInput.type === 'password') {
+              retypePasswordInput.type = 'text';
+              retypePasswordToggleIcon.classList.remove('fa-eye');
+              retypePasswordToggleIcon.classList.add('fa-eye-slash');
+            } else {
+              retypePasswordInput.type = 'password';
+              retypePasswordToggleIcon.classList.remove('fa-eye-slash');
+              retypePasswordToggleIcon.classList.add('fa-eye');
+            }
+          });
         }
       })();
+      }); // End DOMContentLoaded
     </script>
     {% endif %}
 
@@ -2485,19 +2547,59 @@
             </button>
           </div>
           <div class="modal-body password-modal-body" id="passwordChangeModalBody">
-            <div class="text-center">
-              <div class="spinner-border text-warning" role="status">
-                <span class="visually-hidden">Loading...</span>
+            <form id="passwordChangeForm" method="post" action="{% url 'account:change_password' %}">
+              {% csrf_token %}
+              <div>
+                <h3>Change Password</h3>
+                <p id="passwordChangeDescription">Enter your email to receive an OTP verification code.</p>
               </div>
-              <p class="mt-3 text-muted">Loading password change form...</p>
-              <p class="mt-2">
-                <small>
-                  <a href="{% url 'account:password_change' %}" target="_blank" class="text-primary">
-                    Open in new tab if this takes too long
-                  </a>
-                </small>
-              </p>
+              
+              <!-- Step 1: Email (only visible in step 1) -->
+              <div class="form-group mb-3" id="passwordChangeEmailSection">
+                <label for="passwordChangeEmail">Email:</label>
+                <input type="email" name="email" id="passwordChangeEmail" class="form-control" {% if request.user.email %}value="{{ request.user.email }}"{% endif %} required>
             </div>
+              
+              <!-- Step 2: OTP (shown after email is sent, hidden in step 1 and step 3) -->
+              <div id="passwordChangeOtpSection" style="display: none;">
+                <div class="form-group mb-3">
+                  <label for="passwordChangeOtpCode" class="form-label">Enter OTP Code</label>
+                  <input type="text" id="passwordChangeOtpCode" class="form-control" maxlength="6" placeholder="6-digit code" disabled>
+                  <small class="text-muted">Check your email for the OTP code</small>
+                </div>
+              </div>
+              
+              <!-- Step 3: Password fields (shown ONLY after OTP is verified) -->
+              <div id="passwordChangePasswordSection" style="display: none;">
+                <div class="form-group mb-3">
+                  <label for="passwordChangeNewPassword" class="form-label">New Password</label>
+                  <div class="input-group">
+                    <input type="password" id="passwordChangeNewPassword" class="form-control" disabled>
+                    <button type="button" class="input-group-text" id="togglePasswordChangeNewPassword" style="cursor: pointer; border: none;">
+                      <i class="fa-solid fa-eye" id="passwordChangeNewPasswordToggleIcon"></i>
+                    </button>
+                  </div>
+                </div>
+                <div class="form-group mb-3">
+                  <label for="passwordChangeRetypePassword" class="form-label">Retype New Password</label>
+                  <div class="input-group">
+                    <input type="password" id="passwordChangeRetypePassword" class="form-control" disabled>
+                    <button type="button" class="input-group-text" id="togglePasswordChangeRetypePassword" style="cursor: pointer; border: none;">
+                      <i class="fa-solid fa-eye" id="passwordChangeRetypePasswordToggleIcon"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
+              <div id="passwordChangeErrors" class="text-danger mb-3" style="display: none;"></div>
+              
+              <div>
+                <button type="submit" id="passwordChangeSubmit" class="btn btn-warning btn-submit">Send OTP</button>
+                <div id="passwordChangeLoadingAnimation" style="display: none; text-align: center; padding: 10px;">
+                  <div class="circle-loader"></div>
+                </div>
+              </div>
+            </form>
           </div>
         </div>
       </div>
@@ -2579,6 +2681,79 @@
     </div>
     
     <style>
+      /* Circle Loading Animation */
+      .circle-loader {
+        display: inline-block;
+        width: 30px;
+        height: 30px;
+        border: 4px solid rgba(255, 152, 0, 0.2);
+        border-top: 4px solid #ff9800;
+        border-right: 4px solid #ff9800;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin: 0 auto;
+        box-sizing: border-box;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Toast Notification */
+      .toast-notification {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 10050 !important;
+        animation: slideDown 0.3s ease-out;
+      }
+
+      .toast-content {
+        background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+        color: #ffffff;
+        padding: 16px 24px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        font-size: 0.95rem;
+        font-weight: 500;
+        min-width: 300px;
+        max-width: 90%;
+        text-align: center;
+        word-wrap: break-word;
+      }
+
+      @keyframes slideDown {
+        from {
+          opacity: 0;
+          transform: translateX(-50%) translateY(-20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(-50%) translateY(0);
+        }
+      }
+
+      @keyframes slideUp {
+        from {
+          opacity: 1;
+          transform: translateX(-50%) translateY(0);
+        }
+        to {
+          opacity: 0;
+          transform: translateX(-50%) translateY(-20px);
+        }
+      }
+
+      .toast-notification.hiding {
+        animation: slideUp 0.3s ease-out forwards;
+      }
+
       /* Minimized timer (compact view) */
       .floating-timer-minimized {
         background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);

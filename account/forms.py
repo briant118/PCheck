@@ -74,6 +74,27 @@ class ProfileEditForm(forms.ModelForm):
         widgets = {
             'profile_picture': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
         }
+    
+    def __init__(self, *args, **kwargs):
+        # Extract user from kwargs if provided
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        
+        # Remove course, year, and block fields for faculty users
+        # Check instance role first, then fall back to user profile
+        is_faculty = False
+        if self.instance and self.instance.pk and self.instance.role == 'faculty':
+            is_faculty = True
+        elif self.user and hasattr(self.user, 'profile') and self.user.profile.role == 'faculty':
+            is_faculty = True
+        
+        if is_faculty:
+            if 'course' in self.fields:
+                del self.fields['course']
+            if 'year' in self.fields:
+                del self.fields['year']
+            if 'block' in self.fields:
+                del self.fields['block']
 
 
 class UpdatePCForm(forms.ModelForm):

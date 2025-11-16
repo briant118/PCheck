@@ -1781,45 +1781,51 @@ def reservation_declined(request, pk):
 @login_required
 @staff_required
 def block_reservation_approved(request, pk):
-    booking = models.FacultyBooking.objects.get(pk=pk)
-    booking.status = 'confirmed'
-    booking.save()
+    from django.http import JsonResponse
     
-    # Send emails with QR codes to students
-    if booking.email_addresses:
-        try:
-            # Parse email addresses (can be comma or newline separated)
-            email_list = booking.email_addresses.replace('\n', ',').replace(' ', '').split(',')
-            email_list = [email.strip() for email in email_list if email.strip()]
-            
-            # Generate QR code for this booking
-            scheme = 'https' if request.is_secure() else 'http'
-            host = request.get_host()
-            qr_url = f"{scheme}://{host}/faculty-booking-qr/{booking.pk}/"
-            
-            # Generate QR code image
-            qr = qrcode.QRCode(
-                version=1,
-                error_correction=qrcode.constants.ERROR_CORRECT_L,
-                box_size=10,
-                border=4,
-            )
-            qr.add_data(qr_url)
-            qr.make(fit=True)
-            
-            img = qr.make_image(fill_color="black", back_color="white")
-            buffer = BytesIO()
-            # Save QR code as PNG format (not PDF)
-            img.save(buffer, format="PNG")
-            buffer.seek(0)
-            
-            # Format booking dates
-            start_date = booking.start_datetime.strftime("%B %d, %Y at %I:%M %p") if booking.start_datetime else "TBD"
-            end_date = booking.end_datetime.strftime("%B %d, %Y at %I:%M %p") if booking.end_datetime else "TBD"
-            
-            # Email subject and body
-            subject = f"Faculty Booking Approved - {booking.course or 'Class'} Booking"
-            message = f"""
+    try:
+        booking = models.FacultyBooking.objects.get(pk=pk)
+        booking.status = 'confirmed'
+        booking.save()
+        
+        email_sent_count = 0
+        email_error = None
+        
+        # Send emails with QR codes to students
+        if booking.email_addresses:
+            try:
+                # Parse email addresses (can be comma or newline separated)
+                email_list = booking.email_addresses.replace('\n', ',').replace(' ', '').split(',')
+                email_list = [email.strip() for email in email_list if email.strip()]
+                
+                # Generate QR code for this booking
+                scheme = 'https' if request.is_secure() else 'http'
+                host = request.get_host()
+                qr_url = f"{scheme}://{host}/faculty-booking-qr/{booking.pk}/"
+                
+                # Generate QR code image
+                qr = qrcode.QRCode(
+                    version=1,
+                    error_correction=qrcode.constants.ERROR_CORRECT_L,
+                    box_size=10,
+                    border=4,
+                )
+                qr.add_data(qr_url)
+                qr.make(fit=True)
+                
+                img = qr.make_image(fill_color="black", back_color="white")
+                buffer = BytesIO()
+                # Save QR code as PNG format (not PDF)
+                img.save(buffer, format="PNG")
+                buffer.seek(0)
+                
+                # Format booking dates
+                start_date = booking.start_datetime.strftime("%B %d, %Y at %I:%M %p") if booking.start_datetime else "TBD"
+                end_date = booking.end_datetime.strftime("%B %d, %Y at %I:%M %p") if booking.end_datetime else "TBD"
+                
+                # Email subject and body
+                subject = f"Faculty Booking Approved - {booking.course or 'Class'} Booking"
+                message = f"""
 Dear Student,
 
 Your faculty booking has been approved!
@@ -1838,37 +1844,81 @@ Scan the QR code at the computer lab to check in.
 Best regards,
 PCheck System
 """
+                
+                # Send email to each student with QR code attachment as PNG format
+                for email in email_list:
+                    try:
+                        # Create a new buffer for each email to avoid buffer position issues
+                        email_buffer = BytesIO()
+                        # Save QR code as PNG format (not PDF) for email attachment
+                        img.save(email_buffer, format="PNG")
+                        email_buffer.seek(0)
+                        
+                        email_msg = EmailMessage(
+                            subject=subject,
+                            body=message,
+                            from_email=settings.DEFAULT_FROM_EMAIL,
+                            to=[email],
+                        )
+                        # Attach QR code as PNG image (not PDF)
+                        email_msg.attach('qr_code.png', email_buffer.getvalue(), 'image/png')
+                        email_msg.send()
+                        email_sent_count += 1
+                    except Exception as e:
+                        print(f"Error sending email to {email}: {str(e)}")
+                        email_error = str(e)
+                        # Continue sending to other emails even if one fails
+                
+            except Exception as e:
+                print(f"Error sending emails: {str(e)}")
+                email_error = str(e)
+        
+        # Check if request is AJAX (from admin panel)
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.GET.get('ajax') == 'true':
+            # Return JSON response for AJAX requests (stays in admin)
+            if email_sent_count > 0:
+                return JsonResponse({
+                    'success': True,
+                    'message': f'Reservation confirmed! Emails with QR codes sent to {email_sent_count} student(s).',
+                    'booking_id': booking.pk,
+                    'status': 'confirmed'
+                })
+            elif email_error:
+                return JsonResponse({
+                    'success': True,
+                    'message': f'Reservation confirmed, but there was an error sending emails: {email_error}',
+                    'booking_id': booking.pk,
+                    'status': 'confirmed',
+                    'warning': True
+                })
+            else:
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Reservation confirmed!',
+                    'booking_id': booking.pk,
+                    'status': 'confirmed'
+                })
+        else:
+            # Regular request - redirect (for backward compatibility)
+            if email_sent_count > 0:
+                messages.success(request, f"Reservation confirmed! Emails with QR codes sent to {email_sent_count} student(s).")
+            elif email_error:
+                messages.warning(request, f"Reservation confirmed, but there was an error sending emails: {email_error}")
+            else:
+                messages.success(request, "Reservation confirmed!")
             
-            # Send email to each student with QR code attachment as PNG format
-            for email in email_list:
-                try:
-                    # Create a new buffer for each email to avoid buffer position issues
-                    email_buffer = BytesIO()
-                    # Save QR code as PNG format (not PDF) for email attachment
-                    img.save(email_buffer, format="PNG")
-                    email_buffer.seek(0)
-                    
-                    email_msg = EmailMessage(
-                        subject=subject,
-                        body=message,
-                        from_email=settings.DEFAULT_FROM_EMAIL,
-                        to=[email],
-                    )
-                    # Attach QR code as PNG image (not PDF)
-                    email_msg.attach('qr_code.png', email_buffer.getvalue(), 'image/png')
-                    email_msg.send()
-                except Exception as e:
-                    print(f"Error sending email to {email}: {str(e)}")
-                    # Continue sending to other emails even if one fails
+            return HttpResponseRedirect(reverse_lazy('main_app:bookings'))
             
-            messages.success(request, f"Reservation confirmed! Emails with QR codes sent to {len(email_list)} student(s).")
-        except Exception as e:
-            print(f"Error sending emails: {str(e)}")
-            messages.warning(request, f"Reservation confirmed, but there was an error sending emails: {str(e)}")
-    else:
-        messages.success(request, "Reservation confirmed!")
-    
-    return HttpResponseRedirect(reverse_lazy('main_app:bookings'))
+    except models.FacultyBooking.DoesNotExist:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.GET.get('ajax') == 'true':
+            return JsonResponse({'success': False, 'message': 'Reservation not found.'}, status=404)
+        messages.error(request, "Reservation not found.")
+        return HttpResponseRedirect(reverse_lazy('main_app:bookings'))
+    except Exception as e:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.GET.get('ajax') == 'true':
+            return JsonResponse({'success': False, 'message': f'Error approving reservation: {str(e)}'}, status=500)
+        messages.error(request, f"Error approving reservation: {str(e)}")
+        return HttpResponseRedirect(reverse_lazy('main_app:bookings'))
 
 
 @login_required
