@@ -165,6 +165,14 @@
 #content.content-wrapper {
   padding-top: 0 !important;
 }
+
+/* Remove hover effect on violation table rows - only action button should hover */
+#tab-violation table tbody tr:hover {
+  background: inherit !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
 </style>
 {% endblock %}
 

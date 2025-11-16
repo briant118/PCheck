@@ -40,32 +40,64 @@
     clip-path: none !important;
   }
   
+  /* Ensure table rows have proper stacking context */
+  .table-responsive tbody tr {
+    position: relative;
+    z-index: 1;
+  }
+  
+  /* Remove hover effect on table rows - keep z-index for dropdown layering */
+  .table-responsive tbody tr:hover {
+    background: inherit !important;
+    transform: none !important;
+    box-shadow: none !important;
+    z-index: 2;
+  }
+  
+  /* Action cell positioning - isolate each action button */
+  .table-responsive tbody td:last-child {
+    position: relative;
+    z-index: auto;
+    isolation: isolate;
+  }
+  
   .table-responsive .btn-group {
     position: relative;
     overflow: visible !important;
+    z-index: 1;
+    isolation: isolate;
   }
   
   /* Ensure only the active dropdown is visible */
   .table-responsive .btn-group.show {
     overflow: visible !important;
+    z-index: 1000 !important;
+    isolation: auto;
   }
   
   .table-responsive .btn-group.show .dropdown-menu {
     overflow: visible !important;
     clip: unset !important;
     clip-path: none !important;
+    z-index: 1001 !important;
+    position: absolute !important;
   }
   
   /* Hide other action buttons when a dropdown is open */
   .table-responsive:has(.btn-group.show) .btn-group:not(.show) {
-    opacity: 0 !important;
-    pointer-events: none !important;
-    visibility: hidden !important;
+    z-index: 0 !important;
+  }
+  
+  /* Ensure dropdown toggle button doesn't interfere */
+  .table-responsive .btn-group .dropdown-toggle {
+    position: relative;
+    z-index: inherit;
   }
   
   /* Ensure table cells don't clip */
   .table-responsive tbody td {
     overflow: visible !important;
+    position: relative;
   }
   
   .table-responsive .dropdown-item::after,
@@ -245,6 +277,54 @@
       if (e.target.closest('.table-responsive')) {
         ensureDropdownVisible();
       }
+    });
+    
+    // Close dropdown when any dropdown item is clicked (after other handlers run)
+    document.addEventListener('click', function(e) {
+      var dropdownItem = e.target.closest('.table-responsive .dropdown-item');
+      if (dropdownItem) {
+        // Don't close if it's a view-user-btn, violation-user-btn, or link - let their handlers close it
+        if (dropdownItem.classList.contains('view-user-btn') || 
+            dropdownItem.classList.contains('violation-user-btn') ||
+            dropdownItem.tagName === 'A') {
+          // These handlers will close the dropdown themselves
+          return;
+        }
+        
+        var btnGroup = dropdownItem.closest('.btn-group');
+        if (btnGroup && btnGroup.classList.contains('show')) {
+          var toggle = btnGroup.querySelector('.dropdown-toggle');
+          if (toggle && window.bootstrap && bootstrap.Dropdown) {
+            var bsDropdown = bootstrap.Dropdown.getInstance(toggle);
+            if (bsDropdown) {
+              // Small delay to allow other click handlers to run first
+              setTimeout(function() {
+                bsDropdown.hide();
+              }, 50);
+            }
+          }
+        }
+      }
+    });
+    
+    // Close dropdown when clicking outside (but not on dropdown items or buttons)
+    document.addEventListener('click', function(e) {
+      // Don't close if clicking on dropdown toggle, dropdown menu, or dropdown items
+      if (e.target.closest('.table-responsive .btn-group')) {
+        return;
+      }
+      
+      // Close all open dropdowns when clicking outside
+      var openDropdowns = document.querySelectorAll('.table-responsive .btn-group.show');
+      openDropdowns.forEach(function(btnGroup) {
+        var toggle = btnGroup.querySelector('.dropdown-toggle');
+        if (toggle && window.bootstrap && bootstrap.Dropdown) {
+          var bsDropdown = bootstrap.Dropdown.getInstance(toggle);
+          if (bsDropdown) {
+            bsDropdown.hide();
+          }
+        }
+      });
     });
     
     // Also run periodically to catch any missed cases
@@ -570,12 +650,15 @@
 
 {% block scripts %}
 <script>
-  // View User Button Handler
+  // View User Button Handler - using both jQuery and vanilla JS for reliability
   $(document).on('click', '.view-user-btn', function(e) {
     e.preventDefault();
     e.stopPropagation();
     
     var btn = $(this);
+    
+    // Debug log
+    console.log('View user button clicked', btn);
     var userName = btn.data('user-name') || btn.attr('data-user-name') || '';
     var userEmail = btn.data('user-email') || btn.attr('data-user-email') || '';
     var userSchoolId = btn.data('user-school-id') || btn.attr('data-user-school-id') || '';
@@ -665,9 +748,23 @@
     }
     
     // Show modal
-    var userViewModal = new bootstrap.Modal(document.getElementById('userViewModal'));
-    userViewModal.show();
+    var userViewModalEl = document.getElementById('userViewModal');
+    if (userViewModalEl) {
+      try {
+        var userViewModal = new bootstrap.Modal(userViewModalEl);
+        userViewModal.show();
+      } catch (err) {
+        console.error('Error showing user view modal:', err);
+        // Fallback to jQuery if Bootstrap Modal fails
+        if (window.jQuery && $.fn.modal) {
+          $(userViewModalEl).modal('show');
+        }
+      }
+    } else {
+      console.error('User view modal element not found');
+    }
   });
+  
 
   const currentUserId = "{{ request.user.id }}";
   let email = null;
