@@ -1813,6 +1813,30 @@ window.decrementCustomPc = function(e) {
   </div>
 </div>
 
+<!-- Violation Notification Modal (Persistent) -->
+<div class="modal fade" id="violationNotificationModal" tabindex="-1" aria-labelledby="violationNotificationModalLabel" aria-hidden="false" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header" id="violationModalHeader">
+        <h5 class="modal-title" id="violationNotificationModalLabel">
+          <i class="fa-solid fa-triangle-exclamation me-2"></i><span id="violationModalTitle">Violation Notice</span>
+        </h5>
+      </div>
+      <div class="modal-body" id="violationModalBody">
+        <div class="text-center mb-3">
+          <i class="fa-solid fa-exclamation-triangle" id="violationIcon" style="font-size: 3rem;"></i>
+        </div>
+        <div id="violationMessage"></div>
+        <div id="violationDetails" class="mt-3 p-3 bg-light rounded"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="violationModalCloseBtn" data-bs-dismiss="modal" style="display: none;">Close</button>
+        <small class="text-muted me-auto" id="violationNote">This notice will remain until your violation is resolved.</small>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -5473,6 +5497,9 @@ document.addEventListener('DOMContentLoaded', function() {
                   window.location.replace('/?_refresh=' + timestamp);
                 }, 500);
               }
+            } else if (data.type === 'violation_notification') {
+              console.log('⚠️ Violation notification received:', data);
+              showViolationPopup(data);
             } else if (data.type === 'heartbeat_ack') {
               // Heartbeat acknowledged, connection is alive
               console.debug('💓 Booking status WebSocket heartbeat acknowledged');
@@ -5523,6 +5550,232 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   })();
 });
+
+// Violation Popup and Booking Restriction Functions
+(function() {
+  var canBook = {% if can_book %}true{% else %}false{% endif %};
+  var activeViolation = {% if active_violation %}{
+    'id': {{ active_violation.id }},
+    'level': '{{ active_violation.level }}',
+    'reason': '{{ active_violation.reason|escapejs }}',
+    'status': '{{ active_violation.status }}',
+    'suspension_end_date': {% if active_violation.suspension_end_date %}'{{ active_violation.suspension_end_date|date:"c" }}'{% else %}null{% endif %},
+    'violation_slip_received': {% if active_violation.violation_slip_received %}true{% else %}false{% endif %}
+  }{% else %}null{% endif %};
+  
+  // Function to show violation popup
+  window.showViolationPopup = function(violationData) {
+    var modal = document.getElementById('violationNotificationModal');
+    var modalHeader = document.getElementById('violationModalHeader');
+    var modalTitle = document.getElementById('violationModalTitle');
+    var violationIcon = document.getElementById('violationIcon');
+    var violationMessage = document.getElementById('violationMessage');
+    var violationDetails = document.getElementById('violationDetails');
+    var closeBtn = document.getElementById('violationModalCloseBtn');
+    
+    if (!modal) return;
+    
+    var level = violationData.level || (activeViolation ? activeViolation.level : 'minor');
+    var reason = violationData.reason || (activeViolation ? activeViolation.reason : '');
+    var message = violationData.message || '';
+    var status = violationData.status || (activeViolation ? activeViolation.status : 'active');
+    var suspensionEndDate = violationData.suspension_end_date || (activeViolation && activeViolation.suspension_end_date ? activeViolation.suspension_end_date : null);
+    
+    // Set modal styling based on level
+    if (level === 'minor') {
+      modalHeader.className = 'modal-header bg-warning text-dark';
+      violationIcon.className = 'fa-solid fa-exclamation-triangle';
+      violationIcon.style.color = '#ffc107';
+      modalTitle.textContent = '⚠️ Warning';
+      closeBtn.style.display = 'block'; // Can close minor warnings
+    } else {
+      modalHeader.className = 'modal-header bg-danger text-white';
+      violationIcon.className = 'fa-solid fa-ban';
+      violationIcon.style.color = '#dc3545';
+      modalTitle.textContent = '🚫 Account Suspended';
+      closeBtn.style.display = 'none'; // Cannot close moderate/major violations
+    }
+    
+    // Set message
+    if (message) {
+      violationMessage.innerHTML = '<p class="lead">' + message + '</p>';
+    } else {
+      var msgText = '';
+      if (level === 'minor') {
+        msgText = 'You have received a minor violation warning.';
+      } else if (level === 'moderate') {
+        msgText = 'Your account has been suspended for 3 days due to a moderate violation.';
+      } else {
+        msgText = 'Your account has been suspended due to a major violation.';
+      }
+      violationMessage.innerHTML = '<p class="lead">' + msgText + '</p>';
+    }
+    
+    // Set details
+    var detailsHtml = '<strong>Violation Details:</strong><br>';
+    detailsHtml += '<strong>Level:</strong> ' + level.charAt(0).toUpperCase() + level.slice(1) + '<br>';
+    detailsHtml += '<strong>Reason:</strong> ' + reason + '<br>';
+    if (suspensionEndDate && level === 'moderate') {
+      var endDate = new Date(suspensionEndDate);
+      detailsHtml += '<strong>Suspension End Date:</strong> ' + endDate.toLocaleString() + '<br>';
+    }
+    if (level === 'major') {
+      detailsHtml += '<strong>Action Required:</strong> You must submit a violation slip to have your account reinstated.<br>';
+    }
+    violationDetails.innerHTML = detailsHtml;
+    
+    // Show modal
+    if (typeof bootstrap !== 'undefined') {
+      var modalInstance = bootstrap.Modal.getOrCreateInstance(modal);
+      modalInstance.show();
+    } else {
+      modal.style.display = 'block';
+      modal.classList.add('show');
+      document.body.classList.add('modal-open');
+    }
+    
+    // Disable booking if moderate/major
+    if (level !== 'minor' && status === 'suspended') {
+      disableBooking();
+    }
+  };
+  
+  // Function to disable booking functionality
+  function disableBooking() {
+    // Disable all PC buttons
+    var pcButtons = document.querySelectorAll('.pc-button-modern');
+    pcButtons.forEach(function(btn) {
+      if (!btn.hasAttribute('data-pc-condition') || btn.getAttribute('data-pc-condition') !== 'repair') {
+        btn.disabled = true;
+        btn.style.cursor = 'not-allowed';
+        btn.style.opacity = '0.6';
+        btn.style.pointerEvents = 'none';
+        btn.title = 'Booking is disabled due to account suspension';
+      }
+    });
+    
+    // Disable bulk booking button
+    var bulkBtn = document.getElementById('block-button');
+    if (bulkBtn) {
+      bulkBtn.disabled = true;
+      bulkBtn.style.cursor = 'not-allowed';
+      bulkBtn.style.opacity = '0.6';
+      bulkBtn.title = 'Booking is disabled due to account suspension';
+    }
+    
+    // Disable next button
+    var nextBtn = document.querySelector('.reserve-next-button');
+    if (nextBtn) {
+      nextBtn.disabled = true;
+      nextBtn.style.cursor = 'not-allowed';
+      nextBtn.style.opacity = '0.6';
+    }
+  }
+  
+  // Function to enable booking functionality
+  function enableBooking() {
+    // Enable all PC buttons (except repair ones)
+    var pcButtons = document.querySelectorAll('.pc-button-modern');
+    pcButtons.forEach(function(btn) {
+      var condition = btn.getAttribute('data-pc-condition');
+      var bookingStatus = btn.getAttribute('data-booking-status');
+      if (condition !== 'repair' && bookingStatus === 'available') {
+        btn.disabled = false;
+        btn.style.cursor = 'pointer';
+        btn.style.opacity = '1';
+        btn.style.pointerEvents = 'auto';
+        btn.removeAttribute('title');
+      }
+    });
+    
+    // Enable bulk booking button
+    var bulkBtn = document.getElementById('block-button');
+    if (bulkBtn) {
+      bulkBtn.disabled = false;
+      bulkBtn.style.cursor = 'pointer';
+      bulkBtn.style.opacity = '1';
+      bulkBtn.removeAttribute('title');
+    }
+  }
+  
+  // Check for active violation on page load
+  if (activeViolation) {
+    // For minor violations, check if already shown
+    if (activeViolation.level === 'minor') {
+      var seenKey = 'violation_seen_' + activeViolation.id;
+      var alreadySeen = localStorage.getItem(seenKey);
+      if (!alreadySeen) {
+        var violationData = {
+          level: activeViolation.level,
+          reason: activeViolation.reason,
+          status: activeViolation.status,
+          suspension_end_date: activeViolation.suspension_end_date,
+          message: '⚠️ WARNING: You have received a minor violation. Reason: ' + activeViolation.reason + '. Please be more careful.'
+        };
+        
+        // Show popup after page loads
+        setTimeout(function() {
+          showViolationPopup(violationData);
+          // Mark as seen when modal is closed
+          var modal = document.getElementById('violationNotificationModal');
+          if (modal) {
+            var closeHandler = function() {
+              localStorage.setItem(seenKey, 'true');
+              if (typeof bootstrap !== 'undefined') {
+                modal.removeEventListener('hidden.bs.modal', closeHandler);
+              }
+            };
+            if (typeof bootstrap !== 'undefined') {
+              modal.addEventListener('hidden.bs.modal', closeHandler);
+            }
+          }
+        }, 500);
+      }
+    } else {
+      // Moderate/Major: Always show (persistent)
+      var violationData = {
+        level: activeViolation.level,
+        reason: activeViolation.reason,
+        status: activeViolation.status,
+        suspension_end_date: activeViolation.suspension_end_date,
+        message: ''
+      };
+      
+      // Generate message based on level
+      if (activeViolation.level === 'moderate') {
+        var endDateStr = '';
+        if (activeViolation.suspension_end_date) {
+          var endDate = new Date(activeViolation.suspension_end_date);
+          endDateStr = ' Your suspension will be automatically lifted on ' + endDate.toLocaleString() + '.';
+        }
+        violationData.message = '🚫 Your account has been suspended for 3 days due to a moderate violation. Reason: ' + activeViolation.reason + '.' + endDateStr + ' You cannot make bookings until your suspension is lifted.';
+      } else if (activeViolation.level === 'major') {
+        violationData.message = '🚫 Your account has been suspended due to a major violation. Reason: ' + activeViolation.reason + '. You must submit a violation slip to have your account reinstated. You cannot make bookings until your account is reinstated.';
+      }
+      
+      // Show popup after page loads
+      setTimeout(function() {
+        showViolationPopup(violationData);
+      }, 500);
+      
+      // Disable booking if moderate/major
+      if (activeViolation.level !== 'minor' && activeViolation.status === 'suspended') {
+        setTimeout(function() {
+          disableBooking();
+        }, 1000);
+      }
+    }
+  } else if (!canBook) {
+    // Fallback: disable booking if can_book is false
+    setTimeout(function() {
+      disableBooking();
+    }, 1000);
+  }
+  
+  // Expose functions globally
+  window.disableBooking = disableBooking;
+  window.enableBooking = enableBooking;
+})();
 </script>
 <script src="{% static 'js/reserve_pc.js' %}"></script>
 {% endblock %}

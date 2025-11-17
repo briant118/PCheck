@@ -59,12 +59,14 @@ urlpatterns = [
     path('ajax/find-user/', views.find_user, name='find-user'),
     path('ajax/recent-users/', views.recent_users_for_chat, name='recent-users'),
     path('ajax/all-users/', views.all_users_for_chat, name='all-users'),
+    path('ajax/user-bookings/<int:user_id>/', views.user_bookings_history, name='user-bookings-history'),
     path('ajax/send-init-message/', views.send_init_message, name='send-init-message'),
     path('ajax/send-new-message/<int:room_id>/', views.send_new_message, name='send-new-message'),
     path('ajax/load-messages/', views.load_messages, name='load-messages'),
     path('ajax/load-conversation/<int:room_id>/', views.load_conversation, name='load-conversation'),
     path('ajax/change-message-status/', views.change_message_status, name='change-message-status'),
     path('ajax/submit-block-booking/', views.submit_block_booking, name='submit-block-booking'),
+    path('ajax/check-active-violation/', views.check_active_violation, name='check-active-violation'),
     
     # PC Notification Page (no login required - runs on PC)
     path('pc-notification/', views.pc_notification_page, name='pc-notification'),

@@ -387,7 +387,10 @@
                 {% if violation.status == 'suspended' %}
                 <li><hr class="dropdown-divider"></li>
                 <li>
-                  <button type="button" class="dropdown-item text-success unsuspend-btn" data-vpk="{{ violation.id }}">
+                  <button type="button" class="dropdown-item text-success unsuspend-btn" 
+                    data-vpk="{{ violation.id }}"
+                    data-violation-level="{{ violation.level }}"
+                    data-violation-slip-received="{% if violation.violation_slip_received %}true{% else %}false{% endif %}">
                     <i class="fa-solid fa-check-circle me-2"></i>Unsuspend
                   </button>
                 </li>
@@ -546,15 +549,19 @@
         <div class="modal fade" id="unsuspendConfirmModal" tabindex="-1" aria-labelledby="unsuspendConfirmModalLabel" aria-hidden="true">
           <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content rounded-3 shadow">
-              <div class="modal-header">
+              <div class="modal-header" id="unsuspendModalHeader">
                 <h5 class="modal-title" id="unsuspendConfirmModalLabel">Confirm Unsuspend</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
               </div>
               <div class="modal-body text-center">
                 <div class="mb-3">
-                  <i class="fa-solid fa-question-circle" style="font-size: 3rem; color: #ff9800;"></i>
+                  <i class="fa-solid fa-question-circle" id="unsuspendModalIcon" style="font-size: 3rem; color: #ff9800;"></i>
                 </div>
-                <p class="mb-0">Are you sure you want to unsuspend this violation?</p>
+                <p class="mb-0" id="unsuspendModalMessage">Are you sure you want to unsuspend this violation?</p>
+                <div id="unsuspendSlipNote" class="mt-3 p-3 bg-warning bg-opacity-10 rounded" style="display: none;">
+                  <i class="fa-solid fa-file-circle-check me-2"></i>
+                  <strong>Note:</strong> By confirming, you acknowledge that you have reviewed the physical violation slip submitted by the user.
+                </div>
               </div>
               <div class="modal-footer justify-content-center">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -1386,6 +1393,8 @@
     
     var btn = $(this);
     var vpk = btn.data('vpk') || btn.attr('data-vpk');
+    var violationLevel = btn.data('violation-level') || btn.attr('data-violation-level') || '';
+    var slipReceived = btn.data('violation-slip-received') || btn.attr('data-violation-slip-received') || 'false';
     
     if (!vpk) {
       alert('Error: Violation ID not found');
@@ -1408,11 +1417,42 @@
     // Store the button reference and violation ID for the confirmation
     window.pendingUnsuspend = {
       vpk: vpk,
-      btn: btn
+      btn: btn,
+      level: violationLevel
     };
     
     // Set the violation ID in the confirm button
     $('#confirm-unsuspend-btn').attr('data-vpk', vpk);
+    
+    // Update modal content based on violation level
+    var modalHeader = document.getElementById('unsuspendModalHeader');
+    var modalIcon = document.getElementById('unsuspendModalIcon');
+    var modalMessage = document.getElementById('unsuspendModalMessage');
+    var slipNote = document.getElementById('unsuspendSlipNote');
+    
+    if (violationLevel === 'major' && slipReceived === 'false') {
+      // Major violation - show note about reviewing physical slip
+      if (modalHeader) modalHeader.className = 'modal-header bg-warning';
+      if (modalIcon) {
+        modalIcon.className = 'fa-solid fa-file-circle-check';
+        modalIcon.style.color = '#ff9800';
+      }
+      if (modalMessage) {
+        modalMessage.innerHTML = '<strong>Review Violation Slip</strong><br>Have you reviewed the physical violation slip submitted by this user?';
+      }
+      if (slipNote) slipNote.style.display = 'block';
+    } else {
+      // Minor/Moderate or major with slip already received
+      if (modalHeader) modalHeader.className = 'modal-header';
+      if (modalIcon) {
+        modalIcon.className = 'fa-solid fa-question-circle';
+        modalIcon.style.color = '#ff9800';
+      }
+      if (modalMessage) {
+        modalMessage.textContent = 'Are you sure you want to unsuspend this violation?';
+      }
+      if (slipNote) slipNote.style.display = 'none';
+    }
     
     // Show confirmation modal
     var modalEl = document.getElementById('unsuspendConfirmModal');

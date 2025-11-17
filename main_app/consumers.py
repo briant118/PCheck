@@ -211,6 +211,27 @@ class BookingStatusConsumer(AsyncWebsocketConsumer):
             import traceback
             traceback.print_exc()
 
+    async def violation_notification(self, event):
+        """Send violation notification to user"""
+        message_data = {
+            "type": "violation_notification",
+            "violation_id": event.get("violation_id"),
+            "level": event.get("level", "minor"),
+            "reason": event.get("reason", ""),
+            "message": event.get("message", "You have received a violation"),
+            "status": event.get("status", "active"),
+            "suspension_end_date": event.get("suspension_end_date"),
+        }
+        print(f"📤 BookingStatusConsumer: Sending violation notification to user {self.user.username}")
+        print(f"   Violation ID: {event.get('violation_id')}, Level: {event.get('level')}")
+        try:
+            await self.send(text_data=json.dumps(message_data))
+            print(f"✅ Violation notification sent successfully")
+        except Exception as e:
+            print(f"❌ Error sending violation notification: {e}")
+            import traceback
+            traceback.print_exc()
+
 class PCStatusBroadcastConsumer(AsyncWebsocketConsumer):
     """WebSocket consumer for broadcasting PC status updates to all users"""
     async def connect(self):

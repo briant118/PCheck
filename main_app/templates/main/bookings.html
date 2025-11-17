@@ -430,6 +430,54 @@ document.addEventListener('DOMContentLoaded', function() {
                   window.location.replace('/?_refresh=' + timestamp);
                 }, 500);
               }
+            } else if (data.type === 'violation_notification') {
+              console.log('⚠️ Violation notification received:', data);
+              
+              // For minor violations, check if already shown
+              if (data.level === 'minor') {
+                var seenKey = 'violation_seen_' + data.violation_id;
+                var alreadySeen = localStorage.getItem(seenKey);
+                if (alreadySeen) {
+                  console.log('Minor violation already shown, skipping');
+                  return; // Don't show again
+                }
+                
+                // Mark as seen immediately (will be shown once)
+                localStorage.setItem(seenKey, 'true');
+              }
+              
+              // Show browser notification
+              if ('Notification' in window && Notification.permission === 'granted') {
+                const title = data.level === 'minor' ? '⚠️ Warning' : '🚫 Account Suspended';
+                new Notification(title, {
+                  body: data.message || 'You have received a violation',
+                  icon: '/static/favicon.svg',
+                  tag: 'violation_' + data.violation_id,
+                  requireInteraction: data.level !== 'minor'
+                });
+              }
+              
+              // Show alert/notification on page
+              const notificationDiv = document.createElement('div');
+              notificationDiv.className = 'alert alert-' + (data.level === 'minor' ? 'warning' : 'danger');
+              notificationDiv.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 9999; min-width: 300px; max-width: 500px;';
+              notificationDiv.innerHTML = '<strong>' + (data.level === 'minor' ? '⚠️ Warning' : '🚫 Violation') + '</strong><br>' + 
+                                          (data.message || 'You have received a violation') +
+                                          '<button type="button" class="btn-close" onclick="this.parentElement.remove()" style="float: right;"></button>';
+              document.body.appendChild(notificationDiv);
+              
+              // Auto-remove after 10 seconds for minor, 30 seconds for others
+              setTimeout(function() {
+                if (notificationDiv.parentElement) {
+                  notificationDiv.remove();
+                }
+              }, data.level === 'minor' ? 10000 : 30000);
+              
+              // If suspended, redirect to appropriate page or show message
+              if (data.status === 'suspended') {
+                console.log('Account suspended. User should be redirected or shown suspension message.');
+                // You can add redirect logic here if needed
+              }
             } else if (data.type === 'heartbeat_ack') {
               // Heartbeat acknowledged, connection is alive
               console.debug('💓 Booking status WebSocket heartbeat acknowledged');

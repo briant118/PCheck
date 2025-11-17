@@ -95,6 +95,8 @@ class Violation(models.Model):
     reason = models.CharField(max_length=255)
     resolved = models.BooleanField(default=False)
     status = models.CharField(max_length=20, null=True, blank=True, choices=[('suspended','Suspended'), ('active','Active')])
+    suspension_end_date = models.DateTimeField(null=True, blank=True, help_text="Date when suspension will be automatically released (for moderate violations)")
+    violation_slip_received = models.BooleanField(default=False, help_text="Whether violation slip has been received (for major violations)")
 
 
 class PeripheralEvent(models.Model):

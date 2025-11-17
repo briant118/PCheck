@@ -442,6 +442,60 @@ def all_users_for_chat(request):
 
 
 @login_required
+def user_bookings_history(request, user_id):
+    """Return booking history for a specific user (staff access only)."""
+    has_profile_staff_role = hasattr(request.user, 'profile') and request.user.profile.role == 'staff'
+    if not (request.user.is_staff or has_profile_staff_role):
+        return JsonResponse({'error': 'Only staff can view booking history.'}, status=403)
+    
+    target_user = get_object_or_404(User, pk=user_id)
+    
+    try:
+        limit = int(request.GET.get('limit', 50))
+    except (TypeError, ValueError):
+        limit = 50
+    limit = max(1, min(limit, 200))
+    
+    def format_datetime(value):
+        if not value:
+            return None
+        value = timezone.localtime(value)
+        return value.strftime("%b %d, %Y %I:%M %p")
+    
+    bookings_qs = (
+        models.Booking.objects
+        .filter(user=target_user)
+        .select_related('pc', 'faculty_booking')
+        .order_by('-created_at')
+    )[:limit]
+    
+    serialized = []
+    for booking in bookings_qs:
+        status_key = (booking.status or 'pending').lower()
+        booking_type_key = 'faculty' if booking.faculty_booking_id else 'individual'
+        serialized.append({
+            'id': booking.id,
+            'type_key': booking_type_key,
+            'type': 'Faculty Booking' if booking.faculty_booking_id else 'PC Reservation',
+            'pc_name': booking.pc.name if booking.pc else '',
+            'start_time': format_datetime(booking.start_time),
+            'end_time': format_datetime(booking.end_time),
+            'status_key': status_key,
+            'status_label': status_key.capitalize(),
+            'created_at': format_datetime(booking.created_at),
+        })
+    
+    return JsonResponse({
+        'user': {
+            'id': target_user.id,
+            'name': target_user.get_full_name() or target_user.username,
+            'email': target_user.email,
+        },
+        'bookings': serialized,
+    })
+
+
+@login_required
 @staff_required
 def add_pc_from_form(request):
     if request.method == "POST":
@@ -999,12 +1053,18 @@ def export_report(request):
         if booking.duration:
             duration_minutes = int(booking.duration.total_seconds() / 60)
         
+        user_college = (
+            booking.user.profile.college.name
+            if hasattr(booking.user, 'profile') and booking.user.profile.college
+            else 'N/A'
+        )
+        
         writer.writerow([
             booking.created_at.strftime('%Y-%m-%d'),
             booking.created_at.strftime('%H:%M:%S'),
             booking.user.get_full_name(),
             booking.pc.name if booking.pc else 'N/A',
-            booking.user.profile.college.name if hasattr(booking.user, 'profile') else 'N/A',
+            user_college,
             booking.status or 'Pending',
             duration_minutes
         ])
@@ -1063,6 +1123,28 @@ def reserve_pc(request):
                         "error": "You already have an active booking. Please wait for your current booking to end before booking another PC."
                     }, status=400)
 
+            # Check for active violations that prevent booking
+            active_violation = models.Violation.objects.filter(
+                user=request.user,
+                resolved=False
+            ).order_by('-timestamp').first()
+            
+            if active_violation:
+                if active_violation.level in ['moderate', 'major'] and active_violation.status == 'suspended':
+                    if active_violation.level == 'moderate':
+                        end_date_str = ""
+                        if active_violation.suspension_end_date:
+                            end_date_str = f" Your suspension will be lifted on {active_violation.suspension_end_date.strftime('%B %d, %Y at %I:%M %p')}."
+                        return JsonResponse({
+                            "success": False,
+                            "error": f"Your account is suspended due to a moderate violation. Reason: {active_violation.reason}.{end_date_str} You cannot make bookings until your suspension is lifted."
+                        }, status=403)
+                    elif active_violation.level == 'major':
+                        return JsonResponse({
+                            "success": False,
+                            "error": f"Your account is suspended due to a major violation. Reason: {active_violation.reason}. You must submit a violation slip to have your account reinstated. You cannot make bookings until your account is reinstated."
+                        }, status=403)
+            
             pc = get_object_or_404(models.PC, id=pc_id)
             
             # Check if PC is in repair
@@ -2134,33 +2216,168 @@ def violation_create_user(request, user_id):
     if pc_id:
         pc = get_object_or_404(models.PC, pk=pc_id)
 
-    models.Violation.objects.create(
+    # Determine suspension duration based on level
+    suspension_end_date = None
+    status = 'active'  # Default for minor violations (warning only)
+    notification_message = ""
+    
+    if level == 'minor':
+        # Minor: Warning only, no suspension
+        status = 'active'
+        notification_message = f"⚠️ WARNING: You have received a minor violation. Reason: {reason}. Please be more careful."
+    elif level == 'moderate':
+        # Moderate: 3 days suspension
+        status = 'suspended'
+        suspension_end_date = timezone.now() + timedelta(days=3)
+        notification_message = f"🚫 Your account has been suspended for 3 days due to a moderate violation. Reason: {reason}. Your suspension will be automatically lifted on {suspension_end_date.strftime('%B %d, %Y at %I:%M %p')}."
+    elif level == 'major':
+        # Major: Permanent suspension until violation slip is received
+        status = 'suspended'
+        notification_message = f"🚫 Your account has been suspended due to a major violation. Reason: {reason}. You must submit a violation slip to have your account reinstated."
+
+    violation = models.Violation.objects.create(
         user=user,
         pc=pc,
         level=level,
         reason=reason,
-        status='suspended'
+        status=status,
+        suspension_end_date=suspension_end_date,
+        violation_slip_received=False
     )
 
-    return JsonResponse({"success": True})
+    # Send notification to user via WebSocket
+    try:
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            async_to_sync(channel_layer.group_send)(
+                f'booking_updates_{user.id}',
+                {
+                    'type': 'violation_notification',
+                    'violation_id': violation.id,
+                    'level': level,
+                    'reason': reason,
+                    'message': notification_message,
+                    'status': status,
+                    'suspension_end_date': suspension_end_date.isoformat() if suspension_end_date else None,
+                }
+            )
+            print(f"✅ Violation notification sent to user {user.username} (ID: {user.id})")
+    except Exception as e:
+        print(f"❌ Error sending violation notification: {e}")
+        import traceback
+        traceback.print_exc()
+
+    return JsonResponse({"success": True, "message": notification_message})
 
 @login_required
 @staff_required
 @csrf_exempt
 def unsuspend(request, pk):
-    """Mark a violation as active (unsuspend)."""
+    """Mark a violation as active (unsuspend). For major violations, staff can unsuspend after reviewing the physical violation slip."""
     try:
         violation = models.Violation.objects.get(pk=pk)
-        violation.status = 'active'
-        violation.resolved = True
-        violation.save(update_fields=['status', 'resolved'])
-        messages.success(request, "Account unsuspended!")
-        return JsonResponse({"success": True})
+        
+        # For major violations, automatically mark violation slip as received when staff unsuspends
+        # (staff is reviewing the physical slip when they click unsuspend)
+        if violation.level == 'major' and not violation.violation_slip_received:
+            violation.violation_slip_received = True
+            violation.status = 'active'
+            violation.resolved = True
+            violation.save(update_fields=['status', 'resolved', 'violation_slip_received'])
+            
+            # Send notification to user
+            try:
+                channel_layer = get_channel_layer()
+                if channel_layer:
+                    async_to_sync(channel_layer.group_send)(
+                        f'booking_updates_{violation.user.id}',
+                        {
+                            'type': 'violation_notification',
+                            'violation_id': violation.id,
+                            'level': violation.level,
+                            'reason': violation.reason,
+                            'message': f"✅ Your violation slip has been reviewed and your account has been reinstated. Your account is now active again.",
+                            'status': 'active',
+                            'suspension_end_date': None,
+                        }
+                    )
+            except Exception as e:
+                print(f"❌ Error sending unsuspend notification: {e}")
+            
+            messages.success(request, "Violation slip reviewed and account unsuspended!")
+            return JsonResponse({"success": True, "message": "Violation slip reviewed and account unsuspended!"})
+        else:
+            # For minor/moderate violations or major with slip already received, just unsuspend
+            violation.status = 'active'
+            violation.resolved = True
+            violation.save(update_fields=['status', 'resolved'])
+            
+            # Send notification to user
+            try:
+                channel_layer = get_channel_layer()
+                if channel_layer:
+                    async_to_sync(channel_layer.group_send)(
+                        f'booking_updates_{violation.user.id}',
+                        {
+                            'type': 'violation_notification',
+                            'violation_id': violation.id,
+                            'level': violation.level,
+                            'reason': violation.reason,
+                            'message': f"✅ Your account has been unsuspended. Your account is now active again.",
+                            'status': 'active',
+                            'suspension_end_date': None,
+                        }
+                    )
+            except Exception as e:
+                print(f"❌ Error sending unsuspend notification: {e}")
+            
+            messages.success(request, "Account unsuspended!")
+            return JsonResponse({"success": True})
     except models.Violation.DoesNotExist:
         return JsonResponse({"success": False, "error": "Violation not found"}, status=404)
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)}, status=500)
 
+
+@login_required
+@csrf_exempt
+def check_active_violation(request):
+    """Check if user has an active violation"""
+    try:
+        active_violation = models.Violation.objects.filter(
+            user=request.user,
+            resolved=False
+        ).order_by('-timestamp').first()
+        
+        if active_violation:
+            # Determine message based on level
+            notification_message = ""
+            if active_violation.level == 'minor':
+                notification_message = f"⚠️ WARNING: You have received a minor violation. Reason: {active_violation.reason}. Please be more careful."
+            elif active_violation.level == 'moderate':
+                end_date_str = ""
+                if active_violation.suspension_end_date:
+                    end_date_str = f" Your suspension will be automatically lifted on {active_violation.suspension_end_date.strftime('%B %d, %Y at %I:%M %p')}."
+                notification_message = f"🚫 Your account has been suspended for 3 days due to a moderate violation. Reason: {active_violation.reason}.{end_date_str} You cannot make bookings until your suspension is lifted."
+            elif active_violation.level == 'major':
+                notification_message = f"🚫 Your account has been suspended due to a major violation. Reason: {active_violation.reason}. You must submit a violation slip to have your account reinstated. You cannot make bookings until your account is reinstated."
+            
+            return JsonResponse({
+                "success": True,
+                "violation": {
+                    "id": active_violation.id,
+                    "level": active_violation.level,
+                    "reason": active_violation.reason,
+                    "status": active_violation.status,
+                    "message": notification_message,
+                    "suspension_end_date": active_violation.suspension_end_date.isoformat() if active_violation.suspension_end_date else None,
+                    "violation_slip_received": active_violation.violation_slip_received,
+                }
+            })
+        else:
+            return JsonResponse({"success": True, "violation": None})
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=500)
 
 @login_required
 @csrf_exempt
@@ -2475,6 +2692,34 @@ class ReservePCListView(LoginRequiredMixin, ListView):
     context_object_name = "available_pcs"
     success_url = reverse_lazy("main_app:dashboard")
     paginate_by = 12
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Check for active violations
+        active_violation = models.Violation.objects.filter(
+            user=self.request.user,
+            resolved=False
+        ).order_by('-timestamp').first()
+        
+        if active_violation:
+            context['active_violation'] = {
+                'id': active_violation.id,
+                'level': active_violation.level,
+                'reason': active_violation.reason,
+                'status': active_violation.status,
+                'timestamp': active_violation.timestamp,
+                'suspension_end_date': active_violation.suspension_end_date,
+                'violation_slip_received': active_violation.violation_slip_received,
+            }
+            # Determine if user can book
+            if active_violation.level in ['moderate', 'major'] and active_violation.status == 'suspended':
+                context['can_book'] = False
+            else:
+                context['can_book'] = True
+        else:
+            context['can_book'] = True
+        
+        return context
     
     def get_queryset(self):
         from django.utils import timezone

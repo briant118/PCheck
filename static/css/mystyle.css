@@ -3597,10 +3597,12 @@ body:has(.sidebar) .modal-backdrop {
     display: flex;
     gap: 0.75rem;
     width: 100%;
+    align-items: center;
 }
 
 .profile-update-btn,
-.profile-password-btn {
+.profile-password-btn,
+.profile-logout-btn {
     flex: 1;
     display: flex;
     align-items: center;
@@ -3613,6 +3615,7 @@ body:has(.sidebar) .modal-backdrop {
     transition: all 0.2s ease !important;
     text-decoration: none !important;
     cursor: pointer;
+    gap: 0.5rem;
 }
 
 .profile-update-btn {
@@ -3639,6 +3642,44 @@ body:has(.sidebar) .modal-backdrop {
     box-shadow: 0 8px 20px rgba(255, 152, 0, 0.3);
 }
 
+.profile-logout-btn {
+    background: #fff5f5 !important;
+    color: #dc3545 !important;
+    border: 2px solid #dc3545 !important;
+    position: relative;
+    overflow: hidden;
+    padding: 0.95rem 2rem !important;
+    box-shadow: inset 0 0 0 1px rgba(220, 53, 69, 0.2);
+    font-size: 1.15rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.5px;
+    color: #c1121f !important;
+    margin-left: auto;
+    align-self: center;
+    flex: 0 0 auto;
+}
+
+.profile-logout-btn::after {
+    content: "";
+    position: absolute;
+    inset: 2px;
+    border-radius: 9px;
+    border: 1px dashed rgba(220, 53, 69, 0.5);
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+
+.profile-logout-btn:hover {
+    background: #dc3545 !important;
+    color: #ffffff !important;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(220, 53, 69, 0.3);
+}
+
+.profile-logout-btn:hover::after {
+    border-color: rgba(255, 255, 255, 0.7);
+    opacity: 0.9;
+}
 /* Responsive Design */
 @media (max-width: 767.98px) {
     .profile-modal-content {
@@ -3673,11 +3714,18 @@ body:has(.sidebar) .modal-backdrop {
     
     .profile-footer-buttons {
         flex-direction: column;
+        align-items: flex-end;
     }
     
     .profile-update-btn,
     .profile-password-btn {
         width: 100%;
+        align-self: stretch;
+    }
+    
+    .profile-logout-btn {
+        margin-left: 0;
+        align-self: flex-end;
     }
     
     .profile-modal-footer {

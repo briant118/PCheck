@@ -110,6 +110,14 @@
     display: flex !important;
     align-items: center !important;
     justify-content: flex-start !important;
+    pointer-events: auto !important;
+    cursor: pointer !important;
+  }
+  
+  .table-responsive .dropdown-item:disabled,
+  .table-responsive .dropdown-item.disabled {
+    pointer-events: none !important;
+    opacity: 0.6;
   }
   
   .table-responsive .dropdown-item i {
@@ -196,7 +204,7 @@
       allDropdowns.forEach(function(btnGroup) {
         var menu = btnGroup.querySelector('.dropdown-menu');
         if (btnGroup === openDropdown && btnGroup.classList.contains('show')) {
-          // Active dropdown is visible
+          // Active dropdown is visible - ensure it's fully interactive
           btnGroup.style.opacity = '1';
           btnGroup.style.visibility = 'visible';
           btnGroup.style.pointerEvents = 'auto';
@@ -205,6 +213,13 @@
             menu.style.clip = 'unset';
             menu.style.clipPath = 'none';
             menu.style.maxHeight = 'none';
+            menu.style.pointerEvents = 'auto';
+            // Ensure dropdown items are clickable
+            var items = menu.querySelectorAll('.dropdown-item');
+            items.forEach(function(item) {
+              item.style.pointerEvents = 'auto';
+              item.style.cursor = 'pointer';
+            });
           }
         } else {
           // Hide other action buttons when a dropdown is open
@@ -288,6 +303,7 @@
             dropdownItem.classList.contains('violation-user-btn') ||
             dropdownItem.tagName === 'A') {
           // These handlers will close the dropdown themselves
+          // Don't prevent default or stop propagation - let the handlers work
           return;
         }
         
@@ -305,7 +321,7 @@
           }
         }
       }
-    });
+    }); // Let this run in bubble phase after button handlers
     
     // Close dropdown when clicking outside (but not on dropdown items or buttons)
     document.addEventListener('click', function(e) {
@@ -365,7 +381,7 @@
     document.addEventListener('visibilitychange', function() {
       if (document.visibilityState === 'visible') {
         // Page is visible again, ensure handlers are set up
-        if (window.jQuery && typeof $(document).ready === 'function') {
+        if (typeof window.jQuery !== 'undefined' && typeof $ !== 'undefined' && typeof $(document).ready === 'function') {
           // Trigger ready handlers if jQuery is available
           $(document).trigger('ready');
         }
@@ -446,9 +462,13 @@
                       data-user-block="{% if user.profile.block %}{{ user.profile.block }}{% endif %}">
                       <i class="fa-solid fa-eye me-2"></i>View
                     </button>
-                    <a class="dropdown-item" href="{% url 'main_app:bookings' %}?user={{ user.id }}">
+                    <button type="button"
+                            class="dropdown-item view-bookings-btn"
+                            data-user-id="{{ user.id }}"
+                            data-user-name="{{ user.get_full_name|default:user.username }}"
+                            data-bookings-url="{% url 'main_app:user-bookings-history' user.id %}">
                       <i class="fa-solid fa-clock-rotate-left me-2"></i>View Bookings
-                    </a>
+                    </button>
                     <button type="button" class="dropdown-item text-danger violation-user-btn" data-user-id="{{ user.id }}">
                       <i class="fa-solid fa-triangle-exclamation me-2"></i>Set Violation
                     </button>
@@ -609,6 +629,51 @@
     </div>
   </div>
 
+<!-- User Booking History Modal -->
+<div class="modal fade" id="userBookingsModal" tabindex="-1" aria-labelledby="userBookingsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          Booking history for <span id="ub_user_name"></span>
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="userBookingsLoading" class="text-center py-4 d-none">
+          <div class="spinner-border text-warning" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="mb-0 mt-2 text-muted">Fetching bookings…</p>
+        </div>
+        <div id="userBookingsError" class="alert alert-danger d-none" role="alert"></div>
+        <div id="userBookingsEmpty" class="text-center py-4 d-none text-muted">
+          <i class="fa-regular fa-calendar-xmark fa-2x mb-3 text-warning"></i>
+          <p class="mb-0">No bookings found for this user.</p>
+        </div>
+        <div id="userBookingsTableWrapper" class="table-responsive d-none">
+          <table class="table table-sm align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th scope="col">Type</th>
+                <th scope="col">PC</th>
+                <th scope="col">Start</th>
+                <th scope="col">End</th>
+                <th scope="col">Status</th>
+                <th scope="col">Created</th>
+              </tr>
+            </thead>
+            <tbody id="userBookingsRows"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
   <!-- Violation Modal (Set Violation for User) -->
   <div class="modal fade" id="userViolationModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
@@ -650,22 +715,195 @@
 
 {% block scripts %}
 <script>
-  // View User Button Handler - using both jQuery and vanilla JS for reliability
-  $(document).on('click', '.view-user-btn', function(e) {
+  // ============================================
+  // USER BOOKING HISTORY MODAL
+  // ============================================
+  const bookingsModalEl = document.getElementById('userBookingsModal');
+  const bookingsNameEl = document.getElementById('ub_user_name');
+  const bookingsLoadingEl = document.getElementById('userBookingsLoading');
+  const bookingsEmptyEl = document.getElementById('userBookingsEmpty');
+  const bookingsErrorEl = document.getElementById('userBookingsError');
+  const bookingsTableWrapperEl = document.getElementById('userBookingsTableWrapper');
+  const bookingsRowsEl = document.getElementById('userBookingsRows');
+  let bookingsModalInstance = null;
+  
+  function setBookingsModalState({ loading = false, empty = false, showTable = false, errorMessage = '' } = {}) {
+    if (bookingsLoadingEl) bookingsLoadingEl.classList.toggle('d-none', !loading);
+    if (bookingsEmptyEl) bookingsEmptyEl.classList.toggle('d-none', !empty);
+    if (bookingsTableWrapperEl) bookingsTableWrapperEl.classList.toggle('d-none', !showTable);
+    if (bookingsErrorEl) {
+      if (errorMessage) {
+        bookingsErrorEl.textContent = errorMessage;
+        bookingsErrorEl.classList.remove('d-none');
+      } else {
+        bookingsErrorEl.textContent = '';
+        bookingsErrorEl.classList.add('d-none');
+      }
+    }
+  }
+  
+  function statusBadgeClass(statusKey) {
+    const key = (statusKey || '').toLowerCase();
+    if (key === 'confirmed') return 'text-bg-success';
+    if (key === 'cancelled') return 'text-bg-danger';
+    if (key === 'pending') return 'text-bg-warning';
+    return 'text-bg-secondary';
+  }
+  
+  function statusLabel(statusKey) {
+    const key = (statusKey || '').toLowerCase();
+    if (!key) return 'Pending';
+    return key.charAt(0).toUpperCase() + key.slice(1);
+  }
+  
+  function renderBookingRows(bookings) {
+    if (!bookingsRowsEl) return;
+    bookingsRowsEl.innerHTML = '';
+    bookings.forEach((booking) => {
+      const row = document.createElement('tr');
+      
+      const typeCell = document.createElement('td');
+      typeCell.textContent = booking.type || '—';
+      row.appendChild(typeCell);
+      
+      const pcCell = document.createElement('td');
+      pcCell.textContent = booking.pc_name || '—';
+      row.appendChild(pcCell);
+      
+      const startCell = document.createElement('td');
+      startCell.textContent = booking.start_time || '—';
+      row.appendChild(startCell);
+      
+      const endCell = document.createElement('td');
+      endCell.textContent = booking.end_time || '—';
+      row.appendChild(endCell);
+      
+      const statusCell = document.createElement('td');
+      const badge = document.createElement('span');
+      badge.className = `badge ${statusBadgeClass(booking.status_key || booking.status)}`;
+      badge.textContent = booking.status_label || statusLabel(booking.status_key || booking.status);
+      statusCell.appendChild(badge);
+      row.appendChild(statusCell);
+      
+      const createdCell = document.createElement('td');
+      createdCell.textContent = booking.created_at || '—';
+      row.appendChild(createdCell);
+      
+      bookingsRowsEl.appendChild(row);
+    });
+  }
+  
+  document.addEventListener('click', function(e) {
+    const target = e.target.closest('.view-bookings-btn');
+    if (!target) return;
+    
     e.preventDefault();
     e.stopPropagation();
+    e.stopImmediatePropagation();
     
-    var btn = $(this);
+    if (target.disabled || target.classList.contains('disabled')) {
+      console.warn('View bookings button is disabled');
+      return false;
+    }
+    
+    const bookingsUrl = target.getAttribute('data-bookings-url');
+    if (!bookingsUrl) {
+      alert('Unable to fetch booking history right now.');
+      return false;
+    }
+    
+    const dropdownMenu = target.closest('.dropdown-menu');
+    if (dropdownMenu) {
+      const btnGroup = dropdownMenu.closest('.btn-group');
+      if (btnGroup) {
+        const dropdownToggle = btnGroup.querySelector('.dropdown-toggle');
+        if (dropdownToggle && window.bootstrap && bootstrap.Dropdown) {
+          try {
+            const dropdownInstance = bootstrap.Dropdown.getInstance(dropdownToggle);
+            if (dropdownInstance) dropdownInstance.hide();
+          } catch (err) {
+            console.warn('Unable to close dropdown before opening modal:', err);
+          }
+        }
+      }
+    }
+    
+    const fallbackName = target.getAttribute('data-user-name') || 'User';
+    if (bookingsNameEl) bookingsNameEl.textContent = fallbackName;
+    if (bookingsRowsEl) bookingsRowsEl.innerHTML = '';
+    setBookingsModalState({ loading: true });
+    
+    if (bookingsModalEl) {
+      if (window.bootstrap && bootstrap.Modal) {
+        bookingsModalInstance = bootstrap.Modal.getOrCreateInstance(bookingsModalEl);
+        bookingsModalInstance.show();
+      } else if (window.jQuery && $.fn.modal) {
+        $(bookingsModalEl).modal('show');
+      }
+    }
+    
+    fetch(bookingsUrl, {
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'Accept': 'application/json',
+      },
+      credentials: 'same-origin',
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Request failed with status ${response.status}`);
+        }
+        return response.json();
+      })
+      .then((data) => {
+        const bookings = Array.isArray(data.bookings) ? data.bookings : [];
+        if (bookingsNameEl && data.user && data.user.name) {
+          bookingsNameEl.textContent = data.user.name;
+        }
+        if (!bookings.length) {
+          setBookingsModalState({ empty: true });
+          return;
+        }
+        renderBookingRows(bookings);
+        setBookingsModalState({ showTable: true });
+      })
+      .catch((error) => {
+        console.error('Error loading booking history:', error);
+        setBookingsModalState({
+          errorMessage: 'Unable to load booking history. Please try again later.',
+        });
+      });
+    
+    return false;
+  });
+  
+  // View User Button Handler - using both jQuery and vanilla JS for reliability
+  // Vanilla JS handler (runs first)
+  document.addEventListener('click', function(e) {
+    var target = e.target.closest('.view-user-btn');
+    if (!target) return;
+    
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    
+    // Ensure button is not disabled
+    if (target.disabled || target.classList.contains('disabled')) {
+      console.warn('View button is disabled');
+      return false;
+    }
     
     // Debug log
-    console.log('View user button clicked', btn);
-    var userName = btn.data('user-name') || btn.attr('data-user-name') || '';
-    var userEmail = btn.data('user-email') || btn.attr('data-user-email') || '';
-    var userSchoolId = btn.data('user-school-id') || btn.attr('data-user-school-id') || '';
-    var userCollege = btn.data('user-college') || btn.attr('data-user-college') || '';
-    var userCourse = btn.data('user-course') || btn.attr('data-user-course') || '';
-    var userYear = btn.data('user-year') || btn.attr('data-user-year') || '';
-    var userBlock = btn.data('user-block') || btn.attr('data-user-block') || '';
+    console.log('View user button clicked (vanilla)', target);
+    
+    // Get data attributes using vanilla JS
+    var userName = target.getAttribute('data-user-name') || '';
+    var userEmail = target.getAttribute('data-user-email') || '';
+    var userSchoolId = target.getAttribute('data-user-school-id') || '';
+    var userCollege = target.getAttribute('data-user-college') || '';
+    var userCourse = target.getAttribute('data-user-course') || '';
+    var userYear = target.getAttribute('data-user-year') || '';
+    var userBlock = target.getAttribute('data-user-block') || '';
     
     // Populate modal fields
     var uvNameEl = document.getElementById('uv_name');
@@ -726,16 +964,16 @@
       uvBlockItem.style.display = 'none';
     }
     
-    // Close dropdown
-    var dropdownMenu = btn.closest('.dropdown-menu');
-    if (dropdownMenu && dropdownMenu.length) {
+    // Close dropdown (using vanilla JS)
+    var dropdownMenu = target.closest('.dropdown-menu');
+    if (dropdownMenu) {
       var btnGroup = dropdownMenu.closest('.btn-group');
-      if (btnGroup && btnGroup.length) {
-        var dropdownToggle = btnGroup.find('.dropdown-toggle');
-        if (dropdownToggle && dropdownToggle.length) {
+      if (btnGroup) {
+        var dropdownToggle = btnGroup.querySelector('.dropdown-toggle');
+        if (dropdownToggle) {
           try {
             if (window.bootstrap && bootstrap.Dropdown) {
-              var bsDropdown = bootstrap.Dropdown.getInstance(dropdownToggle[0]);
+              var bsDropdown = bootstrap.Dropdown.getInstance(dropdownToggle);
               if (bsDropdown) {
                 bsDropdown.hide();
               }
@@ -751,19 +989,32 @@
     var userViewModalEl = document.getElementById('userViewModal');
     if (userViewModalEl) {
       try {
-        var userViewModal = new bootstrap.Modal(userViewModalEl);
-        userViewModal.show();
-      } catch (err) {
-        console.error('Error showing user view modal:', err);
-        // Fallback to jQuery if Bootstrap Modal fails
-        if (window.jQuery && $.fn.modal) {
+        if (window.bootstrap && bootstrap.Modal) {
+          var userViewModal = bootstrap.Modal.getOrCreateInstance(userViewModalEl);
+          userViewModal.show();
+        } else if (window.jQuery && $.fn.modal) {
           $(userViewModalEl).modal('show');
         }
+      } catch (err) {
+        console.error('Error showing user view modal:', err);
       }
     } else {
       console.error('User view modal element not found');
     }
   });
+  
+  // jQuery handler as backup (will be prevented by stopImmediatePropagation above)
+  // Only register if jQuery is available
+  if (typeof window.jQuery !== 'undefined' && typeof $ !== 'undefined') {
+    $(document).on('click', '.view-user-btn', function(e) {
+      // This should not run if vanilla handler already handled it
+      if (e.isImmediatePropagationStopped()) {
+        return false;
+      }
+      // If vanilla handler didn't run, proceed with jQuery handler
+      console.log('View user button clicked (jQuery fallback)', this);
+    });
+  }
   
 
   const currentUserId = "{{ request.user.id }}";
@@ -788,8 +1039,16 @@
   }
 
   function resetInitMessageForm() {
-    $("#recipient").val("");
-    $("#initMessage").val("");
+    if (typeof window.jQuery !== 'undefined' && typeof $ !== 'undefined') {
+      $("#recipient").val("");
+      $("#initMessage").val("");
+    } else {
+      // Fallback to vanilla JS
+      var recipientEl = document.getElementById('recipient');
+      var initMessageEl = document.getElementById('initMessage');
+      if (recipientEl) recipientEl.value = "";
+      if (initMessageEl) initMessageEl.value = "";
+    }
   }
 
   function connectChatSocket(roomId) {
@@ -1117,13 +1376,20 @@
 // VIOLATION FUNCTIONALITY
 // ============================================
 
-// Violation button click handler
+// Violation button click handler - use capture phase and ensure it runs
     document.addEventListener('click', function(e) {
       var target = e.target.closest('.violation-user-btn');
       if (!target) return;
       
       e.preventDefault();
       e.stopPropagation();
+      e.stopImmediatePropagation(); // Prevent other handlers from interfering
+      
+      // Ensure button is not disabled
+      if (target.disabled || target.classList.contains('disabled')) {
+        console.warn('Violation button is disabled');
+        return false;
+      }
       
       var userId = target.getAttribute('data-user-id') || '';
       
@@ -1185,6 +1451,90 @@
       
       return false;
     });
+    
+    // jQuery handler as backup (will be prevented by stopImmediatePropagation above)
+    // Only register if jQuery is available
+    if (typeof window.jQuery !== 'undefined' && typeof $ !== 'undefined') {
+      $(document).on('click', '.violation-user-btn', function(e) {
+        // This should not run if vanilla handler already handled it
+        if (e.isImmediatePropagationStopped()) {
+          return false;
+        }
+        // If vanilla handler didn't run, proceed with jQuery handler
+        console.log('Violation button clicked (jQuery fallback)', this);
+        
+        var btn = $(this);
+      
+      // Ensure button is not disabled
+      if (btn.prop('disabled') || btn.hasClass('disabled')) {
+        console.warn('Violation button is disabled');
+        return false;
+      }
+      
+      var userId = btn.data('user-id') || btn.attr('data-user-id') || '';
+      
+      if (!userId) {
+        alert('Error: User ID is missing. Please try again.');
+        return false;
+      }
+      
+      var vioModalEl = document.getElementById('userViolationModal');
+      if (!vioModalEl) {
+        alert('Error: Violation modal not found.');
+        return false;
+      }
+      
+      // Set user ID in hidden input
+      var userIdInput = document.getElementById('vio_user_id');
+      if (userIdInput) {
+        userIdInput.value = userId;
+      }
+      
+      // Reset form fields
+      var levelSelect = document.getElementById('vio_level');
+      if (levelSelect) levelSelect.value = 'minor';
+      var pcSelect = document.getElementById('vio_pc_id');
+      if (pcSelect) pcSelect.value = '';
+      var reasonInput = document.getElementById('vio_reason');
+      if (reasonInput) reasonInput.value = '';
+      
+      // Close dropdown
+      var dropdownMenu = btn.closest('.dropdown-menu');
+      if (dropdownMenu && dropdownMenu.length) {
+        var btnGroup = dropdownMenu.closest('.btn-group');
+        if (btnGroup && btnGroup.length) {
+          var dropdownToggle = btnGroup.find('.dropdown-toggle');
+          if (dropdownToggle && dropdownToggle.length) {
+            try {
+              if (window.bootstrap && bootstrap.Dropdown) {
+                var bsDropdown = bootstrap.Dropdown.getInstance(dropdownToggle[0]);
+                if (bsDropdown) {
+                  bsDropdown.hide();
+                }
+              }
+            } catch (err) {
+              console.log('Could not close dropdown:', err);
+            }
+          }
+        }
+      }
+      
+      // Show modal
+      try {
+        if (window.bootstrap && bootstrap.Modal) {
+          var modal = bootstrap.Modal.getOrCreateInstance(vioModalEl);
+          modal.show();
+        } else if (window.jQuery && $.fn.modal) {
+          $(vioModalEl).modal('show');
+        }
+      } catch (err) {
+        console.error('Error showing violation modal:', err);
+      }
+      
+      return false;
+      });
+    } // End jQuery availability check
+    // If jQuery is not available, the vanilla JS handler will handle everything
     
     // Modal accessibility handlers
     (function() {
@@ -1268,19 +1618,21 @@ document.addEventListener('click', function(e) {
 // ============================================
 
 // Close WebSocket when modal is closed
-$(document).on('hidden.bs.modal', '#conversationModal', function () {
-      disconnectChatSocket();
-    });
+// Only register if jQuery is available
+if (typeof window.jQuery !== 'undefined' && typeof $ !== 'undefined') {
+  $(document).on('hidden.bs.modal', '#conversationModal', function () {
+        disconnectChatSocket();
+      });
 
-// Open init chat modal from Users table
-$(document).on('click', '.start-chat-btn', function () {
-      const recipientEmail = $(this).data('recipient-email');
-      $("#recipient").val(recipientEmail).prop("disabled", true);
-      $("#initMessageModal").modal("show");
-    });
+  // Open init chat modal from Users table
+  $(document).on('click', '.start-chat-btn', function () {
+        const recipientEmail = $(this).data('recipient-email');
+        $("#recipient").val(recipientEmail).prop("disabled", true);
+        $("#initMessageModal").modal("show");
+      });
 
-// Send initial message
-$("#send_init_message").click(function () {
+  // Send initial message
+  $("#send_init_message").click(function () {
       let recipient = $("#recipient").val();
       let initMessage = $("#initMessage").val();
       if (!initMessage) { alert("Message cannot be empty."); return; }
@@ -1322,8 +1674,8 @@ $("#send_init_message").click(function () {
       });
     });
 
-// Open conversation modal from list
-$(document).on("click", ".messagesItem", function () {
+  // Open conversation modal from list
+  $(document).on("click", ".messagesItem", function () {
       var roomId = $(this).data('room-id');
       var receiverEmail = $(this).data('receiver-email');
       var receiverFirstname = $(this).data("receiver-fname");
@@ -1354,8 +1706,8 @@ $(document).on("click", ".messagesItem", function () {
       }
     });
 
-// Send new message
-$("#send_new_message_btn").click(function () {
+  // Send new message
+  $("#send_new_message_btn").click(function () {
       let newMessage = $("#new_message").val();
       let roomId = $("#roomId").val();
       if (!newMessage) return;
@@ -1402,7 +1754,8 @@ $("#send_new_message_btn").click(function () {
         }
       });
     });
-    
+} // End jQuery availability check for chat handlers
+  
   // Refresh button handler - global function for inline onclick
   function refreshUsersPage() {
     // Clear session storage to force fresh load
