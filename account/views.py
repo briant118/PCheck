@@ -22,6 +22,33 @@ from . import forms
 from . import models
 
 
+def determine_user_role(school_id):
+    """
+    Automatically determine user role based on school ID pattern.
+    - Faculty typically have shorter IDs or specific prefixes
+    - Students have longer IDs (e.g., "202280287")
+    - Returns 'faculty', 'student', or defaults to 'student'
+    """
+    if not school_id:
+        return 'student'
+    
+    school_id_str = str(school_id).strip()
+    
+    # Heuristic 1: Faculty IDs are often shorter (2-4 chars) or have specific format
+    if len(school_id_str) <= 4:
+        return 'faculty'
+    
+    # Heuristic 2: IDs starting with specific prefixes might indicate faculty
+    if school_id_str.startswith('F') or school_id_str.startswith('Prof'):
+        return 'faculty'
+    
+    # Heuristic 3: Very long IDs or numeric-only might be students
+    if len(school_id_str) >= 8 and school_id_str.isdigit():
+        return 'student'
+    
+    # Default to student if no faculty indicators found
+    return 'student'
+
 
 def permission_denied_view(request, exception):
         return render(request, 'permission_denied.html', status=403)
@@ -290,7 +317,6 @@ def register(request):
     from main_app.models import College
     colleges = College.objects.all().order_by('name')
     if request.method == "POST":
-        role = request.POST['role']
         first_name = request.POST['first_name']
         first_name = first_name.capitalize()
         last_name = request.POST['last_name']
@@ -321,6 +347,10 @@ def register(request):
         except models.PendingUser.DoesNotExist:
             pass
         
+        # Auto-detect role from school ID instead of user selection
+        school_id = request.POST['email_prefix']
+        role = determine_user_role(school_id)
+        
         # create pending user
         pending = models.PendingUser.objects.create(
             role=role,
@@ -330,7 +360,7 @@ def register(request):
             course=course,
             year=year,
             block=block,
-            school_id=request.POST['email_prefix'],
+            school_id=school_id,
             email=email,
             username=username,
             password=password
@@ -475,11 +505,10 @@ def complete_profile(request):
     colleges = College.objects.all()
     
     if request.method == "POST":
-        role = request.POST.get('role')
         college_id = request.POST.get('college')
         
-        if not role or not college_id:
-            messages.error(request, "Please select both role and college.")
+        if not college_id:
+            messages.error(request, "Please select your college.")
             return render(request, "account/complete_profile.html", {
                 "colleges": colleges,
                 "user": request.user
@@ -506,6 +535,9 @@ def complete_profile(request):
         else:
             # Try to get school_id from POST if provided
             school_id = request.POST.get('school_id', '')
+        
+        # Auto-determine role based on school ID
+        role = determine_user_role(school_id)
         
         # Create or update profile
         profile, created = models.Profile.objects.get_or_create(user=request.user)

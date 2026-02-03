@@ -727,40 +727,21 @@ input[type="password"]::-ms-clear {
     <div class="form-section">
       <form id="registrationForm" method="post">
         {% csrf_token %}
-        <!-- Step 1: Role -->
+        <!-- Step 1: Name -->
         <div class="step active" id="step1">
-          <h3 class="text-center mb-4">Select your role</h3>
-          <div class="role-buttons-container">
-            <button type="button" class="next user-class-button" data-next="step2" data-role="student">
-              <i class="fa-solid fa-user-graduate"></i>
-              <span>Student</span>
-            </button>
-            <button type="button" class="next user-class-button" data-next="step2" data-role="faculty">
-              <i class="fa-solid fa-chalkboard-user"></i>
-              <span>Faculty</span>
-            </button>
-          </div>
-          <div class="button-row single-button">
-            <a href="{% url 'account_login' %}" class="back back-button" data-prev-url="{% url 'account_login' %}" role="button">Back</a>
-          </div>
-          <input type="hidden" name="role" id="role">
-        </div>
-
-        <!-- Step 2: Name -->
-        <div class="step" id="step2">
           <h3>Enter your name</h3>
           <div class="d-flex mb-2" style="max-width: auto;">
             <input type="text" name="first_name" placeholder="First Name" required class="form-control" style="margin-right: 1em;">
             <input type="text" name="last_name" placeholder="Last Name" required class="form-control">
           </div>
           <div class="button-row">
-            <button type="button" class="back back-button" data-prev="step1" data-prev-label="Select your role">Back</button>
-            <button type="button" class="next next-button" data-next="step3">Next</button>
+            <a href="{% url 'account_login' %}" class="back back-button" data-prev-url="{% url 'account_login' %}" role="button">Back</a>
+            <button type="button" class="next next-button" data-next="step2">Next</button>
           </div>
         </div>
 
-        <!-- Step 3: College Info -->
-        <div class="step" id="step3">
+        <!-- Step 2: College and Student Info -->
+        <div class="step" id="step2">
           <h3>Select your college</h3>
           <label for="college-select" class="form-label" style="margin-top: 0; margin-bottom: 0.5rem; display: block;">College</label>
           <select name="college" id="college-select" required class="form-control select mb-2">
@@ -774,28 +755,26 @@ input[type="password"]::-ms-clear {
             {% endif %}
           </select>
           
-          <!-- Student only fields -->
-          <div id="student-fields">
-            <label for="course-select" class="form-label" style="margin-top: 1rem; margin-bottom: 0.5rem; display: block;">Select your course</label>
-            <select name="course" id="course-select" class="form-control mb-2">
-              <option value="">-- Select Course --</option>
-            </select>
-            <label for="year-select" class="form-label" style="margin-top: 1rem; margin-bottom: 0.5rem; display: block;">Year</label>
-            <select name="year" id="year-select" class="form-control mb-2">
-              <option value="">-- Select Year --</option>
-            </select>
-            <input type="text" name="block" placeholder="Block (e.g., 2A)" class="form-control mb-2">
-          </div>
+          <!-- Student fields (always visible) -->
+          <label for="course-select" class="form-label" style="margin-top: 1rem; margin-bottom: 0.5rem; display: block;">Select your course</label>
+          <select name="course" id="course-select" class="form-control mb-2">
+            <option value="">-- Select Course --</option>
+          </select>
+          <label for="year-select" class="form-label" style="margin-top: 1rem; margin-bottom: 0.5rem; display: block;">Year</label>
+          <select name="year" id="year-select" class="form-control mb-2">
+            <option value="">-- Select Year --</option>
+          </select>
+          <input type="text" name="block" placeholder="Block (e.g., 2A)" class="form-control mb-2">
           
           <div class="button-row">
-            <button type="button" class="back back-button" data-prev="step2" data-prev-label="Enter your name">Back</button>
-            <button type="button" class="next next-button" data-next="step4">Next</button>
+            <button type="button" class="back back-button" data-prev="step1" data-prev-label="Enter your name">Back</button>
+            <button type="button" class="next next-button" data-next="step3">Next</button>
           </div>
         </div>
 
-        <!-- Step 4: Email -->
-        <div class="step" id="step4">
-          <h3>Enter your email</h3>
+        <!-- Step 3: Email and Password -->
+        <div class="step" id="step3">
+          <h3>Enter your email and password</h3>
           <label class="form-label fw-semibold">Email</label>
           <div class="input-group mb-3">
             <input type="text" id="email_prefix" name="email_prefix"
@@ -837,7 +816,7 @@ input[type="password"]::-ms-clear {
             </label>
           </div>
           <div class="button-row mt-3">
-            <button type="button" class="back back-button" data-prev="step3">Back</button>
+            <button type="button" class="back back-button" data-prev="step2">Back</button>
             <button type="submit" class="next-button">Create Account</button>
           </div>
           <div>
@@ -1128,12 +1107,6 @@ document.addEventListener('DOMContentLoaded', function() {
   const registrationForm = document.getElementById("registrationForm");
   if (registrationForm) {
     registrationForm.addEventListener("submit", function (event) {
-      if (roleInput && !roleInput.value) {
-        alert("Please select your role before proceeding.");
-        event.preventDefault();
-        return;
-      }
-
       steps.forEach(step => {
         if (!step.classList.contains("active")) {
           step.querySelectorAll("input, select, textarea").forEach(field => {
