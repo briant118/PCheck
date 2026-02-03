@@ -1,2 +1,0 @@
-﻿regex:^\s*'client_id':\s*'.*'$==>    'client_id': 'REDACTED'
-regex:^\s*'secret':\s*'.*'$==>       'secret': 'REDACTED'
