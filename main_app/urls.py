@@ -75,4 +75,11 @@ urlpatterns = [
     # Reporting
     path('booking-data/', views.bookings_by_college, name='booking-data'),
     path('chat/', views.ChatView.as_view(), name='chat'),
+    
+    # Analytics and Predictions
+    path('analytics/', views.analytics_dashboard, name='analytics-dashboard'),
+    path('analytics-api/', views.analytics_api, name='analytics-api'),
+    path('booking-predictions/', views.booking_predictions, name='booking-predictions'),
+    path('risk-analysis/', views.risk_analysis, name='risk-analysis'),
+    path('resource-demand/', views.resource_demand_forecast, name='resource-demand'),
 ]

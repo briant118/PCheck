@@ -671,6 +671,13 @@ def submit_block_booking(request):
                 messages.error(request, 'End date/time must be after start date/time.')
                 return HttpResponseRedirect(reverse_lazy('main_app:reserve-pc'))
         
+        # Validate booking is within 8am to 5pm
+        if start_datetime:
+            is_valid, error_msg = models.is_within_booking_hours(start_datetime, end_datetime)
+            if not is_valid:
+                messages.error(request, error_msg)
+                return HttpResponseRedirect(reverse_lazy('main_app:reserve-pc'))
+        
         models.FacultyBooking.objects.create(
             faculty=request.user,
             college=college_obj,
@@ -1010,6 +1017,128 @@ def extend_session(request, booking_id):
     return JsonResponse({'success': False, 'error': 'Invalid request'}, status=400)
 
 
+# Analytics and Reporting Endpoints
+
+@login_required
+@staff_required
+def analytics_dashboard(request):
+    """Comprehensive analytics dashboard with descriptive and predictive analytics"""
+    from . import analytics
+    
+    period = request.GET.get('period', '30')
+    try:
+        period = int(period)
+        if period not in [7, 14, 30, 60, 90]:
+            period = 30
+    except (ValueError, TypeError):
+        period = 30
+    
+    report = analytics.AnalyticsSummary.get_comprehensive_report(days=period)
+    
+    context = {
+        'report': report,
+        'period': period,
+        'title': 'Analytics Dashboard',
+    }
+    return render(request, 'main/analytics_dashboard.html', context)
+
+
+@login_required
+@staff_required
+def analytics_api(request):
+    """API endpoint for analytics data (JSON)"""
+    from . import analytics
+    import json
+    
+    period = request.GET.get('period', '30')
+    section = request.GET.get('section', 'all')  # all, descriptive, predictive
+    
+    try:
+        period = int(period)
+        if period not in [7, 14, 30, 60, 90]:
+            period = 30
+    except (ValueError, TypeError):
+        period = 30
+    
+    report = analytics.AnalyticsSummary.get_comprehensive_report(days=period)
+    
+    # Filter by section if requested
+    if section == 'descriptive':
+        response_data = report['descriptive']
+    elif section == 'predictive':
+        response_data = report['predictive']
+    else:
+        response_data = report
+    
+    # Convert datetime objects to ISO format strings for JSON serialization
+    def serialize_datetime(obj):
+        if hasattr(obj, 'isoformat'):
+            return obj.isoformat()
+        elif isinstance(obj, dict):
+            return {k: serialize_datetime(v) for k, v in obj.items()}
+        elif isinstance(obj, (list, tuple)):
+            return [serialize_datetime(item) for item in obj]
+        return obj
+    
+    response_data = serialize_datetime(response_data)
+    
+    return JsonResponse(response_data, safe=False)
+
+
+@login_required
+@staff_required
+def booking_predictions(request):
+    """View booking trends and predictions"""
+    from . import analytics
+    
+    predictions = {
+        'peak_hours': analytics.PredictiveAnalytics.predict_peak_usage_hours(),
+        'peak_days': analytics.PredictiveAnalytics.predict_peak_usage_days(),
+        'booking_trends': analytics.PredictiveAnalytics.predict_booking_trends(),
+        'user_behavior': analytics.PredictiveAnalytics.predict_user_behavior_change(),
+    }
+    
+    context = {
+        'predictions': predictions,
+        'title': 'Booking Predictions',
+    }
+    return render(request, 'main/booking_predictions.html', context)
+
+
+@login_required
+@staff_required
+def risk_analysis(request):
+    """View risk analysis - violation patterns and maintenance needs"""
+    from . import analytics
+    
+    risk_data = {
+        'high_risk_users': analytics.PredictiveAnalytics.predict_user_violation_risk(),
+        'maintenance_needs': analytics.PredictiveAnalytics.predict_pc_maintenance_needs(),
+        'anomalies': analytics.PredictiveAnalytics.anomaly_detection(),
+    }
+    
+    context = {
+        'risk_data': risk_data,
+        'title': 'Risk Analysis',
+    }
+    return render(request, 'main/risk_analysis.html', context)
+
+
+@login_required
+@staff_required
+def resource_demand_forecast(request):
+    """View resource demand forecast for upcoming faculty bookings"""
+    from . import analytics
+    
+    demand = analytics.PredictiveAnalytics.predict_resource_demand()
+    
+    context = {
+        'demand_forecast': demand,
+        'title': 'Resource Demand Forecast',
+    }
+    return render(request, 'main/resource_demand.html', context)
+
+
 @login_required
 @staff_required
 def export_report(request):
@@ -1162,7 +1291,19 @@ def reserve_pc(request):
                 }, status=400)
             
             # Check if PC is already booked
-            if pc.booking_status in ['in_use', 'in_queue']:
+            # IMPORTANT: do NOT rely only on PC.booking_status (it can be stale on some pages).
+            # Block reservation if there is any active confirmed booking or any pending (in_queue) booking.
+            has_pending_booking = models.Booking.objects.filter(
+                pc=pc,
+                status__isnull=True
+            ).exclude(status='cancelled').exists()
+            has_active_confirmed_booking = models.Booking.objects.filter(
+                pc=pc,
+                status='confirmed',
+                end_time__gt=timezone.now()
+            ).exclude(status='cancelled').exists()
+
+            if has_pending_booking or has_active_confirmed_booking or pc.booking_status in ['in_use', 'in_queue']:
                 return JsonResponse({
                     "success": False,
                     "error": f"PC {pc.name} is already booked or in queue."
@@ -1171,13 +1312,23 @@ def reserve_pc(request):
             # Convert duration (minutes) to DurationField (timedelta)
             duration_timedelta = timedelta(minutes=int(duration))
             
-            print(f"Creating booking: user={request.user}, pc={pc}, duration={duration_timedelta}")
+            # Validate booking is within 8am to 5pm
+            now = timezone.now()
+            end_time = now + duration_timedelta
+            
+            is_valid, error_msg = models.is_within_booking_hours(now, end_time)
+            
+            if not is_valid:
+                return JsonResponse({
+                    "success": False,
+                    "error": error_msg
+                }, status=400)
             
             # Create the booking first
             booking = models.Booking.objects.create(
                 user=request.user,
                 pc=pc,
-                start_time=datetime.now(),
+                start_time=timezone.now(),
                 duration=duration_timedelta,
             )
             
@@ -2088,6 +2239,16 @@ def faculty_booking_qr_access(request, pk):
                 'booking': booking,
                 'error': 'Booking not confirmed'
             })
+        
+        # Validate booking time is within 8am to 5pm
+        if booking.start_datetime:
+            is_valid, error_msg = models.is_within_booking_hours(booking.start_datetime, booking.end_datetime)
+            if not is_valid:
+                messages.error(request, f"Booking access denied: {error_msg}")
+                return render(request, 'main/faculty_booking_qr_access.html', {
+                    'booking': booking,
+                    'error': error_msg
+                })
         
         # Format dates for display
         start_date = booking.start_datetime.strftime("%B %d, %Y at %I:%M %p") if booking.start_datetime else "TBD"

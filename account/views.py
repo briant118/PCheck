@@ -25,29 +25,26 @@ from . import models
 def determine_user_role(school_id):
     """
     Automatically determine user role based on school ID pattern.
-    - Faculty typically have shorter IDs or specific prefixes
-    - Students have longer IDs (e.g., "202280287")
-    - Returns 'faculty', 'student', or defaults to 'student'
+    - Students typically use a numeric ID prefix in their PSU corporate email
+      (e.g., "202280102@psu.palawan.edu.ph")
+    - Faculty typically use a name-like prefix (letters) in their PSU corporate email
+      (e.g., "adeleom@psu.palawan.edu.ph")
+    - Returns 'faculty' or 'student'
     """
     if not school_id:
         return 'student'
     
     school_id_str = str(school_id).strip()
     
-    # Heuristic 1: Faculty IDs are often shorter (2-4 chars) or have specific format
-    if len(school_id_str) <= 4:
-        return 'faculty'
-    
-    # Heuristic 2: IDs starting with specific prefixes might indicate faculty
-    if school_id_str.startswith('F') or school_id_str.startswith('Prof'):
-        return 'faculty'
-    
-    # Heuristic 3: Very long IDs or numeric-only might be students
-    if len(school_id_str) >= 8 and school_id_str.isdigit():
+    # Primary rule:
+    # - Numeric prefix (typical student ID) => student
+    # - Anything else (name-like) => faculty
+    #
+    # Keep this intentionally simple and aligned with your email patterns.
+    if school_id_str.isdigit():
         return 'student'
-    
-    # Default to student if no faculty indicators found
-    return 'student'
+
+    return 'faculty'
 
 
 def permission_denied_view(request, exception):
@@ -260,6 +257,18 @@ def dashboard(request):
         else:
             booking.time_remaining_minutes = None
     
+    # Get quick analytics stats from the analytics module
+    try:
+        from main_app.analytics import PredictiveAnalytics
+        peak_usage = PredictiveAnalytics.predict_peak_usage_hours()
+        booking_trend = PredictiveAnalytics.predict_booking_trends()
+        violation_risks = PredictiveAnalytics.predict_user_violation_risk()
+    except Exception as e:
+        # Fallback if analytics fail
+        peak_usage = {'peak_hours': []}
+        booking_trend = {'trend': 'unknown', 'predicted_next_week_bookings': 0}
+        violation_risks = {'high_risk_users': []}
+    
     # Get stats for the template
     context = {
         'total_bookings': total_bookings,
@@ -276,6 +285,10 @@ def dashboard(request):
         'pc_list': pc_list,
         'active_bookings': active_bookings,
         'active_confirmed_count': active_confirmed_count,
+        # Analytics data
+        'peak_usage': peak_usage,
+        'booking_trend': booking_trend,
+        'violation_risks': violation_risks,
     }
     
     return render(request, 'account/dashboard.html', context)
@@ -503,6 +516,20 @@ def complete_profile(request):
         return redirect('/')
     
     colleges = College.objects.all()
+
+    # Compute role for display/UX (still enforced server-side).
+    existing_profile = models.Profile.objects.filter(user=request.user).only('role').first()
+    detected_role = None
+    if existing_profile and existing_profile.role:
+        detected_role = existing_profile.role
+    elif request.user.is_staff:
+        detected_role = 'staff'
+    else:
+        # Best-effort based on email prefix
+        school_id_guess = None
+        if request.user.email and request.user.email.endswith('@psu.palawan.edu.ph'):
+            school_id_guess = request.user.email.split('@')[0]
+        detected_role = determine_user_role(school_id_guess)
     
     if request.method == "POST":
         college_id = request.POST.get('college')
@@ -536,8 +563,18 @@ def complete_profile(request):
             # Try to get school_id from POST if provided
             school_id = request.POST.get('school_id', '')
         
-        # Auto-determine role based on school ID
-        role = determine_user_role(school_id)
+        # Determine role (NOT user-selectable).
+        # Priority:
+        # 1) Admin-set profile.role (e.g., you set faculty in Django admin)
+        # 2) Staff flag
+        # 3) Heuristic detection using school_id/email prefix
+        existing_profile = models.Profile.objects.filter(user=request.user).only('role').first()
+        if existing_profile and existing_profile.role:
+            role = existing_profile.role
+        elif request.user.is_staff:
+            role = 'staff'
+        else:
+            role = determine_user_role(school_id)
         
         # Create or update profile
         profile, created = models.Profile.objects.get_or_create(user=request.user)
@@ -573,7 +610,8 @@ def complete_profile(request):
     
     return render(request, "account/complete_profile.html", {
         "colleges": colleges,
-        "user": request.user
+        "user": request.user,
+        "detected_role": detected_role,
     })
 
 

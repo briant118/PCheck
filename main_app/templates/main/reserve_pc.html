@@ -942,6 +942,15 @@ window.decrementCustomPc = function(e) {
     
     <div class="reservation-body">
       <input type="hidden" id="pc_id" name="pc_id">
+      
+      <!-- Office Hours Banner (client-side UX; backend still enforces) -->
+      <div id="officeHoursBanner" class="office-hours-strip" role="status" aria-live="polite">
+        <i class="fa-solid fa-clock office-hours-strip__icon" aria-hidden="true"></i>
+        <span class="office-hours-strip__label">ICT Lab:</span>
+        <span class="office-hours-strip__hours">8:00 AM–5:00 PM</span>
+        <span class="office-hours-strip__sep" aria-hidden="true">•</span>
+        <span id="officeHoursStatusText" class="office-hours-strip__status">Checking booking availability…</span>
+      </div>
 
       <div id="students-booking"> <!-- students-booking -->
         {% if not available_pcs %}
@@ -1610,7 +1619,7 @@ window.decrementCustomPc = function(e) {
                 <input type="text" id="durationInput" class="form-control text-center" value="00:05:00" pattern="^([0-1][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$" placeholder="00:00:00" maxlength="8">
                 <button class="btn btn-outline-secondary" type="button" id="plusBtn">+</button>
               </div>
-              <small class="text-muted">Time format: HH:MM:SS (Maximum 03:00:00)</small>
+              <small id="durationHelpText" class="text-muted">Time format: HH:MM:SS (Maximum 03:00:00)</small>
             </div>
             <div class="modal-footer">
               <input type="number" name="" id="pc_id" hidden>
@@ -3342,6 +3351,22 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
       }
       
+      // Check if booking would extend past 5pm (17:00)
+      var now = new Date();
+      var endTime = new Date(now.getTime() + totalSeconds * 1000);
+      if (endTime.getHours() >= 17 || (endTime.getHours() === 16 && endTime.getMinutes() > 0 && totalSeconds > 0)) {
+        // More precise: check if end time is at or after 5pm
+        if (endTime.getHours() > 17 || (endTime.getHours() === 17 && endTime.getMinutes() > 0)) {
+          alert("Bookings cannot extend past 5:00 PM. Please reduce the duration.");
+          return;
+        }
+      }
+      // Final check: if end hour is 17 (5pm) and there are any minutes, reject
+      if (endTime.getHours() === 17 && endTime.getMinutes() > 0) {
+        alert("Bookings cannot extend past 5:00 PM. Please reduce the duration.");
+        return;
+      }
+      
       // Convert time to minutes for backend
       var duration = timeToMinutes(timeValue);
       
@@ -5023,13 +5048,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     child.style.color = '#F57C00';
                   }
                 });
-                
-                pcButton.disabled = false;
-                pcButton.style.cursor = 'pointer';
-                pcButton.style.opacity = '1';
-                pcButton.style.pointerEvents = 'auto';
-                pcButton.onclick = function() {
-                  showPCStatus(pcData.id, pcButton);
+
+                // In-queue PCs must not be clickable/selectable
+                pcButton.disabled = true;
+                pcButton.style.cursor = 'not-allowed';
+                pcButton.style.opacity = '0.75';
+                pcButton.style.pointerEvents = 'none';
+                pcButton.onclick = function(e) {
+                  if (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }
                   return false;
                 };
                 
@@ -5130,6 +5159,82 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Make it globally accessible
   window.refreshPCStatusForReservation = refreshPCStatusForReservation;
+
+  // ---------------------------------------------------------------------------
+  // Simple PC status refresher (copied in spirit from staff dashboard logic)
+  // This avoids complex side-effects and ensures users see: available / queued / in-use.
+  // ---------------------------------------------------------------------------
+  (function initSimplePCStatusRefresh(){
+    function applyPcState(pcButton, pcData) {
+      var bookingStatus = pcData.booking_status || 'available';
+      var systemCondition = pcData.system_condition || 'active';
+      var netStatus = pcData.status || 'connected';
+
+      // Update attributes
+      pcButton.setAttribute('data-booking-status', bookingStatus);
+      pcButton.setAttribute('data-pc-condition', systemCondition);
+      pcButton.setAttribute('data-pc-status', netStatus);
+
+      // Reset classes and inline styles that can conflict
+      pcButton.classList.remove('pc-available','pc-queue','pc-used','pc-repair','pc-offline','selected','pc-selected','text-success');
+      pcButton.style.removeProperty('background-color');
+      pcButton.style.removeProperty('border-color');
+      pcButton.style.removeProperty('border-width');
+      pcButton.style.removeProperty('border-style');
+
+      // Default interactive state
+      pcButton.disabled = false;
+      pcButton.style.pointerEvents = 'auto';
+      pcButton.style.cursor = 'pointer';
+      pcButton.style.opacity = '1';
+
+      // Determine visual + lock rules (same order as dashboard: repair -> in_use -> in_queue -> available/offline)
+      if (systemCondition === 'repair') {
+        pcButton.classList.add('pc-repair');
+        pcButton.disabled = true;
+        pcButton.style.pointerEvents = 'none';
+        pcButton.style.cursor = 'not-allowed';
+        pcButton.style.opacity = '0.6';
+      } else if (netStatus === 'disconnected') {
+        pcButton.classList.add('pc-offline');
+        pcButton.disabled = true;
+        pcButton.style.pointerEvents = 'none';
+        pcButton.style.cursor = 'not-allowed';
+        pcButton.style.opacity = '0.6';
+      } else if (bookingStatus === 'in_use') {
+        pcButton.classList.add('pc-used');
+        pcButton.disabled = true;
+        pcButton.style.pointerEvents = 'none';
+        pcButton.style.cursor = 'not-allowed';
+        pcButton.style.opacity = '0.75';
+      } else if (bookingStatus === 'in_queue') {
+        pcButton.classList.add('pc-queue');
+        pcButton.disabled = true;
+        pcButton.style.pointerEvents = 'none';
+        pcButton.style.cursor = 'not-allowed';
+        pcButton.style.opacity = '0.75';
+      } else {
+        pcButton.classList.add('pc-available');
+      }
+    }
+
+    function simpleRefresh() {
+      fetch('/ajax/get-all-pc-status/')
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+          if (!data || !data.pcs) return;
+          data.pcs.forEach(function(pcData){
+            var btn = document.querySelector('.pc-button-modern[data-pc-id="' + pcData.id + '"]');
+            if (btn) applyPcState(btn, pcData);
+          });
+        })
+        .catch(function(){ /* keep silent; fallback logic elsewhere */ });
+    }
+
+    // Run immediately and keep updating for users
+    simpleRefresh();
+    setInterval(simpleRefresh, 2000);
+  })();
   
   // Global variable to store approval checker interval (vanilla JS version)
   var qrApprovalCheckerIntervalVanilla = null;
@@ -5262,13 +5367,78 @@ document.addEventListener('DOMContentLoaded', function() {
               // Update button classes
               pcButton.classList.remove('pc-available', 'pc-queue', 'pc-used', 'pc-repair', 'pc-offline', 'selected', 'pc-selected', 'text-success');
               
+              // Helper: make the button show status (not selectable)
+              function setShowStatusBehavior() {
+                // Override any inline onclick="selectPCForReservation(...)"
+                pcButton.onclick = function(ev) {
+                  if (ev) {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                  }
+                  try {
+                    if (typeof showPCStatus === 'function') {
+                      showPCStatus(data.pc_id, pcButton);
+                    }
+                  } catch (e) {}
+                  return false;
+                };
+                pcButton.style.cursor = 'pointer';
+                pcButton.style.pointerEvents = 'auto';
+              }
+              
+              // Helper: make the button selectable (available)
+              function setSelectableBehavior() {
+                pcButton.onclick = function(ev) {
+                  if (ev) {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                  }
+                  try {
+                    if (typeof selectPCForReservation === 'function') {
+                      selectPCForReservation(data.pc_id, pcButton);
+                    }
+                  } catch (e) {}
+                  return false;
+                };
+                pcButton.style.cursor = 'pointer';
+                pcButton.style.pointerEvents = 'auto';
+              }
+              
+              // Helper: disable due to repair/offline (matches template behavior)
+              function setDisabledBehavior(titleText) {
+                pcButton.onclick = function(ev) {
+                  if (ev) {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                  }
+                  try {
+                    if (typeof showPCStatus === 'function') {
+                      showPCStatus(data.pc_id, pcButton);
+                    }
+                  } catch (e) {}
+                  return false;
+                };
+                pcButton.disabled = true;
+                pcButton.setAttribute('tabindex', '-1');
+                if (titleText) pcButton.setAttribute('title', titleText);
+                pcButton.style.cursor = 'not-allowed';
+                pcButton.style.opacity = '0.6';
+                pcButton.style.pointerEvents = 'none';
+              }
+              
               // Apply appropriate classes based on status
               if (data.system_condition === 'repair') {
                 pcButton.classList.add('pc-repair');
+                setDisabledBehavior('PC is in repair and not available');
               } else if (data.status === 'disconnected') {
                 pcButton.classList.add('pc-offline');
+                setDisabledBehavior('PC is offline and not available');
               } else if (data.booking_status === 'in_use') {
                 pcButton.classList.add('pc-used');
+                pcButton.disabled = false;
+                pcButton.removeAttribute('tabindex');
+                pcButton.removeAttribute('title');
+                setShowStatusBehavior();
               } else if (data.booking_status === 'in_queue') {
                 // PC is in queue - show yellow color for ALL users
                 console.log('🟡 WebSocket: Setting PC', data.pc_name, '(ID:', data.pc_id, ') to in_queue (yellow)');
@@ -5278,6 +5448,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Add queue class
                 pcButton.classList.add('pc-queue');
+                
+                // In-queue PCs must not be selectable by anyone else
+                pcButton.disabled = false;
+                pcButton.removeAttribute('tabindex');
+                pcButton.removeAttribute('title');
+                setShowStatusBehavior();
                 
                 // Force yellow color with inline styles - use multiple methods to ensure it sticks
                 // Method 1: setProperty with important
@@ -5296,6 +5472,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 pcButton.style.removeProperty('color');
               } else {
                 pcButton.classList.add('pc-available');
+                pcButton.disabled = false;
+                pcButton.removeAttribute('tabindex');
+                pcButton.removeAttribute('title');
+                setSelectableBehavior();
                 // Remove inline styles for available status
                 pcButton.style.removeProperty('background-color');
                 pcButton.style.removeProperty('border-color');

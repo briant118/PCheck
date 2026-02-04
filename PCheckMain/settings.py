@@ -142,7 +142,9 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+# PCheck operates in Palawan (Philippines) local time.
+# Booking hour rules (8:00 AM to before 5:00 PM) should be evaluated in this timezone.
+TIME_ZONE = 'Asia/Manila'
 
 USE_I18N = True
 

@@ -539,6 +539,46 @@ body {
     justify-content: space-between;
 }
 
+/* Compact office-hours info strip (Reserve PC page) */
+.office-hours-strip {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    margin: 0 0 0.75rem 0;
+    border-radius: 10px;
+    border: 1px solid rgba(13, 110, 253, 0.18); /* Bootstrap primary-ish */
+    background: rgba(13, 110, 253, 0.06);
+    color: #1f2a44;
+    font-size: 0.85rem;
+    line-height: 1.2;
+}
+
+.office-hours-strip__icon {
+    color: rgba(13, 110, 253, 0.9);
+}
+
+.office-hours-strip__label {
+    font-weight: 700;
+}
+
+.office-hours-strip__hours {
+    font-weight: 600;
+    opacity: 0.9;
+}
+
+.office-hours-strip__sep {
+    opacity: 0.6;
+}
+
+.office-hours-strip__status {
+    opacity: 0.9;
+}
+
 /* Students Booking Container */
 #students-booking {
     width: 100%;

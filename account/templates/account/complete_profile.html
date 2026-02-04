@@ -58,8 +58,8 @@
       <form method="post" id="profileForm">
         {% csrf_token %}
         
-        <!-- College Selection -->
         <div class="step active" id="step1">
+          <!-- College Selection -->
           <div class="step-title">Select your college</div>
           <select name="college" id="college" required class="form-control mb-3">
             <option value="">-- Select College --</option>
@@ -68,7 +68,12 @@
             {% endfor %}
           </select>
           
-          <!-- Student-specific fields (always visible) -->
+          <!-- Role info (auto-detected; not user-selectable) -->
+          <div class="small text-muted mb-3">
+            Role detected: <strong id="detectedRoleText">{{ detected_role|default:"student"|title }}</strong>
+          </div>
+
+          <!-- Student-specific fields -->
           <div id="student-fields">
             <input type="text" name="course" placeholder="Course Name (e.g., BSIT)" 
                    class="form-control mb-2">
@@ -100,16 +105,38 @@
 
 {% block scripts %}
 <script>
-// Form validation
+function toggleStudentFieldsByDetectedRole() {
+  var studentFields = document.getElementById('student-fields');
+  var detectedRoleText = document.getElementById('detectedRoleText');
+  if (!studentFields || !detectedRoleText) return;
+  var role = (detectedRoleText.textContent || '').trim().toLowerCase();
+  studentFields.style.display = role === 'student' ? 'block' : 'none';
+}
+
+// Initialize once (role is server-detected)
+toggleStudentFieldsByDetectedRole();
+
+// Form validation + cleanup
 document.getElementById('profileForm').addEventListener('submit', function(e) {
   const college = document.getElementById('college').value;
-  
+  const role = (document.getElementById('detectedRoleText')?.textContent || '').trim().toLowerCase();
+
   if (!college) {
     e.preventDefault();
     alert('Please select your college');
     return false;
   }
-  
+
+  // If faculty, clear student-only inputs to avoid confusion
+  if (role === 'faculty') {
+    const studentFields = document.getElementById('student-fields');
+    if (studentFields) {
+      studentFields.querySelectorAll('input').forEach(function(inp) {
+        inp.value = '';
+      });
+    }
+  }
+
   return true;
 });
 </script>

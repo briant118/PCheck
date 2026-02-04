@@ -502,6 +502,56 @@
               </div>
             </div>
           </div>
+          <!-- Analytics Dashboard Links -->
+          <div class="col-md-4">
+            <div class="analytics-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+              <div class="analytics-card-icon" style="color: white;">
+                <i class="fa-solid fa-chart-line"></i>
+              </div>
+              <div class="analytics-card-content">
+                <div style="color: white;">
+                  <a href="{% url 'main_app:analytics-dashboard' %}" style="color: white; text-decoration: none; font-weight: 600;">
+                    Analytics<br>Dashboard
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="analytics-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+              <div class="analytics-card-icon" style="color: white;">
+                <i class="fa-solid fa-exclamation-triangle"></i>
+              </div>
+              <div class="analytics-card-content">
+                <div style="color: white;">
+                  <a href="{% url 'main_app:risk-analysis' %}" style="color: white; text-decoration: none; font-weight: 600;">
+                    Risk<br>Analysis
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="analytics-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+              <div class="analytics-card-icon" style="color: white;">
+                <i class="fa-solid fa-box"></i>
+              </div>
+              <div class="analytics-card-content">
+                <div style="color: white;">
+                  <a href="{% url 'main_app:resource-demand' %}" style="color: white; text-decoration: none; font-weight: 600;">
+                    Resource<br>Forecast
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row g-3 mt-2">
+          <div class="col-12">
+            <a href="{% url 'main_app:booking-predictions' %}" class="btn btn-outline-primary w-100">
+              <i class="fa-solid fa-chart-area"></i> View Detailed Booking Predictions & Trends
+            </a>
+          </div>
         </div>
         <div class="row g-3 mt-3">
           <div class="col-12">
