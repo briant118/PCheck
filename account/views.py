@@ -168,8 +168,9 @@ class ProfileUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
 def dashboard(request):
     from main_app.models import Booking, PC, College
     from django.contrib.auth.models import User
-    from datetime import datetime, timedelta
+    from datetime import timedelta
     from django.db.models import Count, Avg, Sum
+    from django.utils import timezone as tz
     import calendar
     
     # Total sessions and average duration
@@ -218,15 +219,17 @@ def dashboard(request):
     canceled = Booking.objects.filter(status='cancelled').count()
     pending = Booking.objects.filter(status__isnull=True).count()
     
-    # Time-based statistics (last 30 days)
-    thirty_days_ago = datetime.now() - timedelta(days=30)
+    # Time-based statistics (last 30 days, timezone-aware)
+    thirty_days_ago = tz.now() - timedelta(days=30)
     recent_bookings = Booking.objects.filter(
         created_at__gte=thirty_days_ago
     )
     
+    # Build daily stats using the same timezone-aware "now" reference
     daily_stats = {}
+    now = tz.now()
     for i in range(30):
-        date = datetime.now() - timedelta(days=i)
+        date = now - timedelta(days=i)
         count = Booking.objects.filter(
             created_at__date=date.date()
         ).count()

@@ -905,7 +905,13 @@ if (collegeChartElement) {
 }
 
 // Peak Hours Chart
-const peakHourLabels = [{% for hour, count in peak_hours %}'{{ hour }}:00'{% if not forloop.last %},{% endif %}{% endfor %}];
+// Use 12-hour clock labels (e.g., 1 PM instead of 13:00) for readability
+const peakHourLabels = [
+  {% for hour, count in peak_hours %}
+    '{% if hour == 0 %}12 AM{% elif hour < 12 %}{{ hour }} AM{% elif hour == 12 %}12 PM{% else %}{{ hour|add:"-12" }} PM{% endif %}'
+    {% if not forloop.last %},{% endif %}
+  {% endfor %}
+];
 const peakHourValues = [{% for hour, count in peak_hours %}{{ count }}{% if not forloop.last %},{% endif %}{% endfor %}];
 new Chart(document.getElementById("peakHoursChart"), {
   type: 'bar',
@@ -1760,8 +1766,14 @@ document.addEventListener('DOMContentLoaded', function() {
           modalId = 'peakHoursChartModal';
           fullChartId = 'peakHoursChartFull';
           chartType = 'bar';
+          // Reuse the same 12-hour formatted labels for the full-size chart
           chartData = {
-            labels: [{% for hour, count in peak_hours %}'{{ hour }}:00'{% if not forloop.last %},{% endif %}{% endfor %}],
+            labels: [
+              {% for hour, count in peak_hours %}
+                '{% if hour == 0 %}12 AM{% elif hour < 12 %}{{ hour }} AM{% elif hour == 12 %}12 PM{% else %}{{ hour|add:"-12" }} PM{% endif %}'
+                {% if not forloop.last %},{% endif %}
+              {% endfor %}
+            ],
             datasets: [{
               label: 'Bookings',
               data: [{% for hour, count in peak_hours %}{{ count }}{% if not forloop.last %},{% endif %}{% endfor %}],
