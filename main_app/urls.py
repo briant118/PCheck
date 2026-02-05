@@ -85,4 +85,8 @@ urlpatterns = [
     path('quality/', views.quality_dashboard, name='quality-dashboard'),
     path('quality/evaluate/', views.quality_evaluation, name='quality-evaluation'),
     path('quality/export-csv/', views.quality_evaluation_export, name='quality-evaluation-export'),
+    path('webfilter/', views.webfilter_admin, name='webfilter-admin'),
+
+    # Web filter policy API for client agents
+    path('api/webfilter/', views.webfilter_policy, name='webfilter-policy'),
 ]

@@ -153,6 +153,27 @@ class PeripheralEvent(models.Model):
     def __str__(self):
         return f"{self.pc} {self.action} {self.device_name or self.device_id}"
 
+
+class WebFilterPolicy(models.Model):
+    """
+    Per-PC website filter configuration (served to client agents).
+    - mode: blocklist (default) or allowlist (not enforced in the PowerShell yet)
+    - domains: list of domains to block or allow, depending on mode
+    """
+    MODE_CHOICES = [
+        ('blocklist', 'Blocklist'),
+        ('allowlist', 'Allowlist'),
+    ]
+
+    pc = models.OneToOneField(PC, on_delete=models.CASCADE, related_name='webfilter_policy')
+    enabled = models.BooleanField(default=False)
+    mode = models.CharField(max_length=20, choices=MODE_CHOICES, default='blocklist')
+    domains = models.JSONField(default=list, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"WebFilterPolicy({self.pc.name})"
+
 class ChatRoom(models.Model):
     initiator = models.ForeignKey(User, null=True, related_name='chat_room_initiator', on_delete=models.CASCADE)
     receiver = models.ForeignKey(User, null=True, related_name='chat_room_receiver', on_delete=models.CASCADE)

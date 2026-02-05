@@ -322,15 +322,9 @@
             <div class="col-md-3">
                 <div style="text-align: center; padding: 15px;">
                     <div style="font-size: 12px; color: #666; font-weight: 600; text-transform: uppercase;">Average Daily Demand</div>
-                    {% with total=demand_forecast.total_devices_needed_next_2weeks, count=demand_forecast.upcoming_resource_demand|length %}
                     <div style="font-size: 28px; font-weight: bold; color: #007bff; margin-top: 10px;">
-                        {% if count > 0 %}
-                            {{ total|add:""|multiply:"100"|divmod:count|first|add:"0"|divide:"100" }}
-                        {% else %}
-                            0
-                        {% endif %}
+                        {{ avg_daily_demand }}
                     </div>
-                    {% endwith %}
                 </div>
             </div>
             <div class="col-md-3">

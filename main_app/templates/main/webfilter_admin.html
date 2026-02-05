@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Web Filter Policies{% endblock %}
+
+{% block links %}
+<style>
+  .wf-container { padding: 20px; max-width: 900px; margin: 0 auto; }
+  .page-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(44,62,80,0.15);
+  }
+  .form-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+    border: 1px solid #e9ecef;
+    margin-bottom: 1rem;
+  }
+  .policy-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+  }
+  .policy-table th, .policy-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #e9ecef;
+    text-align: left;
+  }
+  .policy-table th { background: #f8f9fa; font-weight: 600; }
+  .policy-table tr:hover { background: #f8fbff; }
+  .message { margin-bottom: 1rem; padding: 0.75rem 1rem; border-radius: 8px; background: #e8f5e9; color: #2e7d32; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wf-container">
+  <div class="page-header">
+    <h2 style="margin:0;">Web Filter Policies</h2>
+    <p style="margin:0.25rem 0 0 0;">Manage per-PC domain block/allow lists served to client agents.</p>
+  </div>
+
+  {% if message %}
+  <div class="message">{{ message }}</div>
+  {% endif %}
+
+  <div class="form-card">
+    <form method="post" action="{% url 'main_app:webfilter-admin' %}">
+      {% csrf_token %}
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">PC</label>
+          <select name="pc_id" class="form-select" required>
+            <option value="" disabled selected>Select PC</option>
+            {% for pc in pcs %}
+              <option value="{{ pc.id }}">{{ pc.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">Mode</label>
+          <select name="mode" class="form-select">
+            <option value="blocklist" selected>Blocklist</option>
+            <option value="allowlist">Allowlist</option>
+          </select>
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="enabled" id="enabled">
+            <label class="form-check-label fw-semibold" for="enabled">Enabled</label>
+          </div>
+        </div>
+        <div class="col-12">
+          <label class="form-label fw-semibold">Domains (one per line or comma-separated)</label>
+          <textarea name="domains" class="form-control" rows="4" placeholder="facebook.com&#10;instagram.com"></textarea>
+        </div>
+      </div>
+      <div class="mt-3">
+        <button type="submit" class="btn btn-primary">Save Policy</button>
+      </div>
+    </form>
+  </div>
+
+  <table class="policy-table">
+    <thead>
+      <tr>
+        <th>PC</th>
+        <th>Enabled</th>
+        <th>Mode</th>
+        <th>Domains</th>
+        <th>Updated</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+        {% with policy=row.policy pc=row.pc %}
+        <tr>
+          <td>{{ pc.name }}</td>
+          <td>{% if policy and policy.enabled %}Yes{% else %}No{% endif %}</td>
+          <td>{% if policy %}{{ policy.mode|title }}{% else %}-{% endif %}</td>
+          <td style="max-width: 320px; white-space: pre-wrap;">{% if policy %}{{ policy.domains|join:", " }}{% else %}-{% endif %}</td>
+          <td>{% if policy %}{{ policy.updated_at }}{% else %}-{% endif %}</td>
+        </tr>
+        {% endwith %}
+      {% empty %}
+        <tr><td colspan="5">No PCs found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
