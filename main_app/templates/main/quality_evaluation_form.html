@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Quality Evaluation (ISO 25010){% endblock %}
+
+{% block links %}
+<style>
+    .eval-container { padding: 20px; max-width: 1100px; margin: 0 auto; overflow: visible; isolation: isolate; }
+    .page-header {
+        background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+        border-radius: 12px;
+        padding: 1.5rem 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 12px rgba(44, 62, 80, 0.2);
+    }
+    .page-title { color: #fff; font-size: 1.75rem; font-weight: 700; margin: 0; }
+    .page-subtitle { color: rgba(255,255,255,0.9); font-size: 0.95rem; margin-top: 0.5rem; }
+    .btn-back {
+        background: linear-gradient(135deg, #ff9800 0%, #ff5722 100%);
+        border: none; color: white; font-weight: 600;
+        padding: 0.5rem 1rem; border-radius: 8px;
+        text-decoration: none; display: inline-block; margin-bottom: 1.5rem;
+    }
+    .btn-back:hover { color: white; transform: translateY(-2px); }
+    .eval-intro {
+        background: #f8f9fa; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 2rem;
+        border-left: 4px solid #3498db;
+    }
+    .char-block {
+        background: white; border-radius: 12px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06); border: 1px solid #e9ecef;
+    }
+    .char-block h3 { color: #2c3e50; font-size: 1.15rem; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid #3498db; }
+    .eval-row { display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1rem; padding: 0.75rem; background: #fafafa; border-radius: 8px; }
+    .eval-row:hover { background: #f0f4f8; }
+    .eval-row .sub-name { font-weight: 600; color: #333; min-width: 200px; }
+    .eval-row .evidence { color: #666; font-size: 0.9rem; flex: 1; }
+    .eval-row select { min-width: 180px; padding: 0.35rem 0.5rem; border-radius: 6px; border: 1px solid #ced4da; }
+    /* Keep row stable when select is open so native dropdown doesn't disappear */
+    .eval-row:focus-within { background: #f0f4f8; }
+    .btn-submit { background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%); color: white; border: none; font-weight: 600; padding: 0.75rem 2rem; border-radius: 8px; margin-top: 1rem; }
+    .btn-submit:hover { color: white; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="eval-container">
+    <div class="page-header">
+        <h1 class="page-title">📋 Evaluation Tool — ISO/IEC 25010</h1>
+        <p class="page-subtitle">Use this checklist to test and evaluate the quality of the PCheck system. Rate each subcharacteristic from 1 (Not met) to 5 (Fully met), or leave as "Not assessed."</p>
+    </div>
+
+    <a href="{% url 'main_app:quality-dashboard' %}" class="btn-back">← Back to Quality Overview</a>
+
+    <div class="eval-intro">
+        <strong>Panel / Evaluator:</strong> For each row, review the <strong>Subcharacteristic</strong> and the <strong>PCheck evidence</strong>, then choose a rating. When finished, click <strong>Submit evaluation</strong> to see the summary and export the result as CSV.
+    </div>
+
+    <form method="post" action="{% url 'main_app:quality-evaluation' %}">
+        {% csrf_token %}
+        {% for char in checklist %}
+        <div class="char-block">
+            <h3>{{ forloop.counter }}. {{ char.char_name }}</h3>
+            {% for sub_id, sub_name, evidence in char.sub %}
+            <div class="eval-row">
+                <span class="sub-name">{{ sub_name }}</span>
+                <span class="evidence">{{ evidence }}</span>
+                <select name="rating_{{ sub_id }}" id="rating_{{ sub_id }}">
+                    {% for value, label in rating_choices %}
+                    <option value="{{ value }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+        <button type="submit" class="btn-submit">Submit evaluation</button>
+    </form>
+</div>
+<script>
+(function() {
+  // Prevent document-level handlers from closing native select dropdowns (evaluation tool)
+  document.querySelectorAll('.eval-container select').forEach(function(sel) {
+    ['mousedown', 'click', 'touchstart'].forEach(function(ev) {
+      sel.addEventListener(ev, function(e) { e.stopPropagation(); }, true);
+    });
+  });
+})();
+</script>
+{% endblock %}

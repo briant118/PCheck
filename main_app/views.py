@@ -1141,6 +1141,196 @@ def resource_demand_forecast(request):
 
 @login_required
 @staff_required
+def quality_dashboard(request):
+    """ISO/IEC 25010 product quality model overview for PCheck"""
+    from . import analytics
+    from django.utils import timezone
+    from datetime import timedelta
+
+    # Use existing analytics for quality indicators
+    period = 30
+    start_date = timezone.now() - timedelta(days=period)
+    desc_bookings = analytics.DescriptiveAnalytics.get_booking_statistics(start_date, timezone.now())
+    desc_violations = analytics.DescriptiveAnalytics.get_violation_statistics(start_date, timezone.now())
+    desc_util = analytics.DescriptiveAnalytics.get_pc_utilization()
+    anomalies = analytics.PredictiveAnalytics.anomaly_detection()
+
+    # Map to ISO 25010 characteristics (summary indicators for the dashboard)
+    quality_indicators = {
+        'functional_suitability': {
+            'title': 'Functional Suitability',
+            'summary': 'Reservations, sessions, faculty blocks, analytics, and admin actions.',
+            'indicators': [
+                ('Confirmed bookings (30d)', desc_bookings.get('confirmed_bookings', 0)),
+                ('Total PCs managed', desc_util.get('total_pcs', 0)),
+            ],
+        },
+        'performance_efficiency': {
+            'title': 'Performance Efficiency',
+            'summary': 'Response time, resource use, and capacity.',
+            'indicators': [
+                ('Total bookings (30d)', desc_bookings.get('total_bookings', 0)),
+                ('Active PCs', desc_util.get('active_pcs', 0)),
+                ('Avg duration (min)', desc_bookings.get('avg_duration_minutes') or 'N/A'),
+            ],
+        },
+        'compatibility': {
+            'title': 'Compatibility',
+            'summary': 'Co-existence with other systems and interoperability via APIs.',
+            'indicators': [
+                ('AJAX/API endpoints', 'Used for reservation, status, export'),
+                ('Export reports', 'CSV daily/weekly/monthly'),
+            ],
+        },
+        'usability': {
+            'title': 'Usability',
+            'summary': 'Recognizability, learnability, operability, error protection, UI.',
+            'indicators': [
+                ('Role-based views', 'Student, Faculty, Staff'),
+                ('Dashboard & analytics', 'Single place for staff operations'),
+            ],
+        },
+        'reliability': {
+            'title': 'Reliability',
+            'summary': 'Maturity, availability, fault tolerance, recoverability.',
+            'indicators': [
+                ('Violations (30d)', desc_violations.get('total_violations', 0)),
+                ('Resolved violations', desc_violations.get('resolved_violations', 0)),
+                ('Unresolved', desc_violations.get('unresolved_violations', 0)),
+            ],
+        },
+        'security': {
+            'title': 'Security',
+            'summary': 'Confidentiality, integrity, accountability, authenticity.',
+            'indicators': [
+                ('Auth', 'Django auth + OTP verification'),
+                ('Staff-only', 'Dashboard, analytics, quality view'),
+                ('Suspended users', desc_violations.get('suspended_users', 0)),
+            ],
+        },
+        'maintainability': {
+            'title': 'Maintainability',
+            'summary': 'Modularity, reusability, analyzability, modifiability.',
+            'indicators': [
+                ('Docs', 'ANALYTICS_SUMMARY, ISO_25010_QUALITY_MODEL'),
+                ('Analytics module', 'Reusable Descriptive/Predictive classes'),
+            ],
+        },
+        'portability': {
+            'title': 'Portability',
+            'summary': 'Adaptability, installability, replaceability.',
+            'indicators': [
+                ('Setup', 'README, SETUP_GUIDE, requirements.txt'),
+                ('Configuration', 'Django settings, .env'),
+            ],
+        },
+    }
+
+    context = {
+        'quality_indicators': quality_indicators,
+        'anomalies_count': len(anomalies.get('detected_anomalies', [])),
+        'title': 'Quality (ISO 25010)',
+    }
+    return render(request, 'main/quality_dashboard.html', context)
+
+
+@login_required
+@staff_required
+def quality_evaluation(request):
+    """ISO/IEC 25010 evaluation tool: form for panel to assess system quality."""
+    from .iso25010_checklist import ISO25010_CHECKLIST, ISO25010_RATING_CHOICES
+
+    if request.method == 'POST':
+        # Collect ratings: key = sub_id (e.g. 1_1), value = rating (1-5 or '')
+        ratings = {}
+        for char in ISO25010_CHECKLIST:
+            for sub_id, _sub_name, _evidence in char['sub']:
+                ratings[sub_id] = request.POST.get(f'rating_{sub_id}', '').strip()
+        request.session['quality_evaluation_result'] = {
+            'ratings': ratings,
+            'checklist': ISO25010_CHECKLIST,
+            'evaluated_at': timezone.now().isoformat(),
+        }
+        return redirect(reverse('main_app:quality-evaluation') + '?results=1')
+
+    show_results = request.GET.get('results') == '1' and request.session.get('quality_evaluation_result')
+    result = request.session.get('quality_evaluation_result') if show_results else None
+
+    if show_results and result:
+        # Compute per-characteristic averages and attach human-readable labels
+        from statistics import mean
+        rating_labels = dict(ISO25010_RATING_CHOICES)
+        summary = []
+        detail_with_labels = []
+        for char in result['checklist']:
+            values = []
+            items = []
+            for sub_id, sub_name, _ in char['sub']:
+                r = result['ratings'].get(sub_id, '')
+                if r and r.isdigit():
+                    values.append(int(r))
+                label = rating_labels.get(r, r or 'Not assessed')
+                items.append((sub_name, label))
+            avg = round(mean(values), 2) if values else None
+            summary.append({
+                'char_name': char['char_name'],
+                'avg': avg,
+                'count': len(values),
+                'total': len(char['sub']),
+            })
+            detail_with_labels.append({
+                'char_name': char['char_name'],
+                'items': [{'sub_name': sn, 'label': lb} for sn, lb in items],
+            })
+        context = {
+            'result': result,
+            'summary': summary,
+            'detail_with_labels': detail_with_labels,
+            'title': 'Quality Evaluation Results (ISO 25010)',
+        }
+        return render(request, 'main/quality_evaluation_results.html', context)
+
+    context = {
+        'checklist': ISO25010_CHECKLIST,
+        'rating_choices': ISO25010_RATING_CHOICES,
+        'title': 'Quality Evaluation Tool (ISO 25010)',
+    }
+    return render(request, 'main/quality_evaluation_form.html', context)
+
+
+@login_required
+@staff_required
+def quality_evaluation_export(request):
+    """Export the last ISO 25010 evaluation result as CSV."""
+    import csv
+    result = request.session.get('quality_evaluation_result')
+    if not result:
+        return redirect(reverse('main_app:quality-evaluation'))
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="PCheck_ISO25010_Evaluation.csv"'
+    writer = csv.writer(response)
+    writer.writerow(['Characteristic', 'Subcharacteristic', 'Rating', 'Evaluated at'])
+    rating_labels = dict([
+        ('', 'N/A'), ('1', '1 - Not met'), ('2', '2 - Partially met'),
+        ('3', '3 - Met'), ('4', '4 - Well met'), ('5', '5 - Fully met'),
+    ])
+    for char in result['checklist']:
+        for sub_id, sub_name, _ in char['sub']:
+            r = result['ratings'].get(sub_id, '')
+            label = rating_labels.get(r, r or 'N/A')
+            writer.writerow([char['char_name'], sub_name, label, result.get('evaluated_at', '')])
+    writer.writerow([])
+    writer.writerow(['Summary (average per characteristic)'])
+    from statistics import mean
+    for char in result['checklist']:
+        values = [int(result['ratings'].get(s[0], '')) for s in char['sub'] if result['ratings'].get(s[0], '').isdigit()]
+        avg = round(mean(values), 2) if values else 'N/A'
+        writer.writerow([char['char_name'], '', f'Avg: {avg}', ''])
+    return response
+
+
+@login_required
+@staff_required
 def export_report(request):
     """Export analytics report as CSV"""
     import csv

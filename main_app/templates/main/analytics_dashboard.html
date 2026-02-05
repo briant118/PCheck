@@ -5,6 +5,37 @@
 
 {% block links %}
 <style>
+    /* --- NEW SPINNER STYLES --- */
+    #loading-overlay {
+        display: none; /* Hidden by default */
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.85); /* Semi-transparent white */
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+        backdrop-filter: blur(4px); /* Blur effect for modern browsers */
+    }
+
+    .spinner {
+        width: 50px;
+        height: 50px;
+        border: 5px solid #e0e0e0;
+        border-top: 5px solid #667eea; /* Theme color */
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    /* --- EXISTING STYLES --- */
     .analytics-container {
         padding: 20px;
     }
@@ -168,7 +199,9 @@
         border-radius: 8px;
         border: 1px solid #e0e0e0;
         padding: 0.5rem 0.75rem;
+        font-size: 16px; /* Mobile zoom fix */
     }
+    .period-selector { overflow: visible; isolation: isolate; }
     
     table {
         width: 100%;
@@ -230,20 +263,23 @@
 {% endblock %}
 
 {% block content %}
+<div id="loading-overlay">
+    <div class="spinner"></div>
+    <p style="margin-top: 15px; color: #667eea; font-weight: 600; font-size: 1.1rem;">Updating Dashboard...</p>
+</div>
+
 <div class="analytics-container">
     <div class="page-header">
         <h1 class="page-title">📊 Analytics & Predictive Insights Dashboard</h1>
     </div>
     
-    <!-- Back Button -->
     <div class="back-buttons-container">
         <a href="/dashboard/" class="btn-back">← Back to Home Dashboard</a>
     </div>
     
-    <!-- Period Selector -->
     <div class="period-selector">
         <label for="period">Analysis Period:</label>
-        <select id="period" class="form-control" style="max-width: 200px; display: inline-block;">
+        <select id="period" class="form-control" style="max-width: 200px; display: inline-block;" data-select-no-close>
             <option value="7" {% if period == 7 %}selected{% endif %}>Last 7 Days</option>
             <option value="14" {% if period == 14 %}selected{% endif %}>Last 14 Days</option>
             <option value="30" {% if period == 30 %}selected{% endif %}>Last 30 Days</option>
@@ -252,10 +288,8 @@
         </select>
     </div>
     
-    <!-- DESCRIPTIVE ANALYTICS SECTION -->
     <div class="section-header">📈 Descriptive Analytics (What Happened)</div>
     
-    <!-- Bookings Overview -->
     <div class="row">
         <div class="col-md-3">
             <div class="metric-card">
@@ -287,7 +321,6 @@
         </div>
     </div>
     
-    <!-- PC Utilization -->
     <div class="row">
         <div class="col-md-2">
             <div class="metric-card">
@@ -327,7 +360,6 @@
         </div>
     </div>
     
-    <!-- Violations Overview -->
     <div class="row">
         <div class="col-md-3">
             <div class="metric-card">
@@ -355,7 +387,6 @@
         </div>
     </div>
     
-    <!-- Violations by Level -->
     <div class="chart-container">
         <h4>Violations by Severity Level</h4>
         <div class="row">
@@ -371,7 +402,6 @@
         </div>
     </div>
     
-    <!-- Faculty Bookings -->
     <div class="row">
         <div class="col-md-4">
             <div class="metric-card">
@@ -394,10 +424,8 @@
         </div>
     </div>
     
-    <!-- PREDICTIVE ANALYTICS SECTION -->
     <div class="section-header">🔮 Predictive Analytics (What Will Happen)</div>
     
-    <!-- Usage Patterns -->
     <div class="row">
         <div class="col-md-6">
             <div class="chart-container">
@@ -460,7 +488,6 @@
         </div>
     </div>
     
-    <!-- Booking Trends -->
     <div class="chart-container">
         <h4>📊 Booking Trend Analysis</h4>
         {% if report.predictive.booking_trends.trend != "insufficient_data" %}
@@ -492,7 +519,6 @@
         {% endif %}
     </div>
     
-    <!-- User Behavior Changes -->
     <div class="chart-container">
         <h4>👥 User Behavior Change Detection</h4>
         <div class="row">
@@ -518,13 +544,12 @@
         <p style="margin-top: 10px;"><strong>Behavior Trend:</strong> {{ report.predictive.user_behavior_changes.behavior_trend|title }}</p>
     </div>
     
-    <!-- Resource Demand Forecast -->
     <div class="chart-container">
         <h4>📦 Resource Demand Forecast (Next 2 Weeks)</h4>
         <p>Total devices needed: <strong>{{ report.predictive.resource_demand.total_devices_needed_next_2weeks }}</strong></p>
         {% if report.predictive.resource_demand.peak_demand_day %}
         <p>Peak demand: <strong>{{ report.predictive.resource_demand.peak_demand_day.date }}</strong> 
-           ({{ report.predictive.resource_demand.peak_demand_day.devices_needed }} devices)</p>
+            ({{ report.predictive.resource_demand.peak_demand_day.devices_needed }} devices)</p>
         {% endif %}
         <table>
             <thead>
@@ -548,7 +573,6 @@
         </table>
     </div>
     
-    <!-- High Risk Users -->
     <div class="chart-container">
         <h4>⚠️ High Risk Users (Violation Patterns)</h4>
         {% if report.predictive.user_violation_risks.high_risk_users %}
@@ -581,7 +605,6 @@
         {% endif %}
     </div>
     
-    <!-- PC Maintenance Needs -->
     <div class="chart-container">
         <h4>🔧 PCs Requiring Maintenance</h4>
         {% if report.predictive.pc_maintenance_needs.pcs_needing_maintenance %}
@@ -612,7 +635,6 @@
         {% endif %}
     </div>
     
-    <!-- Detected Anomalies -->
     <div class="chart-container">
         <h4>🚨 Detected Anomalies</h4>
         {% if report.predictive.anomalies.detected_anomalies %}
@@ -630,19 +652,32 @@
         {% endif %}
     </div>
     
-    <!-- Additional Resources -->
     <div class="related-reports">
         <h4>📚 Related Reports</h4>
         <ul>
             <li><a href="{% url 'main_app:booking-predictions' %}">View Detailed Booking Predictions</a></li>
             <li><a href="{% url 'main_app:risk-analysis' %}">View Risk Analysis Report</a></li>
             <li><a href="{% url 'main_app:resource-demand' %}">View Resource Demand Forecast</a></li>
+            <li><a href="{% url 'main_app:quality-dashboard' %}">View Quality (ISO 25010) Overview</a></li>
         </ul>
     </div>
 </div>
 
 <script>
-    document.getElementById('period').addEventListener('change', function() {
+    const periodSelect = document.getElementById('period');
+    const loadingOverlay = document.getElementById('loading-overlay');
+
+    // Prevent document-level handlers from closing the native period dropdown
+    ['mousedown', 'click', 'touchstart'].forEach(function(ev) {
+        periodSelect.addEventListener(ev, function(e) { e.stopPropagation(); }, true);
+    });
+
+    // Handle change: Show spinner then redirect
+    periodSelect.addEventListener('change', function() {
+        // Show spinner immediately
+        loadingOverlay.style.display = 'flex';
+        
+        // Redirect
         const period = this.value;
         window.location.href = `?period=${period}`;
     });

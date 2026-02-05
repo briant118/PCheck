@@ -477,31 +477,6 @@
               </div>
             </div>
           </div>
-          <div class="col-md-4">
-            <div class="analytics-card">
-              <div class="analytics-card-icon">
-                <i class="fa-solid fa-download"></i>
-              </div>
-              <div class="analytics-card-content">
-                <div class="analytics-card-dropdown">
-                  <button class="analytics-dropdown-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    Download<br>Report
-                  </button>
-                  <ul class="dropdown-menu analytics-dropdown-menu">
-                    <li><a class="dropdown-item" href="#" onclick="exportReport('daily'); return false;">
-                      <i class="fa-solid fa-calendar-day"></i> Daily
-                    </a></li>
-                    <li><a class="dropdown-item" href="#" onclick="exportReport('weekly'); return false;">
-                      <i class="fa-solid fa-calendar-week"></i> Weekly
-                    </a></li>
-                    <li><a class="dropdown-item" href="#" onclick="exportReport('monthly'); return false;">
-                      <i class="fa-solid fa-calendar"></i> Monthly
-                    </a></li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
           <!-- Analytics Dashboard Links -->
           <div class="col-md-4">
             <div class="analytics-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
@@ -540,6 +515,45 @@
                 <div style="color: white;">
                   <a href="{% url 'main_app:resource-demand' %}" style="color: white; text-decoration: none; font-weight: 600;">
                     Resource<br>Forecast
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="analytics-card">
+              <div class="analytics-card-icon">
+                <i class="fa-solid fa-download"></i>
+              </div>
+              <div class="analytics-card-content">
+                <div class="analytics-card-dropdown">
+                  <button class="analytics-dropdown-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="inside" aria-expanded="false">
+                    Download<br>Report
+                  </button>
+                  <ul class="dropdown-menu analytics-dropdown-menu">
+                    <li><a class="dropdown-item" href="#" onclick="exportReport('daily'); return false;">
+                      <i class="fa-solid fa-calendar-day"></i> Daily
+                    </a></li>
+                    <li><a class="dropdown-item" href="#" onclick="exportReport('weekly'); return false;">
+                      <i class="fa-solid fa-calendar-week"></i> Weekly
+                    </a></li>
+                    <li><a class="dropdown-item" href="#" onclick="exportReport('monthly'); return false;">
+                      <i class="fa-solid fa-calendar"></i> Monthly
+                    </a></li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="analytics-card" style="background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);">
+              <div class="analytics-card-icon" style="color: white;">
+                <i class="fa-solid fa-ruler-combined"></i>
+              </div>
+              <div class="analytics-card-content">
+                <div style="color: white;">
+                  <a href="{% url 'main_app:quality-dashboard' %}" style="color: white; text-decoration: none; font-weight: 600;">
+                    Quality<br>(ISO 25010)
                   </a>
                 </div>
               </div>

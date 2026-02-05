@@ -2771,12 +2771,15 @@ body:has(.sidebar) .card::before {
     transition: opacity 0.3s ease;
 }
 
-body:has(.sidebar) .card:hover {
+/* Keep card elevated on hover and when dropdown is open so dropdown doesn't disappear when moving mouse to it */
+body:has(.sidebar) .card:hover,
+body:has(.sidebar) .card:has(.dropdown-menu.show) {
     transform: translateY(-4px);
     box-shadow: 0 8px 24px rgba(255, 152, 0, 0.15), 0 4px 12px rgba(0, 0, 0, 0.1) !important;
 }
 
-body:has(.sidebar) .card:hover::before {
+body:has(.sidebar) .card:hover::before,
+body:has(.sidebar) .card:has(.dropdown-menu.show)::before {
     opacity: 1;
 }
 
@@ -2828,7 +2831,9 @@ body:has(.sidebar) .table tbody tr:last-child {
     border-bottom: none;
 }
 
-body:has(.sidebar) .table tbody tr:hover {
+/* Keep row hover state when dropdown is open so dropdown doesn't disappear when moving to menu */
+body:has(.sidebar) .table tbody tr:hover,
+body:has(.sidebar) .table tbody tr:has(.dropdown-menu.show) {
     background: linear-gradient(135deg, rgba(255, 152, 0, 0.08) 0%, rgba(255, 87, 34, 0.08) 100%);
     transform: scale(1.01);
     box-shadow: 0 2px 8px rgba(255, 152, 0, 0.15);
@@ -3326,6 +3331,22 @@ body:has(.sidebar) .modal-backdrop {
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     margin-top: 0.5rem;
+    z-index: 1060 !important;
+    pointer-events: auto !important;
+}
+
+/* Keep dropdowns from closing when parent loses hover: no overflow clip on containers that have dropdowns */
+.content-wrapper:has(.dropdown-menu.show),
+.main-content:has(.dropdown-menu.show) {
+    overflow: visible !important;
+}
+
+/* Native select: ensure options popup isn't clipped; give stacking context */
+select.form-control,
+select.form-select,
+.form-select {
+    position: relative;
+    z-index: 1;
 }
 
 .dropdown-item {

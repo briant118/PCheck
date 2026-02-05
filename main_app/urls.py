@@ -82,4 +82,7 @@ urlpatterns = [
     path('booking-predictions/', views.booking_predictions, name='booking-predictions'),
     path('risk-analysis/', views.risk_analysis, name='risk-analysis'),
     path('resource-demand/', views.resource_demand_forecast, name='resource-demand'),
+    path('quality/', views.quality_dashboard, name='quality-dashboard'),
+    path('quality/evaluate/', views.quality_evaluation, name='quality-evaluation'),
+    path('quality/export-csv/', views.quality_evaluation_export, name='quality-evaluation-export'),
 ]

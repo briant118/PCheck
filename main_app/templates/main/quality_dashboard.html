@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Quality (ISO 25010){% endblock %}
+
+{% block links %}
+<style>
+    .quality-container { padding: 20px; }
+    .page-header {
+        background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+        border-radius: 12px;
+        padding: 1.5rem 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 12px rgba(44, 62, 80, 0.2);
+    }
+    .page-title { color: #ffffff; font-size: 2rem; font-weight: 700; margin: 0; text-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+    .page-subtitle { color: rgba(255,255,255,0.9); font-size: 1rem; margin-top: 0.5rem; }
+    .btn-back {
+        background: linear-gradient(135deg, #ff9800 0%, #ff5722 100%);
+        border: none; color: white; font-weight: 600;
+        padding: 0.6rem 1.5rem; border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(255, 152, 0, 0.2);
+        text-decoration: none; display: inline-block; margin-bottom: 1rem;
+    }
+    .btn-back:hover { color: white; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3); }
+    .back-buttons-container { display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; }
+    .quality-card {
+        background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08); transition: all 0.3s ease; border: none;
+        border-left: 4px solid #3498db;
+    }
+    .quality-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+    .quality-card h3 { color: #2c3e50; font-weight: 600; margin-bottom: 10px; font-size: 1.25rem; }
+    .quality-card .summary { color: #666; font-size: 0.95rem; margin-bottom: 15px; }
+    .quality-card ul { margin: 0; padding-left: 1.25rem; }
+    .quality-card li { margin-bottom: 6px; }
+    .doc-link-box {
+        background: linear-gradient(135deg, #ecf0f1 0%, #bdc3c7 100%);
+        border-radius: 8px; padding: 1rem 1.25rem; margin-top: 2rem;
+        border-left: 4px solid #2c3e50;
+    }
+    .doc-link-box a { color: #2980b9; font-weight: 600; }
+    .doc-link-box a:hover { text-decoration: underline; }
+    .anomaly-alert {
+        background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px;
+        padding: 0.75rem 1rem; margin-bottom: 1.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="quality-container">
+    <div class="page-header">
+        <h1 class="page-title">📐 Quality (ISO/IEC 25010)</h1>
+        <p class="page-subtitle">Product quality model overview for PCheck — eight characteristics with indicators from current system data.</p>
+    </div>
+
+    <div class="back-buttons-container">
+        <a href="{% url 'main_app:dashboard' %}" class="btn-back">← Dashboard</a>
+        <a href="{% url 'main_app:analytics-dashboard' %}" class="btn-back">Analytics</a>
+        <a href="{% url 'main_app:quality-evaluation' %}" class="btn-back" style="background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%); box-shadow: 0 2px 8px rgba(39, 174, 96, 0.3);">📋 Evaluation tool</a>
+    </div>
+
+    <div class="doc-link-box" style="margin-bottom: 2rem; background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); border-left-color: #27ae60;">
+        <strong>📋 Evaluation tool for testing the quality of the system (ISO 25010)</strong><br>
+        Panel and evaluators can use the <a href="{% url 'main_app:quality-evaluation' %}"><strong>Quality Evaluation tool</strong></a> to rate each ISO 25010 subcharacteristic (1–5 or Not assessed), then view the summary and export the result as CSV for your report.
+    </div>
+
+    {% if anomalies_count > 0 %}
+    <div class="anomaly-alert">
+        <strong>⚠️ Anomalies detected:</strong> {{ anomalies_count }} — review <a href="{% url 'main_app:risk-analysis' %}">Risk Analysis</a> and <a href="{% url 'main_app:analytics-dashboard' %}">Analytics</a>.
+    </div>
+    {% endif %}
+
+    {% for key, data in quality_indicators.items %}
+    <div class="quality-card">
+        <h3>{{ data.title }}</h3>
+        <p class="summary">{{ data.summary }}</p>
+        <ul>
+            {% for label, value in data.indicators %}
+            <li><strong>{{ label }}:</strong> {{ value }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endfor %}
+
+    <div class="doc-link-box">
+        <strong>📄 Full quality model</strong><br>
+        The complete mapping of PCheck to ISO/IEC 25010 (characteristics, subcharacteristics, evidence, and metrics) is in the project docs.<br>
+        <strong>File:</strong> <code>docs/ISO_25010_QUALITY_MODEL.md</code> — open from the project folder or repository.
+    </div>
+</div>
+{% endblock %}
