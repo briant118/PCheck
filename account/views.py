@@ -22,6 +22,30 @@ from . import forms
 from . import models
 
 
+def determine_user_role(school_id):
+    """
+    Automatically determine user role based on school ID pattern.
+    - Students typically use a numeric ID prefix in their PSU corporate email
+      (e.g., "202280102@psu.palawan.edu.ph")
+    - Faculty typically use a name-like prefix (letters) in their PSU corporate email
+      (e.g., "adeleom@psu.palawan.edu.ph")
+    - Returns 'faculty' or 'student'
+    """
+    if not school_id:
+        return 'student'
+    
+    school_id_str = str(school_id).strip()
+    
+    # Primary rule:
+    # - Numeric prefix (typical student ID) => student
+    # - Anything else (name-like) => faculty
+    #
+    # Keep this intentionally simple and aligned with your email patterns.
+    if school_id_str.isdigit():
+        return 'student'
+
+    return 'faculty'
+
 
 def permission_denied_view(request, exception):
         return render(request, 'permission_denied.html', status=403)
@@ -144,8 +168,9 @@ class ProfileUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
 def dashboard(request):
     from main_app.models import Booking, PC, College
     from django.contrib.auth.models import User
-    from datetime import datetime, timedelta
+    from datetime import timedelta
     from django.db.models import Count, Avg, Sum
+    from django.utils import timezone as tz
     import calendar
     
     # Total sessions and average duration
@@ -194,15 +219,17 @@ def dashboard(request):
     canceled = Booking.objects.filter(status='cancelled').count()
     pending = Booking.objects.filter(status__isnull=True).count()
     
-    # Time-based statistics (last 30 days)
-    thirty_days_ago = datetime.now() - timedelta(days=30)
+    # Time-based statistics (last 30 days, timezone-aware)
+    thirty_days_ago = tz.now() - timedelta(days=30)
     recent_bookings = Booking.objects.filter(
         created_at__gte=thirty_days_ago
     )
     
+    # Build daily stats using the same timezone-aware "now" reference
     daily_stats = {}
+    now = tz.now()
     for i in range(30):
-        date = datetime.now() - timedelta(days=i)
+        date = now - timedelta(days=i)
         count = Booking.objects.filter(
             created_at__date=date.date()
         ).count()
@@ -233,6 +260,18 @@ def dashboard(request):
         else:
             booking.time_remaining_minutes = None
     
+    # Get quick analytics stats from the analytics module
+    try:
+        from main_app.analytics import PredictiveAnalytics
+        peak_usage = PredictiveAnalytics.predict_peak_usage_hours()
+        booking_trend = PredictiveAnalytics.predict_booking_trends()
+        violation_risks = PredictiveAnalytics.predict_user_violation_risk()
+    except Exception as e:
+        # Fallback if analytics fail
+        peak_usage = {'peak_hours': []}
+        booking_trend = {'trend': 'unknown', 'predicted_next_week_bookings': 0}
+        violation_risks = {'high_risk_users': []}
+    
     # Get stats for the template
     context = {
         'total_bookings': total_bookings,
@@ -249,6 +288,10 @@ def dashboard(request):
         'pc_list': pc_list,
         'active_bookings': active_bookings,
         'active_confirmed_count': active_confirmed_count,
+        # Analytics data
+        'peak_usage': peak_usage,
+        'booking_trend': booking_trend,
+        'violation_risks': violation_risks,
     }
     
     return render(request, 'account/dashboard.html', context)
@@ -290,7 +333,6 @@ def register(request):
     from main_app.models import College
     colleges = College.objects.all().order_by('name')
     if request.method == "POST":
-        role = request.POST['role']
         first_name = request.POST['first_name']
         first_name = first_name.capitalize()
         last_name = request.POST['last_name']
@@ -321,6 +363,10 @@ def register(request):
         except models.PendingUser.DoesNotExist:
             pass
         
+        # Auto-detect role from school ID instead of user selection
+        school_id = request.POST['email_prefix']
+        role = determine_user_role(school_id)
+        
         # create pending user
         pending = models.PendingUser.objects.create(
             role=role,
@@ -330,7 +376,7 @@ def register(request):
             course=course,
             year=year,
             block=block,
-            school_id=request.POST['email_prefix'],
+            school_id=school_id,
             email=email,
             username=username,
             password=password
@@ -473,13 +519,26 @@ def complete_profile(request):
         return redirect('/')
     
     colleges = College.objects.all()
+
+    # Compute role for display/UX (still enforced server-side).
+    existing_profile = models.Profile.objects.filter(user=request.user).only('role').first()
+    detected_role = None
+    if existing_profile and existing_profile.role:
+        detected_role = existing_profile.role
+    elif request.user.is_staff:
+        detected_role = 'staff'
+    else:
+        # Best-effort based on email prefix
+        school_id_guess = None
+        if request.user.email and request.user.email.endswith('@psu.palawan.edu.ph'):
+            school_id_guess = request.user.email.split('@')[0]
+        detected_role = determine_user_role(school_id_guess)
     
     if request.method == "POST":
-        role = request.POST.get('role')
         college_id = request.POST.get('college')
         
-        if not role or not college_id:
-            messages.error(request, "Please select both role and college.")
+        if not college_id:
+            messages.error(request, "Please select your college.")
             return render(request, "account/complete_profile.html", {
                 "colleges": colleges,
                 "user": request.user
@@ -506,6 +565,19 @@ def complete_profile(request):
         else:
             # Try to get school_id from POST if provided
             school_id = request.POST.get('school_id', '')
+        
+        # Determine role (NOT user-selectable).
+        # Priority:
+        # 1) Admin-set profile.role (e.g., you set faculty in Django admin)
+        # 2) Staff flag
+        # 3) Heuristic detection using school_id/email prefix
+        existing_profile = models.Profile.objects.filter(user=request.user).only('role').first()
+        if existing_profile and existing_profile.role:
+            role = existing_profile.role
+        elif request.user.is_staff:
+            role = 'staff'
+        else:
+            role = determine_user_role(school_id)
         
         # Create or update profile
         profile, created = models.Profile.objects.get_or_create(user=request.user)
@@ -541,7 +613,8 @@ def complete_profile(request):
     
     return render(request, "account/complete_profile.html", {
         "colleges": colleges,
-        "user": request.user
+        "user": request.user,
+        "detected_role": detected_role,
     })
 
 

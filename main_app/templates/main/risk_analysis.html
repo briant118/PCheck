@@ -1,0 +1,472 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Risk Analysis{% endblock %}
+
+{% block links %}
+<style>
+    .container {
+        padding: 20px;
+    }
+    
+    .page-header {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        border-radius: 12px;
+        padding: 1.5rem 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 12px rgba(220, 53, 69, 0.2);
+    }
+    
+    .page-title {
+        color: #ffffff;
+        font-size: 2rem;
+        font-weight: 700;
+        margin: 0;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+    
+    .btn-back {
+        background: linear-gradient(135deg, #ff9800 0%, #ff5722 100%);
+        border: none;
+        color: white;
+        font-weight: 600;
+        padding: 0.6rem 1.5rem;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(255, 152, 0, 0.2);
+        text-decoration: none;
+        display: inline-block;
+        margin-bottom: 1.5rem;
+    }
+    
+    .btn-back:hover {
+        background: linear-gradient(135deg, #ff5722 0%, #ff9800 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3);
+        color: white;
+    }
+    
+    .back-buttons-container {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+    }
+    
+    .risk-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        transition: all 0.3s ease;
+        border: none;
+    }
+    
+    .risk-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }
+    
+    .risk-card h3 {
+        color: #333;
+        font-weight: 600;
+        margin-bottom: 15px;
+        border-bottom: 2px solid #dc3545;
+        padding-bottom: 10px;
+    }
+    
+    .risk-high {
+        border-left: 4px solid #dc3545;
+        background-color: #fff5f5;
+    }
+    
+    .risk-high h3 {
+        border-bottom: 2px solid #dc3545;
+    }
+    
+    .risk-medium {
+        border-left: 4px solid #ffc107;
+        background-color: #fffbf0;
+    }
+    
+    .risk-medium h3 {
+        border-bottom: 2px solid #ffc107;
+    }
+    
+    .risk-low {
+        border-left: 4px solid #28a745;
+        background-color: #f0fff4;
+    }
+    
+    .risk-low h3 {
+        border-bottom: 2px solid #28a745;
+    }
+    
+    .risk-badge {
+        display: inline-block;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 12px;
+        text-transform: uppercase;
+    }
+    
+    .badge-high {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    
+    .badge-medium {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    
+    .badge-low {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .risk-score {
+        font-size: 24px;
+        font-weight: bold;
+        margin: 10px 0;
+    }
+    
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    th, td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    
+    th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        color: #333;
+    }
+    
+    tr:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .anomaly-item {
+        padding: 15px;
+        margin-bottom: 10px;
+        border-left: 4px solid;
+        border-radius: 8px;
+        background-color: #f8f9fa;
+        transition: all 0.3s ease;
+    }
+    
+    .anomaly-item:hover {
+        transform: translateX(4px);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    .anomaly-high {
+        border-left-color: #dc3545;
+        background-color: #fff5f5;
+    }
+    
+    .anomaly-medium {
+        border-left-color: #ffc107;
+        background-color: #fffbf0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h1 class="page-title">⚠️ Risk Analysis Report</h1>
+    </div>
+    
+    <!-- Back Buttons -->
+    <div class="back-buttons-container">
+        <a href="{% url 'main_app:analytics-dashboard' %}" class="btn-back">← Back to Analytics Dashboard</a>
+        <a href="/dashboard/" class="btn-back">← Back to Home Dashboard</a>
+    </div>
+    
+    <!-- Summary -->
+    <div class="risk-card">
+        <h3>📊 Risk Summary</h3>
+        <div class="row">
+            <div class="col-md-3">
+                <div style="padding: 15px; text-align: center; background-color: #f0f0f0; border-radius: 5px;">
+                    <div style="color: #dc3545; font-size: 24px; font-weight: bold;">
+                        {{ risk_data.high_risk_users.high_risk_users|length }}
+                    </div>
+                    <div style="font-size: 12px; color: #666; font-weight: 600; text-transform: uppercase; margin-top: 5px;">
+                        High Risk Users
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div style="padding: 15px; text-align: center; background-color: #f0f0f0; border-radius: 5px;">
+                    <div style="color: #ffc107; font-size: 24px; font-weight: bold;">
+                        {{ risk_data.maintenance_needs.pcs_needing_maintenance|length }}
+                    </div>
+                    <div style="font-size: 12px; color: #666; font-weight: 600; text-transform: uppercase; margin-top: 5px;">
+                        PCs Needing Maintenance
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div style="padding: 15px; text-align: center; background-color: #f0f0f0; border-radius: 5px;">
+                    <div style="color: #dc3545; font-size: 24px; font-weight: bold;">
+                        {{ risk_data.anomalies.detected_anomalies|length }}
+                    </div>
+                    <div style="font-size: 12px; color: #666; font-weight: 600; text-transform: uppercase; margin-top: 5px;">
+                        Anomalies Detected
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div style="padding: 15px; text-align: center; background-color: #f0f0f0; border-radius: 5px;">
+                    <div style="color: #007bff; font-size: 24px; font-weight: bold;">
+                        {% with total_risk_items=risk_data.high_risk_users.high_risk_users|length|add:risk_data.maintenance_needs.pcs_needing_maintenance|length|add:risk_data.anomalies.detected_anomalies|length %}
+                        {{ total_risk_items }}
+                        {% endwith %}
+                    </div>
+                    <div style="font-size: 12px; color: #666; font-weight: 600; text-transform: uppercase; margin-top: 5px;">
+                        Total Risk Items
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- High Risk Users -->
+    <div class="risk-card risk-high">
+        <h3>👥 High Risk Users (Violation Pattern Analysis)</h3>
+        <p style="color: #666; margin-bottom: 20px;">Users identified with patterns suggesting high likelihood of future violations</p>
+        
+        {% if risk_data.high_risk_users.high_risk_users %}
+        <div style="max-height: 500px; overflow-y: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Total Violations</th>
+                        <th>Major</th>
+                        <th>Moderate</th>
+                        <th>Risk Score</th>
+                        <th>Level</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in risk_data.high_risk_users.high_risk_users %}
+                    <tr style="{% if user.risk_level == 'high' %}background-color: #fff5f5;{% elif user.risk_level == 'medium' %}background-color: #fffbf0;{% else %}background-color: #f0fff4;{% endif %}">
+                        <td>
+                            <strong>{{ user.full_name }}</strong>
+                            <div style="font-size: 12px; color: #999;">@{{ user.username }}</div>
+                        </td>
+                        <td>{{ user.violation_count }}</td>
+                        <td><span style="color: #dc3545; font-weight: bold;">{{ user.major_violations }}</span></td>
+                        <td><span style="color: #ffc107; font-weight: bold;">{{ user.moderate_violations }}</span></td>
+                        <td><strong style="font-size: 16px;">{{ user.risk_score }}</strong></td>
+                        <td>
+                            <span class="risk-badge badge-{{ user.risk_level }}">
+                                {{ user.risk_level }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if user.risk_level == 'high' %}
+                                <a href="{% url 'main_app:violation-create-user' user.user_id %}" class="btn btn-sm btn-outline-danger">
+                                    Review
+                                </a>
+                            {% else %}
+                                <span style="color: #999; font-size: 12px;">Monitor</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <div style="padding: 15px; background-color: #fff0f0; border-top: 1px solid #ffe0e0; margin-top: 15px; border-radius: 3px;">
+            <h5>💡 Risk Score Calculation</h5>
+            <p>Risk Score = (Total Violations × 2) + (Major Violations × 3) + (Moderate Violations × 1.5)</p>
+            <p><strong>Thresholds:</strong> High Risk ≥ 10 | Medium Risk ≥ 5 | Low Risk < 5</p>
+        </div>
+        {% else %}
+        <p style="color: #28a745; font-weight: bold;">✓ No high-risk users identified. System users are in good standing.</p>
+        {% endif %}
+    </div>
+    
+    <!-- PC Maintenance Needs -->
+    <div class="risk-card risk-medium">
+        <h3>🔧 PC Maintenance Requirements</h3>
+        <p style="color: #666; margin-bottom: 20px;">Computers identified as requiring maintenance based on peripheral device event patterns</p>
+        
+        {% if risk_data.maintenance_needs.pcs_needing_maintenance %}
+        <div style="max-height: 500px; overflow-y: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>PC Name</th>
+                        <th>Total Events</th>
+                        <th>Device Removals</th>
+                        <th>Removal Rate</th>
+                        <th>Priority</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pc in risk_data.maintenance_needs.pcs_needing_maintenance %}
+                    <tr style="{% if pc.maintenance_priority == 'high' %}background-color: #fff5f5;{% elif pc.maintenance_priority == 'medium' %}background-color: #fffbf0;{% else %}background-color: #f0fff4;{% endif %}">
+                        <td><strong>{{ pc.pc_name }}</strong></td>
+                        <td>{{ pc.event_count }}</td>
+                        <td><span style="font-weight: bold;">{{ pc.device_removal_count }}</span></td>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div style="width: 150px; height: 20px; background-color: #f0f0f0; border-radius: 3px;">
+                                    <div style="width: {{ pc.removal_rate }}%; height: 100%; background-color: {% if pc.removal_rate > 50 %}#dc3545{% elif pc.removal_rate > 30 %}#ffc107{% else %}#28a745{% endif %}; border-radius: 3px;"></div>
+                                </div>
+                                <span>{{ pc.removal_rate }}%</span>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="risk-badge badge-{{ pc.maintenance_priority }}">
+                                {{ pc.maintenance_priority }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if pc.maintenance_priority == 'high' %}
+                                <a href="{% url 'main_app:pc-update' pc.pc_id %}" class="btn btn-sm btn-outline-danger">
+                                    Schedule Maintenance
+                                </a>
+                            {% elif pc.maintenance_priority == 'medium' %}
+                                <a href="{% url 'main_app:pc-detail' pc.pc_id %}" class="btn btn-sm btn-outline-warning">
+                                    View Details
+                                </a>
+                            {% else %}
+                                <span style="color: #999; font-size: 12px;">Monitor</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <div style="padding: 15px; background-color: #fffaf0; border-top: 1px solid #ffe8d6; margin-top: 15px; border-radius: 3px;">
+            <h5>📌 Interpretation</h5>
+            <p>High removal rate (>50%) indicates frequent peripheral device disconnections, suggesting potential hardware issues. Schedule preventive maintenance to prevent user disruption.</p>
+        </div>
+        {% else %}
+        <p style="color: #28a745; font-weight: bold;">✓ All PCs are operating normally. No maintenance required at this time.</p>
+        {% endif %}
+    </div>
+    
+    <!-- Detected Anomalies -->
+    <div class="risk-card">
+        <h3>🚨 Detected System Anomalies</h3>
+        <p style="color: #666; margin-bottom: 20px;">Unusual patterns detected in system usage that require attention</p>
+        
+        {% if risk_data.anomalies.detected_anomalies %}
+        <div style="max-height: 600px; overflow-y: auto;">
+            {% for anomaly in risk_data.anomalies.detected_anomalies %}
+            <div class="anomaly-item {% if anomaly.severity == 'high' %}anomaly-high{% else %}anomaly-medium{% endif %}">
+                <div style="display: flex; justify-content: space-between; align-items: start;">
+                    <div style="flex: 1;">
+                        <h5 style="margin: 0 0 10px 0;">
+                            {{ anomaly.type|title }}
+                            <span class="risk-badge badge-{{ anomaly.severity }}">
+                                {{ anomaly.severity }}
+                            </span>
+                        </h5>
+                        <p style="margin: 0; color: #333; line-height: 1.5;">
+                            {{ anomaly.description }}
+                        </p>
+                        
+                        {% if anomaly.value %}
+                        <p style="margin: 10px 0 0 0; color: #666; font-size: 12px;">
+                            <strong>Metric:</strong> {{ anomaly.value }}
+                        </p>
+                        {% endif %}
+                    </div>
+                    <div style="margin-left: 20px;">
+                        {% if anomaly.severity == 'high' %}
+                            <span style="font-size: 28px;">⚠️</span>
+                        {% else %}
+                            <span style="font-size: 28px;">⚡</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="padding: 20px; background-color: #f0fff4; border-left: 4px solid #28a745; border-radius: 3px;">
+            <p style="margin: 0; color: #155724; font-weight: bold;">✓ No anomalies detected</p>
+            <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">System is operating within normal parameters.</p>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Risk Mitigation Recommendations -->
+    <div class="risk-card" style="background-color: #e3f2fd; border-left: 4px solid #2196F3;">
+        <h3>💡 Risk Mitigation Recommendations</h3>
+        
+        <h5>For High Risk Users:</h5>
+        <ul>
+            <li>Schedule one-on-one sessions to review policies and expectations</li>
+            <li>Implement increased monitoring on their bookings</li>
+            <li>Consider temporary restrictions or probationary periods</li>
+            <li>Document interventions for reference</li>
+        </ul>
+        
+        <h5>For PC Maintenance:</h5>
+        <ul>
+            <li>Schedule maintenance during low-usage hours (typically off-peak times)</li>
+            <li>Prioritize high-priority maintenance to prevent user disruption</li>
+            <li>Track maintenance history to identify recurring issues</li>
+            <li>Consider hardware upgrades for frequently problematic devices</li>
+        </ul>
+        
+        <h5>For Anomalies:</h5>
+        <ul>
+            <li>Investigate root causes of detected anomalies</li>
+            <li>Implement preventive measures to avoid recurrence</li>
+            <li>Monitor affected areas more closely in the short term</li>
+            <li>Adjust policies or procedures if anomalies indicate systemic issues</li>
+        </ul>
+    </div>
+    
+    <!-- System Health Indicator -->
+    <div class="risk-card">
+        <h3>📊 System Health Indicator</h3>
+        
+        {% with total_items=risk_data.high_risk_users.high_risk_users|length|add:risk_data.maintenance_needs.pcs_needing_maintenance|length|add:risk_data.anomalies.detected_anomalies|length %}
+        
+        <div style="margin: 20px 0;">
+            {% if total_items == 0 %}
+                <div style="padding: 20px; background-color: #d4edda; border-left: 4px solid #28a745; border-radius: 3px;">
+                    <h4 style="color: #155724; margin: 0;">🟢 HEALTHY</h4>
+                    <p style="color: #155724; margin: 10px 0 0 0;">No risk items detected. System is operating normally.</p>
+                </div>
+            {% elif total_items <= 5 %}
+                <div style="padding: 20px; background-color: #fff3cd; border-left: 4px solid #ffc107; border-radius: 3px;">
+                    <h4 style="color: #856404; margin: 0;">🟡 CAUTION</h4>
+                    <p style="color: #856404; margin: 10px 0 0 0;">{{ total_items }} risk item(s) detected. Review and address as needed.</p>
+                </div>
+            {% else %}
+                <div style="padding: 20px; background-color: #f8d7da; border-left: 4px solid #dc3545; border-radius: 3px;">
+                    <h4 style="color: #721c24; margin: 0;">🔴 AT RISK</h4>
+                    <p style="color: #721c24; margin: 10px 0 0 0;">{{ total_items }} risk item(s) detected. Immediate attention required.</p>
+                </div>
+            {% endif %}
+        </div>
+        
+        {% endwith %}
+    </div>
+</div>
+{% endblock %}

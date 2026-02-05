@@ -82,6 +82,11 @@ function initReservePC() {
     }
     
     console.log('Next button clicked, showing duration modal');
+    var constraints = updateBookingDurationConstraints();
+    if (constraints && constraints.ok === false) {
+      alert(constraints.reason || "Booking is not available right now.");
+      return false;
+    }
     var modal = getBsModal("#durationModal");
     if (modal) {
       modal.show();
@@ -113,6 +118,74 @@ function initReservePC() {
            String(seconds).padStart(2, '0');
   }
   
+  // Enforce ICT lab booking hours (8:00 AM to before 5:00 PM) on the client.
+  // Backend validation already enforces this; this improves UX.
+  // Uses the browser's local time (ensure lab/clients are set to PH local time).
+  window.__bookingMaxSeconds = 10800; // default cap: 3 hours
+  function updateBookingDurationConstraints() {
+    try {
+      var now = new Date();
+      var openStart = new Date(now);
+      openStart.setHours(8, 0, 0, 0);
+      var openEnd = new Date(now);
+      openEnd.setHours(17, 0, 0, 0); // bookings must END before 5pm
+      
+      if (now < openStart) {
+        window.__bookingMaxSeconds = 0;
+        $("#durationHelpText").text("ICT Lab office hours: 8:00 AM–5:00 PM. Booking starts at 8:00 AM.");
+        $("#officeHoursStatusText").text("Booking opens at 8:00 AM.");
+        return { ok: false, reason: "Bookings cannot start before 8:00 AM" };
+      }
+      if (now >= openEnd) {
+        window.__bookingMaxSeconds = 0;
+        $("#durationHelpText").text("ICT Lab office hours: 8:00 AM–5:00 PM. Booking is closed for today.");
+        $("#officeHoursStatusText").text("Booking is closed for today (after 5:00 PM).");
+        return { ok: false, reason: "Bookings cannot start at or after 5:00 PM" };
+      }
+      
+      // Remaining time until 5pm, rounded down to 5-minute steps
+      var remainingMs = openEnd.getTime() - now.getTime();
+      var remainingSeconds = Math.floor(remainingMs / 1000);
+      var step = 300; // 5 minutes
+      var maxSecondsToday = Math.floor(remainingSeconds / step) * step;
+      window.__bookingMaxSeconds = Math.max(0, Math.min(10800, maxSecondsToday));
+      
+      var maxTimeStr = secondsToTime(window.__bookingMaxSeconds);
+      $("#durationHelpText").text("Time format: HH:MM:SS (Maximum " + maxTimeStr + " today)");
+      $("#officeHoursStatusText").text("Max bookable time right now: " + maxTimeStr + " (until 5:00 PM).");
+      
+      // Clamp current input to max
+      var currentTime = $("#durationInput").val() || "00:05:00";
+      var currentSeconds = timeToSeconds(currentTime);
+      if (window.__bookingMaxSeconds > 0 && currentSeconds > window.__bookingMaxSeconds) {
+        $("#durationInput").val(secondsToTime(window.__bookingMaxSeconds));
+        currentSeconds = window.__bookingMaxSeconds;
+      }
+      
+      $("#plusBtn").prop("disabled", window.__bookingMaxSeconds <= 0 || currentSeconds >= window.__bookingMaxSeconds);
+      $("#minusBtn").prop("disabled", currentSeconds <= 300);
+      
+      if (window.__bookingMaxSeconds < 300) {
+        $("#officeHoursStatusText").text("Not enough time left before 5:00 PM to start a new booking.");
+        return { ok: false, reason: "Not enough time left before 5:00 PM to book (minimum is 5 minutes)." };
+      }
+      return { ok: true };
+    } catch (e) {
+      // Fail open and let backend decide.
+      window.__bookingMaxSeconds = 10800;
+      // If banner exists, avoid leaving stale text
+      if ($("#officeHoursStatusText").length) {
+        $("#officeHoursStatusText").text("Office hours: 8:00 AM–5:00 PM.");
+      }
+      return { ok: true };
+    }
+  }
+
+  // Keep banner up to date even before opening the duration modal.
+  // (Also helps if user leaves page open and time crosses 5pm.)
+  updateBookingDurationConstraints();
+  setInterval(updateBookingDurationConstraints, 30000);
+  
   // Helper function to convert time string to minutes (for backend)
   function timeToMinutes(timeStr) {
     var totalSeconds = timeToSeconds(timeStr);
@@ -121,18 +194,21 @@ function initReservePC() {
 
   // Plus and minus buttons
   $("#plusBtn").click(function () {
+    updateBookingDurationConstraints();
     var currentTime = $("#durationInput").val() || '00:00:00';
     var currentSeconds = timeToSeconds(currentTime);
-    var newSeconds = Math.min(currentSeconds + 300, 10800); // Add 5 minutes (300 seconds), max 3 hours
+    var maxSeconds = window.__bookingMaxSeconds || 10800;
+    var newSeconds = Math.min(currentSeconds + 300, maxSeconds); // Add 5 minutes (300 seconds), capped by remaining time today
     var newTime = secondsToTime(newSeconds);
     $("#durationInput").val(newTime);
-    if (newSeconds >= 10800) {
+    if (newSeconds >= maxSeconds) {
       $(this).prop("disabled", true);
     }
     $("#minusBtn").prop("disabled", false);
   });
 
   $("#minusBtn").click(function () {
+    updateBookingDurationConstraints();
     var currentTime = $("#durationInput").val() || '00:05:00';
     var currentSeconds = timeToSeconds(currentTime);
     if (currentSeconds > 300) { // Only allow if above 5 minutes (to prevent going to 0)
@@ -140,7 +216,8 @@ function initReservePC() {
       var newTime = secondsToTime(newSeconds);
       $("#durationInput").val(newTime);
     }
-    if (currentSeconds < 10800) {
+    var maxSeconds = window.__bookingMaxSeconds || 10800;
+    if (currentSeconds < maxSeconds) {
       $("#plusBtn").prop("disabled", false);
     }
     if (currentSeconds <= 300) { // Disable if at minimum (5 minutes)
@@ -413,6 +490,13 @@ function initReservePC() {
   $("#generate-qr-button").click(function () {
     var timeValue = $("#durationInput").val();
     var selected_pc = $("#pc_id").val();
+    
+    // Refresh constraints right before submit (time may have moved)
+    var constraints = updateBookingDurationConstraints();
+    if (constraints && constraints.ok === false) {
+      alert(constraints.reason || "Booking is not available right now.");
+      return;
+    }
 
     // Validate time input
     if (!timeValue || timeValue === '00:00:00') {
@@ -424,6 +508,16 @@ function initReservePC() {
     var totalSeconds = timeToSeconds(timeValue);
     if (totalSeconds > 10800) { // 3 hours = 10800 seconds
       alert("Maximum booking duration is 3 hours (03:00:00).");
+      return;
+    }
+    
+    // Check if time exceeds remaining time until 5pm
+    var maxSeconds = window.__bookingMaxSeconds || 10800;
+    if (maxSeconds > 0 && totalSeconds > maxSeconds) {
+      alert("That duration would exceed ICT Lab office hours (8:00 AM–5:00 PM). Please choose a shorter time.");
+      // Clamp input to max for convenience
+      $("#durationInput").val(secondsToTime(maxSeconds));
+      $("#plusBtn").prop("disabled", true);
       return;
     }
     

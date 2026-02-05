@@ -1,0 +1,363 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Booking Predictions{% endblock %}
+
+{% block links %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 12px;
+        padding: 1.5rem 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+    }
+    
+    .page-title {
+        color: #ffffff;
+        font-size: 2rem;
+        font-weight: 700;
+        margin: 0;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+    
+    .btn-back {
+        background: linear-gradient(135deg, #ff9800 0%, #ff5722 100%);
+        border: none;
+        color: white;
+        font-weight: 600;
+        padding: 0.6rem 1.5rem;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(255, 152, 0, 0.2);
+        text-decoration: none;
+        display: inline-block;
+        margin-bottom: 1.5rem;
+    }
+    
+    .btn-back:hover {
+        background: linear-gradient(135deg, #ff5722 0%, #ff9800 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3);
+        color: white;
+    }
+    
+    .prediction-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        transition: all 0.3s ease;
+        border: none;
+    }
+    
+    .prediction-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }
+    
+    .chart-container {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        transition: all 0.3s ease;
+        border: none;
+    }
+    
+    .chart-container:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }
+    
+    .stat-row {
+        display: flex;
+        justify-content: space-around;
+        margin: 20px 0;
+    }
+    
+    .stat-box {
+        text-align: center;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        flex: 1;
+        margin: 0 5px;
+    }
+    
+    .stat-label {
+        color: #666;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    
+    .stat-value {
+        font-size: 24px;
+        font-weight: bold;
+        color: #333;
+        margin-top: 5px;
+    }
+    
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    th, td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+    }
+    
+    th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 12px;
+    }
+    
+    tr:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .trend-up {
+        color: #dc3545;
+        font-weight: bold;
+    }
+    
+    .trend-down {
+        color: #28a745;
+        font-weight: bold;
+    }
+    
+    .trend-stable {
+        color: #666;
+        font-weight: bold;
+    }
+    
+    h3 {
+        color: #333;
+        font-weight: 700;
+        margin-bottom: 1rem;
+    }
+    
+    h4 {
+        color: #555;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="padding: 2rem;">
+    <!-- Page Header -->
+    <div class="page-header">
+        <h1 class="page-title">📈 Booking Predictions & Trends</h1>
+    </div>
+    
+    <!-- Back Buttons -->
+    <div style="margin-bottom: 1.5rem;">
+        <a href="{% url 'main_app:analytics-dashboard' %}" class="btn-back">
+            ← Back to Analytics Dashboard
+        </a>
+        <a href="/dashboard/" class="btn-back" style="margin-left: 10px; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); box-shadow: 0 2px 8px rgba(79, 172, 254, 0.2);">
+            ← Back to Home Dashboard
+        </a>
+    </div>
+    
+    <!-- Peak Usage Days -->
+    <div class="chart-container">
+        <h3>📅 Peak Usage Days (Next Week Expected)</h3>
+        <p style="color: #666; margin-bottom: 20px;">Based on historical booking patterns, these days show highest PC usage</p>
+        
+        {% if predictions.peak_days.peak_days %}
+        <div class="stat-row">
+            {% for day in predictions.peak_days.peak_days %}
+            <div class="stat-box">
+                <div class="stat-label">{{ day.day }}</div>
+                <div class="stat-value" style="color: #007bff;">{{ day.usage_count }}</div>
+                <div style="font-size: 12px; color: #666;">bookings</div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <h4 style="margin-top: 30px;">Usage by Day of Week</h4>
+        <table>
+            <thead>
+                <tr>
+                    <th>Day</th>
+                    <th>Expected Bookings</th>
+                    <th>Capacity Utilization</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for day, count in predictions.peak_days.daily_distribution.items %}
+                <tr>
+                    <td><strong>{{ day }}</strong></td>
+                    <td>{{ count }}</td>
+                    <td>
+                        <div style="width: 100px; height: 20px; background-color: #f0f0f0; border-radius: 3px; position: relative;">
+                            <div style="width: {% widthratio count 30 100 %}%; height: 100%; background-color: #007bff; border-radius: 3px;"></div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p>Insufficient data available</p>
+        {% endif %}
+    </div>
+    
+    <!-- Peak Usage Hours -->
+    <div class="chart-container">
+        <h3>⏰ Peak Usage Hours (Daily)</h3>
+        <p style="color: #666; margin-bottom: 20px;">Busiest times of day for PC usage</p>
+        
+        {% if predictions.peak_hours.peak_hours %}
+        <div class="stat-row">
+            {% for hour in predictions.peak_hours.peak_hours %}
+            <div class="stat-box">
+                <div class="stat-label">{{ hour.hour }}:00</div>
+                <div class="stat-value" style="color: #28a745;">{{ hour.usage_count }}</div>
+                <div style="font-size: 12px; color: #666;">bookings</div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <h4 style="margin-top: 30px;">Hourly Distribution (24-hour)</h4>
+        <table>
+            <thead>
+                <tr>
+                    <th>Hour</th>
+                    <th>Usage</th>
+                    <th>Load Visualization</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for hour, count in predictions.peak_hours.hourly_distribution.items %}
+                <tr>
+                    <td><strong>{{ hour }}:00 - {{ hour }}:59</strong></td>
+                    <td>{{ count }} bookings</td>
+                    <td>
+                        <div style="width: 200px; height: 25px; background-color: #f0f0f0; border-radius: 3px; position: relative;">
+                            <div style="width: {% widthratio count 40 100 %}%; height: 100%; background-color: {% if count > 20 %}#dc3545{% elif count > 10 %}#ffc107{% else %}#28a745{% endif %}; border-radius: 3px;"></div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p>Insufficient data available</p>
+        {% endif %}
+    </div>
+    
+    <!-- Booking Trends -->
+    <div class="chart-container">
+        <h3>📊 Booking Trend Analysis</h3>
+        <p style="color: #666; margin-bottom: 20px;">Overall trend based on last 12+ weeks of data</p>
+        
+        {% if predictions.booking_trends.trend != "insufficient_data" %}
+        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin-bottom: 20px;">
+            <div class="stat-row">
+                <div class="stat-box">
+                    <div class="stat-label">Overall Trend</div>
+                    <div class="stat-value">
+                        {% if predictions.booking_trends.trend == "increasing" %}
+                            <span class="trend-up">📈 INCREASING</span>
+                        {% elif predictions.booking_trends.trend == "decreasing" %}
+                            <span class="trend-down">📉 DECREASING</span>
+                        {% else %}
+                            <span class="trend-stable">➡️ STABLE</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Weekly Average</div>
+                    <div class="stat-value">{{ predictions.booking_trends.current_weekly_average }}</div>
+                    <div style="font-size: 12px; color: #666;">bookings/week</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Next Week Forecast</div>
+                    <div class="stat-value" style="color: #007bff;">{{ predictions.booking_trends.predicted_next_week_bookings }}</div>
+                    <div style="font-size: 12px; color: #666;">predicted bookings</div>
+                </div>
+            </div>
+        </div>
+        
+        <div style="padding: 15px; background-color: #e7f3ff; border-left: 4px solid #007bff; border-radius: 3px;">
+            <h5>📌 Interpretation</h5>
+            {% if predictions.booking_trends.trend == "increasing" %}
+                <p>Booking activity is <strong>increasing</strong>. Consider allocating more resources and monitoring system capacity. The predicted {{ predictions.booking_trends.predicted_next_week_bookings }} bookings next week suggests growing demand.</p>
+            {% elif predictions.booking_trends.trend == "decreasing" %}
+                <p>Booking activity is <strong>decreasing</strong>. This might indicate seasonal variation or decreased user demand. Monitor if this is intentional (e.g., vacation period) or requires investigation.</p>
+            {% else %}
+                <p>Booking activity is <strong>stable</strong>. Current resources appear to be meeting demand appropriately. Expect approximately {{ predictions.booking_trends.predicted_next_week_bookings }} bookings next week.</p>
+            {% endif %}
+        </div>
+        {% else %}
+        <p>Insufficient historical data for trend analysis. Please check back once more data is accumulated.</p>
+        {% endif %}
+    </div>
+    
+    <!-- User Behavior Changes -->
+    <div class="chart-container">
+        <h3>👥 User Behavior Change Detection</h3>
+        <p style="color: #666; margin-bottom: 20px;">Month-over-month comparison of booking patterns</p>
+        
+        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin-bottom: 20px;">
+            <div class="stat-row">
+                <div class="stat-box">
+                    <div class="stat-label">Last Month</div>
+                    <div class="stat-value">{{ predictions.user_behavior.last_month_bookings }}</div>
+                    <div style="font-size: 12px; color: #666;">bookings</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">This Month (Current)</div>
+                    <div class="stat-value">{{ predictions.user_behavior.current_month_bookings }}</div>
+                    <div style="font-size: 12px; color: #666;">bookings</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Change</div>
+                    <div class="stat-value">
+                        {% if predictions.user_behavior.change_percent > 0 %}
+                            <span class="trend-up">+{{ predictions.user_behavior.change_percent }}%</span>
+                        {% elif predictions.user_behavior.change_percent < 0 %}
+                            <span class="trend-down">{{ predictions.user_behavior.change_percent }}%</span>
+                        {% else %}
+                            <span class="trend-stable">0%</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div style="padding: 15px; background-color: #f0fff4; border-left: 4px solid #28a745; border-radius: 3px;">
+            <h5>📌 Behavior Trend: {{ predictions.user_behavior.behavior_trend|title }}</h5>
+            {% if predictions.user_behavior.behavior_trend == "increasing" %}
+                <p>User booking behavior is showing a <strong>positive trend</strong> with increasing demand. The system is experiencing growth in utilization.</p>
+            {% elif predictions.user_behavior.behavior_trend == "decreasing" %}
+                <p>User booking behavior is showing a <strong>declining trend</strong>. This may require investigation to understand user satisfaction or system accessibility issues.</p>
+            {% else %}
+                <p>User booking behavior remains <strong>stable</strong>. Usage patterns are consistent with no significant changes in user demand.</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Recommendations -->
+    <div class="prediction-card" style="background: linear-gradient(135deg, #fff3cd 0%, #fffbf0 100%); border-left: 4px solid #ffc107;">
+        <h3 style="color: #333;">💡 Recommendations Based on Predictions</h3>
+        <ul style="margin: 0; padding-left: 20px;">
+            <li><strong>Staffing:</strong> Increase on-site support during peak hours ({{ predictions.peak_hours.peak_hours|first|default:"N/A" }}) and peak days ({{ predictions.peak_days.peak_days|first|default:"N/A" }})</li>
+            <li><strong>Maintenance:</strong> Schedule PC maintenance during low-usage periods to minimize disruption</li>
+            <li><strong>Resource Allocation:</strong> Prepare additional resources based on predicted next week demand</li>
+            <li><strong>Monitoring:</strong> Monitor user behavior changes for significant deviations from predictions</li>
+            <li><strong>Communication:</strong> Consider proactive user communication during predicted peak times</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

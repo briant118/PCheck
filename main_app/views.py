@@ -671,6 +671,13 @@ def submit_block_booking(request):
                 messages.error(request, 'End date/time must be after start date/time.')
                 return HttpResponseRedirect(reverse_lazy('main_app:reserve-pc'))
         
+        # Validate booking is within 8am to 5pm
+        if start_datetime:
+            is_valid, error_msg = models.is_within_booking_hours(start_datetime, end_datetime)
+            if not is_valid:
+                messages.error(request, error_msg)
+                return HttpResponseRedirect(reverse_lazy('main_app:reserve-pc'))
+        
         models.FacultyBooking.objects.create(
             faculty=request.user,
             college=college_obj,
@@ -1010,6 +1017,318 @@ def extend_session(request, booking_id):
     return JsonResponse({'success': False, 'error': 'Invalid request'}, status=400)
 
 
+# Analytics and Reporting Endpoints
+
+@login_required
+@staff_required
+def analytics_dashboard(request):
+    """Comprehensive analytics dashboard with descriptive and predictive analytics"""
+    from . import analytics
+    
+    period = request.GET.get('period', '30')
+    try:
+        period = int(period)
+        if period not in [7, 14, 30, 60, 90]:
+            period = 30
+    except (ValueError, TypeError):
+        period = 30
+    
+    report = analytics.AnalyticsSummary.get_comprehensive_report(days=period)
+    
+    context = {
+        'report': report,
+        'period': period,
+        'title': 'Analytics Dashboard',
+    }
+    return render(request, 'main/analytics_dashboard.html', context)
+
+
+@login_required
+@staff_required
+def analytics_api(request):
+    """API endpoint for analytics data (JSON)"""
+    from . import analytics
+    import json
+    
+    period = request.GET.get('period', '30')
+    section = request.GET.get('section', 'all')  # all, descriptive, predictive
+    
+    try:
+        period = int(period)
+        if period not in [7, 14, 30, 60, 90]:
+            period = 30
+    except (ValueError, TypeError):
+        period = 30
+    
+    report = analytics.AnalyticsSummary.get_comprehensive_report(days=period)
+    
+    # Filter by section if requested
+    if section == 'descriptive':
+        response_data = report['descriptive']
+    elif section == 'predictive':
+        response_data = report['predictive']
+    else:
+        response_data = report
+    
+    # Convert datetime objects to ISO format strings for JSON serialization
+    def serialize_datetime(obj):
+        if hasattr(obj, 'isoformat'):
+            return obj.isoformat()
+        elif isinstance(obj, dict):
+            return {k: serialize_datetime(v) for k, v in obj.items()}
+        elif isinstance(obj, (list, tuple)):
+            return [serialize_datetime(item) for item in obj]
+        return obj
+    
+    response_data = serialize_datetime(response_data)
+    
+    return JsonResponse(response_data, safe=False)
+
+
+@login_required
+@staff_required
+def booking_predictions(request):
+    """View booking trends and predictions"""
+    from . import analytics
+    
+    predictions = {
+        'peak_hours': analytics.PredictiveAnalytics.predict_peak_usage_hours(),
+        'peak_days': analytics.PredictiveAnalytics.predict_peak_usage_days(),
+        'booking_trends': analytics.PredictiveAnalytics.predict_booking_trends(),
+        'user_behavior': analytics.PredictiveAnalytics.predict_user_behavior_change(),
+    }
+    
+    context = {
+        'predictions': predictions,
+        'title': 'Booking Predictions',
+    }
+    return render(request, 'main/booking_predictions.html', context)
+
+
+@login_required
+@staff_required
+def risk_analysis(request):
+    """View risk analysis - violation patterns and maintenance needs"""
+    from . import analytics
+    
+    risk_data = {
+        'high_risk_users': analytics.PredictiveAnalytics.predict_user_violation_risk(),
+        'maintenance_needs': analytics.PredictiveAnalytics.predict_pc_maintenance_needs(),
+        'anomalies': analytics.PredictiveAnalytics.anomaly_detection(),
+    }
+    
+    context = {
+        'risk_data': risk_data,
+        'title': 'Risk Analysis',
+    }
+    return render(request, 'main/risk_analysis.html', context)
+
+
+@login_required
+@staff_required
+def resource_demand_forecast(request):
+    """View resource demand forecast for upcoming faculty bookings"""
+    from . import analytics
+    
+    demand = analytics.PredictiveAnalytics.predict_resource_demand()
+    
+    context = {
+        'demand_forecast': demand,
+        'title': 'Resource Demand Forecast',
+    }
+    return render(request, 'main/resource_demand.html', context)
+
+
+@login_required
+@staff_required
+def quality_dashboard(request):
+    """ISO/IEC 25010 product quality model overview for PCheck"""
+    from . import analytics
+    from django.utils import timezone
+    from datetime import timedelta
+
+    # Use existing analytics for quality indicators
+    period = 30
+    start_date = timezone.now() - timedelta(days=period)
+    desc_bookings = analytics.DescriptiveAnalytics.get_booking_statistics(start_date, timezone.now())
+    desc_violations = analytics.DescriptiveAnalytics.get_violation_statistics(start_date, timezone.now())
+    desc_util = analytics.DescriptiveAnalytics.get_pc_utilization()
+    anomalies = analytics.PredictiveAnalytics.anomaly_detection()
+
+    # Map to ISO 25010 characteristics (summary indicators for the dashboard)
+    quality_indicators = {
+        'functional_suitability': {
+            'title': 'Functional Suitability',
+            'summary': 'Reservations, sessions, faculty blocks, analytics, and admin actions.',
+            'indicators': [
+                ('Confirmed bookings (30d)', desc_bookings.get('confirmed_bookings', 0)),
+                ('Total PCs managed', desc_util.get('total_pcs', 0)),
+            ],
+        },
+        'performance_efficiency': {
+            'title': 'Performance Efficiency',
+            'summary': 'Response time, resource use, and capacity.',
+            'indicators': [
+                ('Total bookings (30d)', desc_bookings.get('total_bookings', 0)),
+                ('Active PCs', desc_util.get('active_pcs', 0)),
+                ('Avg duration (min)', desc_bookings.get('avg_duration_minutes') or 'N/A'),
+            ],
+        },
+        'compatibility': {
+            'title': 'Compatibility',
+            'summary': 'Co-existence with other systems and interoperability via APIs.',
+            'indicators': [
+                ('AJAX/API endpoints', 'Used for reservation, status, export'),
+                ('Export reports', 'CSV daily/weekly/monthly'),
+            ],
+        },
+        'usability': {
+            'title': 'Usability',
+            'summary': 'Recognizability, learnability, operability, error protection, UI.',
+            'indicators': [
+                ('Role-based views', 'Student, Faculty, Staff'),
+                ('Dashboard & analytics', 'Single place for staff operations'),
+            ],
+        },
+        'reliability': {
+            'title': 'Reliability',
+            'summary': 'Maturity, availability, fault tolerance, recoverability.',
+            'indicators': [
+                ('Violations (30d)', desc_violations.get('total_violations', 0)),
+                ('Resolved violations', desc_violations.get('resolved_violations', 0)),
+                ('Unresolved', desc_violations.get('unresolved_violations', 0)),
+            ],
+        },
+        'security': {
+            'title': 'Security',
+            'summary': 'Confidentiality, integrity, accountability, authenticity.',
+            'indicators': [
+                ('Auth', 'Django auth + OTP verification'),
+                ('Staff-only', 'Dashboard, analytics, quality view'),
+                ('Suspended users', desc_violations.get('suspended_users', 0)),
+            ],
+        },
+        'maintainability': {
+            'title': 'Maintainability',
+            'summary': 'Modularity, reusability, analyzability, modifiability.',
+            'indicators': [
+                ('Docs', 'ANALYTICS_SUMMARY, ISO_25010_QUALITY_MODEL'),
+                ('Analytics module', 'Reusable Descriptive/Predictive classes'),
+            ],
+        },
+        'portability': {
+            'title': 'Portability',
+            'summary': 'Adaptability, installability, replaceability.',
+            'indicators': [
+                ('Setup', 'README, SETUP_GUIDE, requirements.txt'),
+                ('Configuration', 'Django settings, .env'),
+            ],
+        },
+    }
+
+    context = {
+        'quality_indicators': quality_indicators,
+        'anomalies_count': len(anomalies.get('detected_anomalies', [])),
+        'title': 'Quality (ISO 25010)',
+    }
+    return render(request, 'main/quality_dashboard.html', context)
+
+
+@login_required
+@staff_required
+def quality_evaluation(request):
+    """ISO/IEC 25010 evaluation tool: form for panel to assess system quality."""
+    from .iso25010_checklist import ISO25010_CHECKLIST, ISO25010_RATING_CHOICES
+
+    if request.method == 'POST':
+        # Collect ratings: key = sub_id (e.g. 1_1), value = rating (1-5 or '')
+        ratings = {}
+        for char in ISO25010_CHECKLIST:
+            for sub_id, _sub_name, _evidence in char['sub']:
+                ratings[sub_id] = request.POST.get(f'rating_{sub_id}', '').strip()
+        request.session['quality_evaluation_result'] = {
+            'ratings': ratings,
+            'checklist': ISO25010_CHECKLIST,
+            'evaluated_at': timezone.now().isoformat(),
+        }
+        return redirect(reverse('main_app:quality-evaluation') + '?results=1')
+
+    show_results = request.GET.get('results') == '1' and request.session.get('quality_evaluation_result')
+    result = request.session.get('quality_evaluation_result') if show_results else None
+
+    if show_results and result:
+        # Compute per-characteristic averages and attach human-readable labels
+        from statistics import mean
+        rating_labels = dict(ISO25010_RATING_CHOICES)
+        summary = []
+        detail_with_labels = []
+        for char in result['checklist']:
+            values = []
+            items = []
+            for sub_id, sub_name, _ in char['sub']:
+                r = result['ratings'].get(sub_id, '')
+                if r and r.isdigit():
+                    values.append(int(r))
+                label = rating_labels.get(r, r or 'Not assessed')
+                items.append((sub_name, label))
+            avg = round(mean(values), 2) if values else None
+            summary.append({
+                'char_name': char['char_name'],
+                'avg': avg,
+                'count': len(values),
+                'total': len(char['sub']),
+            })
+            detail_with_labels.append({
+                'char_name': char['char_name'],
+                'items': [{'sub_name': sn, 'label': lb} for sn, lb in items],
+            })
+        context = {
+            'result': result,
+            'summary': summary,
+            'detail_with_labels': detail_with_labels,
+            'title': 'Quality Evaluation Results (ISO 25010)',
+        }
+        return render(request, 'main/quality_evaluation_results.html', context)
+
+    context = {
+        'checklist': ISO25010_CHECKLIST,
+        'rating_choices': ISO25010_RATING_CHOICES,
+        'title': 'Quality Evaluation Tool (ISO 25010)',
+    }
+    return render(request, 'main/quality_evaluation_form.html', context)
+
+
+@login_required
+@staff_required
+def quality_evaluation_export(request):
+    """Export the last ISO 25010 evaluation result as CSV."""
+    import csv
+    result = request.session.get('quality_evaluation_result')
+    if not result:
+        return redirect(reverse('main_app:quality-evaluation'))
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="PCheck_ISO25010_Evaluation.csv"'
+    writer = csv.writer(response)
+    writer.writerow(['Characteristic', 'Subcharacteristic', 'Rating', 'Evaluated at'])
+    rating_labels = dict([
+        ('', 'N/A'), ('1', '1 - Not met'), ('2', '2 - Partially met'),
+        ('3', '3 - Met'), ('4', '4 - Well met'), ('5', '5 - Fully met'),
+    ])
+    for char in result['checklist']:
+        for sub_id, sub_name, _ in char['sub']:
+            r = result['ratings'].get(sub_id, '')
+            label = rating_labels.get(r, r or 'N/A')
+            writer.writerow([char['char_name'], sub_name, label, result.get('evaluated_at', '')])
+    writer.writerow([])
+    writer.writerow(['Summary (average per characteristic)'])
+    from statistics import mean
+    for char in result['checklist']:
+        values = [int(result['ratings'].get(s[0], '')) for s in char['sub'] if result['ratings'].get(s[0], '').isdigit()]
+        avg = round(mean(values), 2) if values else 'N/A'
+        writer.writerow([char['char_name'], '', f'Avg: {avg}', ''])
+    return response
+
+
 @login_required
 @staff_required
 def export_report(request):
@@ -1162,7 +1481,19 @@ def reserve_pc(request):
                 }, status=400)
             
             # Check if PC is already booked
-            if pc.booking_status in ['in_use', 'in_queue']:
+            # IMPORTANT: do NOT rely only on PC.booking_status (it can be stale on some pages).
+            # Block reservation if there is any active confirmed booking or any pending (in_queue) booking.
+            has_pending_booking = models.Booking.objects.filter(
+                pc=pc,
+                status__isnull=True
+            ).exclude(status='cancelled').exists()
+            has_active_confirmed_booking = models.Booking.objects.filter(
+                pc=pc,
+                status='confirmed',
+                end_time__gt=timezone.now()
+            ).exclude(status='cancelled').exists()
+
+            if has_pending_booking or has_active_confirmed_booking or pc.booking_status in ['in_use', 'in_queue']:
                 return JsonResponse({
                     "success": False,
                     "error": f"PC {pc.name} is already booked or in queue."
@@ -1171,13 +1502,23 @@ def reserve_pc(request):
             # Convert duration (minutes) to DurationField (timedelta)
             duration_timedelta = timedelta(minutes=int(duration))
             
-            print(f"Creating booking: user={request.user}, pc={pc}, duration={duration_timedelta}")
+            # Validate booking is within 8am to 5pm
+            now = timezone.now()
+            end_time = now + duration_timedelta
+            
+            is_valid, error_msg = models.is_within_booking_hours(now, end_time)
+            
+            if not is_valid:
+                return JsonResponse({
+                    "success": False,
+                    "error": error_msg
+                }, status=400)
             
             # Create the booking first
             booking = models.Booking.objects.create(
                 user=request.user,
                 pc=pc,
-                start_time=datetime.now(),
+                start_time=timezone.now(),
                 duration=duration_timedelta,
             )
             
@@ -2088,6 +2429,16 @@ def faculty_booking_qr_access(request, pk):
                 'booking': booking,
                 'error': 'Booking not confirmed'
             })
+        
+        # Validate booking time is within 8am to 5pm
+        if booking.start_datetime:
+            is_valid, error_msg = models.is_within_booking_hours(booking.start_datetime, booking.end_datetime)
+            if not is_valid:
+                messages.error(request, f"Booking access denied: {error_msg}")
+                return render(request, 'main/faculty_booking_qr_access.html', {
+                    'booking': booking,
+                    'error': error_msg
+                })
         
         # Format dates for display
         start_date = booking.start_datetime.strftime("%B %d, %Y at %I:%M %p") if booking.start_datetime else "TBD"

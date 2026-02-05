@@ -243,13 +243,16 @@ body {
     transition: opacity 0.3s ease !important;
 }
 
-.analytics-card:hover {
+/* Hover: lift card. When dropdown is open, keep lifted so menu doesn't disappear when moving mouse to it */
+.analytics-card:hover,
+.analytics-card:has(.dropdown-menu.show) {
     transform: translateY(-2px) !important;
     box-shadow: 0 6px 24px rgba(255, 152, 0, 0.35), inset 0 0 0 3px rgba(255, 255, 255, 0.4) !important;
     border-color: rgba(255, 255, 255, 0.8) !important;
 }
 
-.analytics-card:hover::after {
+.analytics-card:hover::after,
+.analytics-card:has(.dropdown-menu.show)::after {
     opacity: 1 !important;
 }
 
@@ -537,6 +540,46 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: space-between;
+}
+
+/* Compact office-hours info strip (Reserve PC page) */
+.office-hours-strip {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    margin: 0 0 0.75rem 0;
+    border-radius: 10px;
+    border: 1px solid rgba(13, 110, 253, 0.18); /* Bootstrap primary-ish */
+    background: rgba(13, 110, 253, 0.06);
+    color: #1f2a44;
+    font-size: 0.85rem;
+    line-height: 1.2;
+}
+
+.office-hours-strip__icon {
+    color: rgba(13, 110, 253, 0.9);
+}
+
+.office-hours-strip__label {
+    font-weight: 700;
+}
+
+.office-hours-strip__hours {
+    font-weight: 600;
+    opacity: 0.9;
+}
+
+.office-hours-strip__sep {
+    opacity: 0.6;
+}
+
+.office-hours-strip__status {
+    opacity: 0.9;
 }
 
 /* Students Booking Container */

@@ -4,6 +4,49 @@ from datetime import timedelta
 from django.utils import timezone
 
 
+def is_within_booking_hours(start_time, end_time=None):
+    """
+    Validate that booking times are within 8am to 5pm.
+    Bookings must START at 8am or later and END before 5pm.
+    
+    Args:
+        start_time: datetime object for booking start
+        end_time: datetime object for booking end (optional)
+    
+    Returns:
+        tuple: (is_valid: bool, error_message: str or None)
+    """
+    # Make timezone-aware if needed, then evaluate in *local* time.
+    # Important: If TIME_ZONE is set to Asia/Manila, a UTC "now" becomes localtime here.
+    if start_time and not start_time.tzinfo:
+        start_time = timezone.make_aware(start_time)
+    if end_time and not end_time.tzinfo:
+        end_time = timezone.make_aware(end_time)
+
+    start_local = timezone.localtime(start_time) if start_time else None
+    end_local = timezone.localtime(end_time) if end_time else None
+    
+    # Check start time is at 8am or later
+    start_hour = start_local.hour
+    start_minute = start_local.minute
+    if start_hour < 8:
+        return False, "Bookings cannot start before 8:00 AM"
+    
+    # Check start time is before 5pm
+    if start_hour >= 17:  # 5pm is 17:00
+        return False, "Bookings cannot start at or after 5:00 PM"
+    
+    # If end_time provided, check it doesn't reach or go past 5pm
+    if end_local:
+        end_hour = end_local.hour
+        end_minute = end_local.minute
+        # 5pm is 17:00 - bookings must end BEFORE 5pm
+        if end_hour >= 17:  # This catches 5pm and later
+            return False, "Bookings must end before 5:00 PM"
+    
+    return True, None
+
+
 class College(models.Model):
     name = models.CharField(max_length=100)
     description = models.CharField(max_length=100, null=True, blank=True)

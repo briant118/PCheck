@@ -365,14 +365,27 @@
           });
         }
         
-        // Close menu when clicking outside
+        // Close menu when clicking outside (ignore clicks on native select/option so dropdowns stay open)
         document.addEventListener('click', function(e) {
+          if (e.target.tagName === 'SELECT' || e.target.tagName === 'OPTION' || (e.target.closest && e.target.closest('select'))) return;
           if (userMenuToggle && userMenuDropdown && !userMenuToggle.contains(e.target) && !userMenuDropdown.contains(e.target)) {
             closeUserMenus();
           }
           if (desktopUserMenuToggle && desktopUserMenuDropdown && !desktopUserMenuToggle.contains(e.target) && !desktopUserMenuDropdown.contains(e.target)) {
             closeUserMenus();
           }
+        });
+      })();
+      
+      // Keep native select dropdowns open: stop events from bubbling so document handlers don't close them
+      (function initSelectDropdownFix() {
+        function isSelectOrInsideSelect(el) {
+          return el && (el.tagName === 'SELECT' || el.tagName === 'OPTION' || (el.closest && el.closest('select')));
+        }
+        ['mousedown', 'click', 'touchstart'].forEach(function(ev) {
+          document.addEventListener(ev, function(e) {
+            if (isSelectOrInsideSelect(e.target)) e.stopPropagation();
+          }, true);
         });
       })();
       
@@ -1287,15 +1300,17 @@
           
           // Re-focus when user clicks elsewhere (but only if not typing manually)
           document.addEventListener('click', function(e) {
-            // Don't refocus if user is clicking on an input/textarea/select/button
+            // Don't refocus if user is clicking on an input/textarea/select/option/button
             if (e.target.tagName === 'INPUT' || 
                 e.target.tagName === 'TEXTAREA' || 
                 e.target.tagName === 'SELECT' ||
+                e.target.tagName === 'OPTION' ||
                 e.target.tagName === 'BUTTON' ||
                 e.target.isContentEditable ||
                 e.target.closest('button') ||
                 e.target.closest('input') ||
-                e.target.closest('textarea')) {
+                e.target.closest('textarea') ||
+                (e.target.closest && e.target.closest('select'))) {
               return;
             }
             // Small delay to allow scanner to finish if it's scanning
@@ -1304,6 +1319,7 @@
               if (!userTyping && activeEl && 
                   activeEl.tagName !== 'INPUT' && 
                   activeEl.tagName !== 'TEXTAREA' &&
+                  activeEl.tagName !== 'SELECT' &&
                   activeEl.tagName !== 'BUTTON' &&
                   !activeEl.isContentEditable) {
                 scannerInput.focus();
@@ -1311,15 +1327,16 @@
             }, 200);
           });
           
-          // Keep input focused when it loses focus (unless user is typing elsewhere)
+          // Keep input focused when it loses focus (unless user is typing elsewhere or using a select)
           scannerInput.addEventListener('blur', function(e) {
-            // Only refocus if user is not actively typing in another field
+            // Only refocus if user is not actively typing in another field or choosing from a select
             if (!userTyping) {
               setTimeout(function() {
                 const activeEl = document.activeElement;
                 if (activeEl && 
                     activeEl.tagName !== 'INPUT' && 
                     activeEl.tagName !== 'TEXTAREA' &&
+                    activeEl.tagName !== 'SELECT' &&
                     activeEl.tagName !== 'BUTTON' &&
                     !activeEl.isContentEditable &&
                     activeEl !== scannerInput) {

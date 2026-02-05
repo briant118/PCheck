@@ -104,7 +104,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'pcheck',
         'USER': 'root',
-        'PASSWORD': 'root',
+        'PASSWORD': '1234',
         'HOST': 'localhost',
         'PORT': '3306',
         'OPTIONS': {
@@ -142,7 +142,9 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+# PCheck operates in Palawan (Philippines) local time.
+# Booking hour rules (8:00 AM to before 5:00 PM) should be evaluated in this timezone.
+TIME_ZONE = 'Asia/Manila'
 
 USE_I18N = True
 
@@ -239,8 +241,8 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False
-EMAIL_HOST_USER = 'management.infosystem2025@gmail.com'
-EMAIL_HOST_PASSWORD = 'mwwfvqrjsnilblyh'  # Google App Password (spaces removed)
-DEFAULT_FROM_EMAIL = 'management.infosystem2025@gmail.com'
-SERVER_EMAIL = 'management.infosystem2025@gmail.com'
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.environ.get('EMAIL_HOST_USER', 'noreply@example.com')
+SERVER_EMAIL = os.environ.get('EMAIL_HOST_USER', 'noreply@example.com')
 
