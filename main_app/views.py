@@ -100,6 +100,36 @@ def get_pcheck_support_user():
             Profile.objects.create(user=user, role='staff')  # Mark as staff role for chat purposes
     return user
 
+@csrf_exempt
+def webfilter_policy(request):
+    """
+    API: return per-PC web filter policy for client agents.
+    Response example:
+      {"enabled": true, "mode": "blocklist", "domains": ["facebook.com","instagram.com"], "pc": "PC-01", "updated_at": "..."}
+    """
+    pc_name = request.GET.get('pc_name') or request.GET.get('pc')
+    if not pc_name:
+        return JsonResponse({'enabled': False, 'reason': 'pc_name required'})
+
+    pc = models.PC.objects.filter(name=pc_name).first()
+    if not pc:
+        return JsonResponse({'enabled': False, 'reason': 'pc not found'})
+
+    policy = getattr(pc, 'webfilter_policy', None)
+    if not policy or not policy.enabled:
+        return JsonResponse({'enabled': False})
+
+    domains = policy.domains or []
+    mode = policy.mode or 'blocklist'
+    return JsonResponse({
+        'enabled': True,
+        'mode': mode,
+        'domains': domains,
+        'pc': pc.name,
+        'updated_at': policy.updated_at.isoformat() if policy.updated_at else None,
+    })
+
+
 @login_required
 def clearup_pcs(request):
     today = timezone.now()
@@ -136,6 +166,46 @@ class StaffRequiredMixin(UserPassesTestMixin):
             return False
         has_profile_staff_role = hasattr(user, 'profile') and user.profile.role == 'staff'
         return user.is_staff or has_profile_staff_role
+
+
+@login_required
+@staff_required
+def webfilter_admin(request):
+    """
+    Simple staff UI to manage per-PC web filter policies.
+    """
+    pcs = models.PC.objects.all().order_by('name')
+    message = None
+    if request.method == "POST":
+        pc_id = request.POST.get('pc_id')
+        enabled = True if request.POST.get('enabled') == 'on' else False
+        mode = request.POST.get('mode') or 'blocklist'
+        domains_text = request.POST.get('domains', '')
+        raw_parts = domains_text.replace(',', '\n').split('\n')
+        domains = [d.strip() for d in raw_parts if d.strip()]
+
+        pc = models.PC.objects.filter(id=pc_id).first()
+        if pc:
+            policy, _ = models.WebFilterPolicy.objects.get_or_create(pc=pc)
+            policy.enabled = enabled
+            policy.mode = mode
+            policy.domains = domains
+            policy.save()
+            message = f"Policy saved for {pc.name}"
+        else:
+            message = "PC not found"
+
+    policies = models.WebFilterPolicy.objects.select_related('pc').all()
+    policy_map = {p.pc_id: p for p in policies}
+    rows = [{'pc': pc, 'policy': policy_map.get(pc.id)} for pc in pcs]
+
+    context = {
+        'pcs': pcs,
+        'rows': rows,
+        'message': message,
+        'title': 'Web Filter Policies',
+    }
+    return render(request, 'main/webfilter_admin.html', context)
 
 
 @login_required
@@ -1129,11 +1199,22 @@ def risk_analysis(request):
 def resource_demand_forecast(request):
     """View resource demand forecast for upcoming faculty bookings"""
     from . import analytics
-    
     demand = analytics.PredictiveAnalytics.predict_resource_demand()
-    
+
+    # Pre-compute average daily demand for template (avoid complex math filters)
+    upcoming = demand.get('upcoming_resource_demand') or []
+    total_devices = demand.get('total_devices_needed_next_2weeks') or 0
+    days_count = len(upcoming)
+    avg_daily_demand = 0
+    if days_count > 0:
+        try:
+            avg_daily_demand = round(total_devices / days_count, 2)
+        except ZeroDivisionError:
+            avg_daily_demand = 0
+
     context = {
         'demand_forecast': demand,
+        'avg_daily_demand': avg_daily_demand,
         'title': 'Resource Demand Forecast',
     }
     return render(request, 'main/resource_demand.html', context)
