@@ -20,17 +20,25 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-change-this-in-production')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Set DEBUG=False in .env for deployment (students on web, ICT).
+DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
 
-# Allow all hosts for development (change to specific hosts in production)
-ALLOWED_HOSTS = ['*']
+# Comma-separated list in .env, e.g. pcheck.psu.edu.ph,10.30.130.178,localhost
+# For development only, leave unset to allow all hosts.
+_allowed = os.environ.get('ALLOWED_HOSTS', '').strip()
+ALLOWED_HOSTS = [h.strip() for h in _allowed.split(',') if h.strip()] if _allowed else ['*']
 
-# CSRF trusted origins - Add ngrok URLs here for Google OAuth to work
-CSRF_TRUSTED_ORIGINS = [
-    'https://lorena-unbrave-heteronymously.ngrok-free.dev',
-    'http://127.0.0.1:8000',
-    'http://localhost:8000',
-]
+# CSRF trusted origins for HTTPS and alternate origins (comma-separated in .env).
+# Include your public URL (https://...) and any internal URLs (http://...).
+_csrf_origins = os.environ.get('CSRF_TRUSTED_ORIGINS', '').strip()
+if _csrf_origins:
+    CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins.split(',') if o.strip()]
+else:
+    CSRF_TRUSTED_ORIGINS = [
+        'https://lorena-unbrave-heteronymously.ngrok-free.dev',
+        'http://127.0.0.1:8000',
+        'http://localhost:8000',
+    ]
 
 
 # Application definition
