@@ -23,7 +23,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-change-this-in-produc
 # Set DEBUG=False in .env for deployment (students on web, ICT).
 DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
 
-# Comma-separated list in .env, e.g. pcheck.psu.edu.ph,10.30.130.178,localhost
+# Comma-separated list in .env, e.g. ilab.psu.palawan.edu.ph,10.30.130.178,localhost
 # For development only, leave unset to allow all hosts.
 _allowed = os.environ.get('ALLOWED_HOSTS', '').strip()
 ALLOWED_HOSTS = [h.strip() for h in _allowed.split(',') if h.strip()] if _allowed else ['*']
@@ -70,6 +70,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
