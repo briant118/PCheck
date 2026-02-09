@@ -1369,7 +1369,7 @@ function loadMessages() {
               uData.result.forEach(function(u){
                 // Skip PCheck Support user for admin/staff
                 const isPCheckSupport = (
-                  u.email === 'support@pcheck.psu.palawan.edu.ph' ||
+                  u.email === 'support@ilab.psu.palawan.edu.ph' ||
                   (u.first_name === 'PCheck' && u.last_name === 'Support') ||
                   (u.email && u.email.toLowerCase().includes('pcheck') && u.email.toLowerCase().includes('support'))
                 );
@@ -1433,7 +1433,7 @@ function loadMessages() {
                     {% else %}
                     // For admin/staff users, skip PCheck Support conversations
                     const isPCheckSupport = (
-                      other.email === 'support@pcheck.psu.palawan.edu.ph' ||
+                      other.email === 'support@ilab.psu.palawan.edu.ph' ||
                       other.first_name === 'PCheck' && other.last_name === 'Support' ||
                       String(other.id) === 'pcheck' ||
                       (other.email && other.email.toLowerCase().includes('pcheck') && other.email.toLowerCase().includes('support'))
@@ -1516,7 +1516,7 @@ function loadMessages() {
           {% else %}
           // For admin/staff users, skip PCheck Support conversations
           const isPCheckSupport = (
-            other.email === 'support@pcheck.psu.palawan.edu.ph' ||
+            other.email === 'support@ilab.psu.palawan.edu.ph' ||
             other.first_name === 'PCheck' && other.last_name === 'Support' ||
             String(other.id) === 'pcheck' ||
             (other.email && other.email.toLowerCase().includes('pcheck') && other.email.toLowerCase().includes('support'))
@@ -1668,7 +1668,7 @@ function ensureStaffUserList(seenUserIds){
           uData.result.forEach(function(u){
             // Skip PCheck Support user for admin/staff
             const isPCheckSupport = (
-              u.email === 'support@pcheck.psu.palawan.edu.ph' ||
+              u.email === 'support@ilab.psu.palawan.edu.ph' ||
               (u.first_name === 'PCheck' && u.last_name === 'Support') ||
               (u.email && u.email.toLowerCase().includes('pcheck') && u.email.toLowerCase().includes('support'))
             );
@@ -2212,7 +2212,7 @@ function sendInitMessage() {
             // Look for conversation with staff (for students/faculty) or PCheck Support (for staff/admin)
             // Check if the other user is staff or if it's the PCheck Support system account
             var isPCheckSupport = (
-              other.email === 'support@pcheck.psu.palawan.edu.ph' ||
+              other.email === 'support@ilab.psu.palawan.edu.ph' ||
               (other.first_name === 'PCheck' && other.last_name === 'Support') ||
               (other.email && other.email.toLowerCase().includes('pcheck') && other.email.toLowerCase().includes('support'))
             );

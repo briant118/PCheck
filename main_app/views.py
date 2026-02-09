@@ -83,7 +83,7 @@ def get_pcheck_support_user():
     user, created = User.objects.get_or_create(
         username=username,
         defaults={
-            'email': 'support@pcheck.psu.palawan.edu.ph',
+            'email': 'support@ilab.psu.palawan.edu.ph',
             'first_name': 'PCheck',
             'last_name': 'Support',
             'is_staff': False,  # Not a staff account, but a system account
